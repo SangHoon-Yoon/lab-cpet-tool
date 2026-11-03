@@ -128,6 +128,9 @@ h2.row{margin-top:14px}
 .plan h4{margin:0;font-size:.88rem}
 .sep{display:inline-block}
 
+.vtov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:2}
+main{grid-template-columns:minmax(0,1fr)}
+
 </style>
 </head>
 <body>
@@ -1232,7 +1235,47 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     return { x: [x0, k, x1], y: [f(x0), f(k), f(x1)], s1: c[1], s2: c[1] + c[2] };
   }
 
-  const API = { joinCosmed, exerciseEnd, speedChanges, availableIntensity, buildIntensity, detect, testName, fmtI, monoMap, suggestIncremental, rollingPeak, meanInWindow, stageValues, intensityFit, stageRPE, effortChecks, dataChecks, alignment, fixedHinge };
+  /* ---------- Connected straight lines with chosen joins (fitted lines on the threshold charts) ---------- */
+  function piecewise(xs, ys, knots) {
+    const pts = []; for (let i = 0; i < xs.length; i++) if (F(xs[i]) && F(ys[i])) pts.push([xs[i], ys[i]]);
+    if (pts.length < 3) return null;
+    const use = [...knots].filter(F).sort((a, b) => a - b).filter((k, i, a) => { const lo = i ? a[i - 1] : -Infinity; return pts.filter(q => q[0] < k && q[0] >= lo).length >= 2 && pts.filter(q => q[0] >= k).length >= 2; });
+    const n = use.length + 2, A = Array.from({ length: n }, () => new Array(n + 1).fill(0)), basis = x => [1, x, ...use.map(k => Math.max(0, x - k))];
+    pts.forEach(([x, y]) => { const r = basis(x); for (let a = 0; a < n; a++) { A[a][n] += r[a] * y; for (let b = 0; b < n; b++) A[a][b] += r[a] * r[b]; } });
+    for (let c = 0; c < n; c++) { let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r; if (Math.abs(A[p][c]) < 1e-12) return null; [A[c], A[p]] = [A[p], A[c]]; for (let r = 0; r < n; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let q = c; q <= n; q++) A[r][q] -= f * A[c][q]; } }
+    const w = A.map((r, i) => r[n] / r[i]), f = x => basis(x).reduce((t, b, i) => t + b * w[i], 0), lo = Math.min(...pts.map(q => q[0])), hi = Math.max(...pts.map(q => q[0])), X = [lo, ...use, hi];
+    return { x: X, y: X.map(f) };
+  }
+
+  /* ---------- Steady exercise ---------- */
+  // Mean and SD of any variable over a period's averaged points.
+  function periodValue(S, p, key) {
+    const ids = p.avg.filter(i => F(S.v[key] ? S.v[key][i] : NaN)); if (!ids.length) return [NaN, NaN];
+    let s = 0, w = 0; ids.forEach(i => { s += S.v[key][i] * S.wt[i]; w += S.wt[i]; }); const m = s / w; let v = 0; ids.forEach(i => { v += S.wt[i] * (S.v[key][i] - m) ** 2; });
+    return [m, ids.length > 1 ? Math.sqrt(v / w * ids.length / (ids.length - 1)) : NaN];
+  }
+  // If the mask stayed on through a long stretch, the study-style "last minutes before mask-off" gives only one point, so split it into windows.
+  function splitLongPeriods(per, S, I, base, o) {
+    const out = [], step = o.splitSec || 300;
+    per.forEach(p => {
+      if (p.t1 - p.t0 <= 2 * step || !p.perWin) { out.push(p); return; }
+      const ends = []; for (let e = p.perWin[1]; e - step >= p.t0 + 60; e -= step) ends.push(e);
+      ends.reverse().forEach(e => {
+        const ids = []; for (let i = 0; i < S.t.length; i++) if (S.t[i] > e - o.avgSec + 1e-6 && S.t[i] <= e + 1e-6 && loadAt(I, S.at[i]) === base && F(S.v.vo2[i])) ids.push(i);
+        const J = ids.map((_, j) => j), W = ids.map(i => S.wt[i]), st = f => { const y = ids.map(f), m = (() => { let a = 0, b = 0; y.forEach((v, j) => { if (F(v)) { a += v * W[j]; b += W[j]; } }); return b ? a / b : NaN; })(); let q = 0, c = 0, n = 0; y.forEach((v, j) => { if (F(v)) { q += W[j] * (v - m) ** 2; c += W[j]; n++; } }); return [m, n > 1 ? Math.sqrt(q / c * n / (n - 1)) : NaN]; };
+        void J;
+        out.push(Object.assign({}, p, { perWin: [e - step, e], avgWin: [e - o.avgSec, e], t0: e - step, t1: e, avg: ids, period: ids, n: ids.length, vo2: st(i => S.v.vo2[i]), rer: st(i => S.v.vco2[i] / S.v.vo2[i]), cho: st(i => C.cho(S.v.vo2[i], S.v.vco2[i])), fat: st(i => C.fat(S.v.vo2[i], S.v.vco2[i])), ge: st(i => C.ge(base, S.v.vo2[i], S.v.vco2[i])) }));
+      });
+    });
+    return out;
+  }
+  // Time and amount of steady work, outside the step tests.
+  function steadyTotals(pr, unit) {
+    const inTest = q => pr.tests.some(T => q.t0 >= T.t0 - 1 && q.t1 <= T.t1 + 1), blocks = pr.plateaus.filter(q => q.p === pr.base && q.dur >= 60 && !inTest(q)), sec = blocks.reduce((a, q) => a + q.dur, 0);
+    return { blocks, sec, amount: unit === 'W' ? pr.base * sec / 1000 : pr.base * sec / 3600, amountUnit: unit === 'W' ? 'kJ' : 'km' };
+  }
+
+  const API = { piecewise, periodValue, splitLongPeriods, steadyTotals, joinCosmed, exerciseEnd, speedChanges, availableIntensity, buildIntensity, detect, testName, fmtI, monoMap, suggestIncremental, rollingPeak, meanInWindow, stageValues, intensityFit, stageRPE, effortChecks, dataChecks, alignment, fixedHinge };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.LabCore = API;
 })(this);
 
@@ -1378,7 +1421,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.3.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.4.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -1401,12 +1444,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   const vlab = k => VARS[k].h + (VARS[k].u ? ' (' + VARS[k].u + ')' : '');
 
   const defaults = () => ({
-    source: null, offset: 0, type: null, blocks: null, plan: null, excluded: [], oxyWin: 'analysis',
+    source: null, offset: 0, type: null, blocks: null, plan: null, excluded: [], oxyWin: 'analysis', showFit: false,
     outl: { local: true, nsd: 4, half: 5, vars: ['vo2', 'vco2', 've'], limits: true, rfMin: 5, rfMax: 100, vtMin: 0.3, remove: false, show: false },
     avg: { mode: 'bin', bin: 15, ma: 7, roll: 15 },
     view: { vars: ['vo2', 'hr', 've'] },
     inc: { t0: null, t1: null, stageWin: 60, peakWin: 30, x: 'vo2' },
-    st: { meas: ['eqo2', 'vco2'], win: 120, regWin: 60, cmp: ['vo2', 'hr', 'rer'] }, per: { avgMin: 1 }, hrOffset: 0
+    st: { meas: ['eqo2', 'vco2'], win: 120, regWin: 60, cmp: ['vo2', 'hr', 'rer'] }, per: { avgMin: 1, vars: ['vo2', 'hr', 'cho', 'fat', 'econ'] }, hrOffset: 0
   });
   const S = { pending: [], gas: null, lode: null, hr: null, meta: {}, set: defaults(), picks: { inc: {}, tests: {} }, I: null, proto: null, D: null, view: 'protocol', align: null, oxy: null, oxyCache: {} };
   let cmode = 'light';
@@ -1526,8 +1569,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       const SM = pr.tests.map(T => T.steps.map(st => L.stageValues(R0, st, set.st.regWin, mass, mode)));
       const fits = SM.map(v => { const u = v.filter(q => q.full && F(q.m.vo2)); return u.length >= 3 ? C.linreg(u.map(q => q.m.vo2), u.map(q => q.p)) : null; });
       D.st = { A, SM, fits, sugg: C.suggestVT1(ref, Aref, pr, set.st.win), rpe: pr.tests.map(T => L.stageRPE(g, T.steps)) };
-      if (F(pr.base)) D.per = C.periods(X, I, pr, { gapSec: 20, dropSec: w0, periodSec: 240, avgSec: set.per.avgMin * 60 }, ref);
-    } else if (F(pr.base) && I) D.per = C.periods(X, I, pr, { gapSec: 20, dropSec: w0, periodSec: 240, avgSec: set.per.avgMin * 60 }, ref);
+      if (F(pr.base)) D.per = L.splitLongPeriods(C.periods(X, I, pr, { gapSec: 20, dropSec: w0, periodSec: 240, avgSec: set.per.avgMin * 60 }, ref), X, I, pr.base, { avgSec: set.per.avgMin * 60 });
+    } else if (F(pr.base) && I) D.per = L.splitLongPeriods(C.periods(X, I, pr, { gapSec: 20, dropSec: w0, periodSec: 240, avgSec: set.per.avgMin * 60 }, ref), X, I, pr.base, { avgSec: set.per.avgMin * 60 });
     return D;
   }
   function recompute() { S.D = computeD(); S.checks = L.dataChecks(S); summaries(); render(); }
@@ -1677,7 +1720,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
 
   /* ---------------- Tabs ---------------- */
-  function tabs() { return [['protocol', 'Protocol'], S.proto.type === 'incremental' ? ['incremental', 'Incremental test'] : ['steps', 'Step tests'], ['summary', 'Summary']]; }
+  function tabs() { return [['protocol', 'Protocol'], ...(S.proto.type === 'incremental' ? [['incremental', 'Incremental test']] : [['steps', 'Step tests'], ...(F(S.proto.base) ? [['prolonged', 'Prolonged exercise']] : [])]), ['summary', 'Summary']]; }
   function buildTabs() {
     const T = tabs(); if (!T.some(t => t[0] === S.view)) S.view = 'protocol';
     $('#tabs').innerHTML = T.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.view}">${l}</button>`).join('');
@@ -1685,7 +1728,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
   function render() {
     $$('#views .js-plotly-plot').forEach(el => Plotly.purge(el));
-    ({ protocol: vProtocol, incremental: vIncremental, steps: vSteps, summary: vSummary })[S.view]();
+    ({ protocol: vProtocol, incremental: vIncremental, steps: vSteps, prolonged: vProlonged, summary: vSummary })[S.view]();
   }
 
   /* ---------------- Plot helpers ---------------- */
@@ -1705,7 +1748,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (pr.type === 'incremental' && pr.inc) jumps.push(['inc', 'Incremental', [pr.inc.t0 / 60 - .5, pr.inc.t1 / 60 + .5]]);
     pr.tests.forEach((T, i) => { if (pr.type !== 'incremental') jumps.push(['t' + i, L.testName(pr, i), [T.t0 / 60 - 1, T.t1 / 60 + 1]]); });
     if (pr.maot) jumps.push(['m', 'All-out', [pr.maot.t0 / 60 - 3, pr.maot.t1 / 60 + 2]]);
-    const vars = set.view.vars, n = vars.length, panelPx = 132, iPx = I ? 92 : 0, gapPx = 12, sliderPx = 46, topPx = 44, H = topPx + n * (panelPx + gapPx) + iPx + sliderPx + 30;
+    const vars = set.view.vars, n = vars.length, panelPx = 132, iPx = I ? 112 : 0, gapPx = 12, sliderPx = 46, topPx = 44, H = topPx + n * (panelPx + gapPx) + iPx + sliderPx + 30;
     $('#views').innerHTML = `
       <div class="tools"><span>Show (up to 6):</span>${chips(av, vars, 'data-sv')}</div>
       <div class="tools"><span>Averaging:</span><select id="vAvg">${[['raw', S.gas.kind === 'bxb' ? 'Breath by breath' : 'As in file'], ['bin:15', '15-s bins'], ['bin:30', '30-s bins'], ['bin:60', '60-s bins'], ['roll:30', '30-s rolling'], ['custom', 'Custom (under Data processing)']].map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')}</select>
@@ -1715,7 +1758,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         <div class="chartwrap" id="cwrap"><div class="chart" id="pv" style="height:${H}px"></div><div class="cursor" id="cline"></div></div>
         <div class="readout" id="ro"></div></div>
       <ul class="notes"><li>Scroll to zoom, drag to move along time, or drag the handles of the overview under the chart. Each panel rescales to the data in view. Double-click resets. The line below the cursor reading gives the mean ± SD of what is in view.</li>
-      ${I ? `<li>Shaded: test stages (blue)${pr.maot ? ', all-out test (red)' : ''}. Numbers on the ${I.label.toLowerCase()} panel are the COSMED markers, usually RPE.</li>` : ''}</ul>`;
+      ${I ? `<li>Shaded: test stages (blue)${pr.maot ? ', all-out test (red)' : ''}. The ${I.label.toLowerCase()} panel gives each stage’s ${I.label.toLowerCase()}, with RPE and any other COSMED markers above it.</li>` : ''}</ul>`;
     multiToggle('data-sv', vars, 6, () => vProtocol());
     const curAvg = set.avg.mode === 'raw' ? 'raw' : set.avg.mode + ':' + avgParOf(set);
     const sel = $('#vAvg'); sel.value = [...sel.options].some(o => o.value === curAvg) ? curAvg : 'custom';
@@ -1739,10 +1782,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (I) {
       const ch = []; for (let i = 0; i < I.t.length; i++) if (i === 0 || I.p[i] !== I.p[i - 1] || i === I.t.length - 1) ch.push(i);
       tr.push({ x: ch.map(i => I.t[i] / 60), y: ch.map(i => I.p[i]), xaxis: 'x', yaxis: iax, type: 'scatter', mode: 'lines', line: { shape: 'hv', color: css('--power'), width: 1.5 }, fill: 'tozeroy', fillcolor: css('--powerfill'), hoverinfo: 'skip' });
-      const top = C.quant(I.p.filter(F), .995) * 1.25 || 1;
+      const top = C.quant(I.p.filter(F), .995) * 1.35 || 1;
       L2['yaxis' + (n + 1)] = ax(iLab(), { domain: [0, iPx / layH], anchor: 'x', fixedrange: true, range: [0, top], title: { text: iLab(), font: { size: 11, color: css('--fg') }, standoff: 6 } });
       // Annotations rather than a text trace, so the markers stay out of the overview strip.
-      (g.markers || []).filter(m => m.text !== '').forEach(m => L2.annotations.push({ xref: 'x', yref: iax, x: m.t / 60, y: top * .92, showarrow: false, text: esc(m.text), font: { size: 10, color: css('--fg') } }));
+      (g.markers || []).filter(m => m.text !== '').forEach(m => { const v = parseFloat(String(m.text).replace(',', '.')), isR = F(v) && v >= 6 && v <= 20; L2.annotations.push({ xref: 'x', yref: iax, x: m.t / 60, y: top * .95, showarrow: false, text: (isR ? 'RPE ' : '') + esc(m.text), font: { size: 10, color: css('--muted') } }); });
+      // The value of each stage or steady block, just under its line.
+      pr.plateaus.filter(q => q.dur >= 45 && q.p > (I.unit === 'W' ? 20 : 2)).forEach(q => L2.annotations.push({ xref: 'x', yref: iax, x: (q.t0 + q.t1) / 120, y: q.p, yanchor: 'top', showarrow: false, text: q.p.toFixed(iDp()), font: { size: 10, color: css('--fg') } }));
     }
     pr.phases.forEach(q => {
       if (q.kind === 'test' || q.kind === 'allout') L2.shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: q.t0 / 60, x1: q.t1 / 60, y0: 0, y1: 1, fillcolor: css(q.kind === 'test' ? '--test' : '--maot'), line: { width: 0 }, layer: 'below' });
@@ -1774,53 +1819,55 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
 
   /* ---------------- Threshold charts ---------------- */
-  // ctx: { lines: ['vt1','vt2'], get(q) -> VO2, set(q, VO2), toX(q VO2, key), fromX(x, key), pts: {t, v}, done(), charts: [] }
+  // ctx: { lines: ['vt1','vt2'], get(q) -> VO2, set(q, VO2), toX(VO2, key), fromX(x, key), pts: {t, v}, live(), done(), charts: [] }
   const vtColor = q => css(q === 'vt1' ? '--vt1' : '--vt2');
   const vtName = q => q.toUpperCase();
+  const seriesColors = () => [css('--ma'), css('--t2')];
   function vtChart(id, ctx, spec) {
-    const gd = document.getElementById(id), pts = ctx.pts, xv = spec.x === 't' ? pts.t.map(t => t / 60) : pts.v[spec.x], tr = [];
-    const colors = [css('--ma'), css('--t2')], ally = [];
+    const gd = document.getElementById(id), pts = ctx.pts, xv = spec.x === 't' ? pts.t.map(t => t / 60) : pts.v[spec.x], tr = [], colors = seriesColors(), ally = [];
     spec.y.forEach((k, i) => {
       const y = pts.v[k]; if (!y) return; ally.push(...y.filter(F));
       tr.push({ x: xv, y, type: xv.length > 1500 ? 'scattergl' : 'scatter', mode: 'markers', marker: { color: colors[i], size: 6, opacity: .75 }, name: VARS[k].l, hovertemplate: `${spec.x === 't' ? '%{x:.1f} min' : '%{x:.2f} L/min'}<br>${VARS[k].l} %{y:.${VARS[k].dp}f}<extra></extra>` });
     });
-    if (spec.seg) tr.push({ x: [], y: [], mode: 'lines', type: 'scatter', line: { color: css('--fg'), width: 2 }, hoverinfo: 'skip', name: 'Fitted lines' });
     const xr0 = xv.filter(F), pad = (Math.max(...xr0) - Math.min(...xr0)) * .03, xr = [Math.min(...xr0) - pad, Math.max(...xr0) + pad];
     const xTitle = { vo2: 'VO<sub>2</sub> (L/min)', vco2: 'VCO<sub>2</sub> (L/min)', t: 'Time (min)' }[spec.x];
-    const LL = lay({ margin: { l: 58, r: 12, t: 22, b: 44 }, xaxis: ax(xTitle, { range: xr }), yaxis: ax(spec.yTitle, { range: spec.yRange || robustRange(ally) }), shapes: [], annotations: [] });
-    ctx.lines.forEach(q => {
-      const v = ctx.get(q), x = F(v) ? ctx.toX(v, spec.x) : NaN, vis = F(x);
-      LL.shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: vis ? x : xr[0], x1: vis ? x : xr[0], y0: 0, y1: 1, visible: vis, line: { color: vtColor(q), width: 2.5 } });
-      LL.annotations.push({ xref: 'x', yref: 'paper', x: vis ? x : xr[0], y: 1, yanchor: 'bottom', showarrow: false, visible: vis, text: `<b>${vtName(q)}</b>`, font: { size: 11, color: vtColor(q) } });
-    });
+    const LL = lay({ margin: { l: 58, r: 12, t: 22, b: 44 }, xaxis: ax(xTitle, { range: xr }), yaxis: ax(spec.yTitle, { range: robustRange(ally) }) });
     Plotly.newPlot(gd, tr, LL, Object.assign({}, CFG, { displayModeBar: false }));
     gd.addEventListener('click', e => { if (e.detail > 1) Plotly.relayout(gd, { 'xaxis.range': xr, 'yaxis.range': LL.yaxis.range }); });
-    const entry = { gd, spec, xr }; ctx.charts.push(entry); updateSeg(ctx, entry);
-    // Dragging a line moves that threshold on every chart in the group.
-    const near = ev => { const xa = gd._fullLayout.xaxis, ya = gd._fullLayout.yaxis, r = gd.getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top; if (py < ya._offset - 16 || py > ya._offset + ya._length) return null; let hit = null, bd = 9; ctx.lines.forEach(q => { const v = ctx.get(q); if (!F(v)) return; const d = Math.abs(xa.l2p(ctx.toX(v, spec.x)) + xa._offset - px); if (d < bd) { bd = d; hit = q; } }); return hit; };
-    gd.addEventListener('mousemove', ev => { gd.style.cursor = near(ev) ? 'ew-resize' : ''; const el = gd.querySelector('.nsewdrag'); if (el) el.style.cursor = near(ev) ? 'ew-resize' : ''; }, true);
+    attachVT(gd, ctx, Object.assign({ xv }, spec));
+  }
+  // The threshold lines and fitted lines are drawn on a thin layer over the chart, so they follow the cursor at full speed while dragging.
+  function attachVT(gd, ctx, spec) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'vtov'); gd.style.position = 'relative'; gd.appendChild(svg);
+    const entry = { gd, spec, svg, clip: 'vc' + Math.random().toString(36).slice(2, 9) }; ctx.charts.push(entry);
+    const redraw = () => drawOverlay(ctx, entry);
+    gd.on('plotly_afterplot', redraw); gd.on('plotly_relayouting', redraw); redraw();
+    const near = ev => { const xa = gd._fullLayout.xaxis, ya = gd._fullLayout.yaxis, r = gd.getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top; if (py < ya._offset - 18 || py > ya._offset + ya._length) return null; let hit = null, bd = 9; ctx.lines.forEach(q => { const v = ctx.get(q); if (!F(v)) return; const d = Math.abs(xa.l2p(ctx.toX(v, spec.x)) + xa._offset - px); if (d < bd) { bd = d; hit = q; } }); return hit; };
+    gd.addEventListener('mousemove', ev => { const c = near(ev) ? 'ew-resize' : ''; gd.style.cursor = c; const el = gd.querySelector('.nsewdrag'); if (el) el.style.cursor = c; }, true);
     gd.addEventListener('mousedown', ev => {
       const q = near(ev); if (!q) return; ev.stopPropagation(); ev.preventDefault();
       const r = gd.getBoundingClientRect(); let raf = 0;
-      const mm = e => { const xa = gd._fullLayout.xaxis; let x = xa.p2l(e.clientX - r.left - xa._offset); x = Math.max(xa.range[0], Math.min(xa.range[1], x)); ctx.set(q, ctx.fromX(x, spec.x)); if (!raf) raf = requestAnimationFrame(() => { raf = 0; moveLines(ctx, false); }); };
-      const mu = () => { window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); moveLines(ctx, true); ctx.done(); };
+      const mm = e => { const xa = gd._fullLayout.xaxis; let x = xa.p2l(e.clientX - r.left - xa._offset); x = Math.max(xa.range[0], Math.min(xa.range[1], x)); ctx.set(q, ctx.fromX(x, spec.x)); if (!raf) raf = requestAnimationFrame(() => { raf = 0; moveLines(ctx); ctx.live(); }); };
+      const mu = () => { window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); moveLines(ctx); ctx.done(); };
       window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true);
     }, true);
   }
-  function moveLines(ctx, withSeg) {
-    ctx.charts.forEach(c => {
-      const up = {}; ctx.lines.forEach((q, i) => { const v = ctx.get(q), x = F(v) ? ctx.toX(v, c.spec.x) : NaN, vis = F(x); up[`shapes[${i}].x0`] = up[`shapes[${i}].x1`] = vis ? x : c.xr[0]; up[`shapes[${i}].visible`] = vis; up[`annotations[${i}].x`] = vis ? x : c.xr[0]; up[`annotations[${i}].visible`] = vis; });
-      Plotly.relayout(c.gd, up); if (withSeg) updateSeg(ctx, c);
+  function drawOverlay(ctx, c) {
+    const fl = c.gd._fullLayout; if (!fl || !fl.xaxis || !fl.yaxis) return;
+    const xa = fl.xaxis, ya = fl.yaxis, l = xa._offset, t = ya._offset, w = xa._length, h = ya._length, px = x => l + xa.l2p(x), py = y => t + ya.l2p(y), sp = c.spec, colors = seriesColors();
+    let out = `<defs><clipPath id="${c.clip}"><rect x="${l}" y="${t}" width="${w}" height="${h}"></rect></clipPath></defs>`;
+    if (S.set.showFit && sp.fit) {
+      const knots = ctx.lines.map(q => { const v = ctx.get(q); return F(v) ? ctx.toX(v, sp.x) : NaN; });
+      sp.y.forEach((k, i) => { const f = L.piecewise(sp.xv, ctx.pts.v[k], knots); if (f) out += `<polyline class="fit" clip-path="url(#${c.clip})" fill="none" stroke="${sp.y.length > 1 ? colors[i] : css('--fg')}" stroke-width="2" points="${f.x.map((x, j) => px(x).toFixed(1) + ',' + py(f.y[j]).toFixed(1)).join(' ')}"></polyline>`; });
+    }
+    ctx.lines.forEach(q => {
+      const v = ctx.get(q), x = F(v) ? ctx.toX(v, sp.x) : NaN; if (!F(x)) return;
+      const X = px(x); if (X < l - 1 || X > l + w + 1) return;
+      out += `<line data-q="${q}" data-x="${x}" x1="${X.toFixed(1)}" x2="${X.toFixed(1)}" y1="${t}" y2="${t + h}" stroke="${vtColor(q)}" stroke-width="2.5"></line><text x="${X.toFixed(1)}" y="${t - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="${vtColor(q)}">${vtName(q)}</text>`;
     });
+    c.svg.innerHTML = out;
   }
-  function updateSeg(ctx, c) {
-    const sp = c.spec; if (!sp.seg) return; const v = ctx.get(sp.seg), k = F(v) ? ctx.toX(v, sp.x) : NaN, idx = c.gd.data.length - 1;
-    let xs = ctx.pts.v[sp.x], ys = ctx.pts.v[sp.y[0]];
-    if (sp.upto) { const lim = ctx.get(sp.upto); if (F(lim)) { const keep = ctx.pts.v.vo2.map(x => x <= lim); xs = xs.filter((_, i) => keep[i]); ys = ys.filter((_, i) => keep[i]); } }
-    if (sp.from) { const lim = ctx.get(sp.from); if (F(lim)) { const keep = ctx.pts.v.vo2.map(x => x >= lim); xs = xs.filter((_, i) => keep[i]); ys = ys.filter((_, i) => keep[i]); } }
-    const h = F(k) ? L.fixedHinge(xs, ys, k) : null;
-    Plotly.restyle(c.gd, { x: [h ? h.x : []], y: [h ? h.y : []] }, [idx]);
-  }
+  function moveLines(ctx) { ctx.charts.forEach(c => drawOverlay(ctx, c)); }
 
   /* ---------------- Incremental test ---------------- */
   function vIncremental() {
@@ -1830,7 +1877,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const ids = []; S.D.X.t.forEach((t, i) => { if (t >= D.t0 && t <= D.t1 && F(S.D.X.v.vo2[i]) && S.D.X.v.vo2[i] > .3) ids.push(i); });
     const pts = { t: ids.map(i => S.D.X.t[i]), v: {} }; Object.keys(S.D.X.v).forEach(k => (pts.v[k] = ids.map(i => S.D.X.v[k][i])));
     const M = D.map, ctx = {
-      lines: ['vt1', 'vt2'], pts, charts: [], get: q => incVT(q), set: (q, v) => { S.picks.inc[q] = Math.round(v * 1000) / 1000; if (S.picks.incSrc) delete S.picks.incSrc[q]; incResults(); },
+      lines: ['vt1', 'vt2'], pts, charts: [], get: q => incVT(q), set: (q, v) => { S.picks.inc[q] = Math.round(v * 1000) / 1000; if (S.picks.incSrc) delete S.picks.incSrc[q]; }, live: () => incResults(),
       toX: (v, key) => (key === 'vo2' ? v : key === 'vco2' ? M.vco2At(M.tOf(v)) : M.tOf(v) / 60),
       fromX: (x, key) => (key === 'vo2' ? x : key === 'vco2' ? M.vo2At(M.tOfVco2(x)) : M.vo2At(x * 60)), done: () => { incResults(); summaries(); }
     };
@@ -1841,10 +1888,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       <div class="panel" style="padding:10px"><div class="tools">
         <span>Analysis window (min):</span><input type="number" step="0.25" id="cA" value="${(D.t0 / 60).toFixed(2)}"><span>to</span><input type="number" step="0.25" id="cB" value="${(D.t1 / 60).toFixed(2)}"><button id="cR">Reset</button>
         <span class="sep"></span><span>VO₂peak over:</span>${pkW.map(([v, l]) => `<button data-pk="${v}" aria-pressed="${set.peakWin === v}">${l}</button>`).join('')}
-        <span class="sep"></span><span>Stage means over the last:</span>${stW.map(([v, l]) => `<button data-sw="${v}" aria-pressed="${set.stageWin === v}">${l}</button>`).join('')}
+        <span class="sep"></span><span>Stage means and the VO₂–${I.label.toLowerCase()} regression use the last:</span>${stW.map(([v, l]) => `<button data-sw="${v}" aria-pressed="${set.stageWin === v}">${l}</button>`).join('')}
       </div>
       <p class="hint" style="margin-top:6px">${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : 'The window starts 90 s into the first stage by default, so the rise in VO₂ at the start does not feed the threshold fits.'}</p></div>
-      <div class="tools"><span>Plot thresholds against:</span><button data-x="vo2" aria-pressed="${xk === 'vo2'}">VO<sub>2</sub></button><button data-x="t" aria-pressed="${xk === 't'}">Time</button>
+      <div class="tools"><span>Plot thresholds against:</span><button data-x="vo2" aria-pressed="${xk === 'vo2'}">VO<sub>2</sub></button><button data-x="t" aria-pressed="${xk === 't'}">Time</button><button data-fit aria-pressed="${S.set.showFit}">Fitted lines</button>
         <span class="hint">Drag a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b> line sideways on any chart (the cursor changes over it); it moves on all of them.</span></div>
       <div class="grid3">
         ${[['vs', 'V-slope', 'VCO<sub>2</sub> against VO<sub>2</sub>'], ['eq', 'Ventilatory equivalents', 'VE/VO<sub>2</sub> and VE/VCO<sub>2</sub>'], ['po', 'End-tidal O<sub>2</sub>', 'P<sub>ET</sub>O<sub>2</sub>'], ['pc', 'End-tidal CO<sub>2</sub>', 'P<sub>ET</sub>CO<sub>2</sub>'], ['vv', 'Ventilation against VCO<sub>2</sub>', 'VE against VCO<sub>2</sub>'], ['ve', 'Ventilation', 'VE'], ['rr', 'RER', ''], ['hh', 'Heart rate', ''], ['iv', iLab(), 'stage-end values against VO<sub>2</sub>']].map(([id, t, s]) => `<div class="panel"><h3>${t}<span>${s}</span></h3>${id === 'eq' ? `<div style="padding:2px 8px"><span class="lg"><i style="background:${css('--ma')}"></i>VE/VO₂</span><span class="lg"><i style="background:${css('--t2')}"></i>VE/VCO₂</span></div>` : ''}<div class="chart mid" id="vc_${id}"></div></div>`).join('')}
@@ -1853,31 +1900,32 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       <h2 class="row">Oxynet suggestions<span>from the open-source pyoxynet models, run on this computer</span></h2>
       <div class="tools"><span>Give Oxynet:</span><button data-ow="analysis" aria-pressed="${S.set.oxyWin === 'analysis'}">Analysis window</button><button data-ow="whole" aria-pressed="${S.set.oxyWin === 'whole'}">All exercise data</button><span class="hint" id="oxS"></span></div>
       <div class="grid3">${[['cnn', 'CNN model'], ['lstm', 'LSTM model']].map(([m, t]) => `<div class="panel"><h3>${t}<span>domain outputs over time</span></h3><div style="padding:2px 8px">${[['--t3', 'Moderate'], ['--t2', 'Heavy'], ['--t1', 'Severe']].map(([c, n]) => `<span class="lg"><i style="background:${css(c)}"></i>${n}</span>`).join('')}</div><div class="chart mid" id="ox_${m}"></div><p class="hint" id="oxm_${m}" style="padding:0 10px 6px"></p></div>`).join('')}</div>
-      <ul class="notes"><li>Oxynet places each threshold at the start of the 40-s window in which its outputs cross, so the dashed lines sit about 40 s before the crossing. The outputs are smoothed network outputs, not calibrated probabilities. These are suggestions for the researcher, who places the final lines.</li><li>The result can shift noticeably with the data given, because Oxynet scales each signal over that data. Try both options, and move the analysis window if a warm-up is included.</li><li>Oxynet: Zignoli et al. (2022), <i>Eur J Sport Sci</i>, <a href="https://doi.org/10.1080/17461391.2020.1866081">doi:10.1080/17461391.2020.1866081</a>; Keir et al. (2026), <i>Sports Med</i>, <a href="https://doi.org/10.1007/s40279-026-02403-w">doi:10.1007/s40279-026-02403-w</a>. Full credits are in the Summary tab.</li></ul>
+      <ul class="notes"><li>Oxynet reads 40-s windows and places each threshold at the start of the window in which its outputs cross, so each output is drawn at the start of its window and the dashed lines pass through the crossings. VT1 is the first crossing of moderate and heavy, and VT2 is the last crossing of heavy and severe. The outputs are smoothed network outputs, not calibrated probabilities. The LSTM outputs sum to 1, so they usually cross near 0.5; the CNN outputs do not, so they can cross higher. These are suggestions for the researcher, who places the final lines.</li><li>The result can shift noticeably with the data given, because Oxynet scales each signal over that data. Try both options, and move the analysis window if a warm-up is included.</li><li>Oxynet: Zignoli et al. (2022), <i>Eur J Sport Sci</i>, <a href="https://doi.org/10.1080/17461391.2020.1866081">doi:10.1080/17461391.2020.1866081</a>; Keir et al. (2026), <i>Sports Med</i>, <a href="https://doi.org/10.1007/s40279-026-02403-w">doi:10.1007/s40279-026-02403-w</a>. Full credits are in the Summary tab.</li></ul>
       <div class="row2"><div class="panel" style="flex:1 1 380px"><h3>How each method placed them<span>VO₂ in L/min; “Use” moves the line there</span></h3><div class="tblwrap"><table id="mT"></table></div></div>
       <div class="panel" style="flex:1 1 380px"><h3>Was it maximal?</h3><div class="tblwrap"><table id="eT"></table></div></div></div>
       <h2 class="row">Stages<span>mean of the last ${set.stageWin} s of each stage</span></h2><div class="panel"><div class="tblwrap"><table id="sT"></table></div></div>
-      <ul class="notes"><li>${I.label} at a threshold comes from a regression of stage-end ${I.label === 'Speed' ? 'VO₂ on speed' : 'VO₂ on power'}, using stages of at least 2 min. “Stage” is the stage running when the line’s VO₂ was reached.</li><li>Threshold suggestions are two-line breakpoints on the 15-s data. They are a starting point for the researcher’s own judgement.</li></ul>`;
+      <ul class="notes"><li>${I.label} at a threshold comes from a regression of stage-end ${I.label === 'Speed' ? 'VO₂ on speed' : 'VO₂ on power'}, using stages of at least 2 min. “Stage” is the stage running when the line’s VO₂ was reached.</li><li>The solid lines start at the classical suggestion, and Oxynet never moves them unless you click Use. VT1 is the median of three two-line breakpoints (V-slope, VE/VO₂, PETO₂) up to 80% of the VO₂ range. VT2 is the median of three (VE against VCO₂, VE/VCO₂, PETCO₂) from 2 min after VT1 to 90 s before the end. All use the 15-s data in the analysis window, as a starting point for the researcher’s own judgement.</li></ul>`;
     const on = (id, fn) => { const el = $(id); if (el) el.onchange = e => later(() => fn(e)); };
     on('#cA', e => { set.t0 = parseFloat(e.target.value) * 60; recompute(); }); on('#cB', e => { set.t1 = parseFloat(e.target.value) * 60; recompute(); });
     $('#cR').onclick = () => { set.t0 = set.t1 = null; recompute(); };
     $$('[data-pk]').forEach(b => (b.onclick = () => { set.peakWin = +b.dataset.pk; recompute(); }));
     $$('[data-sw]').forEach(b => (b.onclick = () => { set.stageWin = +b.dataset.sw; recompute(); }));
     $$('[data-x]').forEach(b => (b.onclick = () => { set.x = b.dataset.x; vIncremental(); }));
-    $('#rst').onclick = () => { S.picks.inc = {}; S.picks.incSrc = {}; moveLines(ctx, true); incResults(); summaries(); };
-    $('#addV2').onclick = () => { S.picks.inc.vt2 = Math.round(((F(incVT('vt1')) ? incVT('vt1') : M.lo) + D.peak.vo2.value) / 2 * 1000) / 1000; moveLines(ctx, true); incResults(); };
+    $('#rst').onclick = () => { S.picks.inc = {}; S.picks.incSrc = {}; moveLines(ctx); incResults(); summaries(); };
+    $('#addV2').onclick = () => { S.picks.inc.vt2 = Math.round(((F(incVT('vt1')) ? incVT('vt1') : M.lo) + D.peak.vo2.value) / 2 * 1000) / 1000; moveLines(ctx); incResults(); };
     const specs = [
-      ['vs', { x: 'vo2', y: ['vco2'], yTitle: 'VCO<sub>2</sub> (L/min)', seg: 'vt1', upto: 'vt2' }],
+      ['vs', { x: 'vo2', y: ['vco2'], yTitle: 'VCO<sub>2</sub> (L/min)' }],
       ['eq', { x: xk, y: ['eqo2', 'eqco2'], yTitle: 'Ventilatory equivalent' }],
       ['po', { x: xk, y: ['peto2'], yTitle: 'P<sub>ET</sub>O<sub>2</sub> (mmHg)' }],
       ['pc', { x: xk, y: ['petco2'], yTitle: 'P<sub>ET</sub>CO<sub>2</sub> (mmHg)' }],
-      ['vv', { x: 'vco2', y: ['ve'], yTitle: 'VE (L/min)', seg: 'vt2', from: 'vt1' }],
+      ['vv', { x: 'vco2', y: ['ve'], yTitle: 'VE (L/min)' }],
       ['ve', { x: xk, y: ['ve'], yTitle: 'VE (L/min)' }],
       ['rr', { x: xk, y: ['rer'], yTitle: 'RER' }],
       ['hh', { x: xk, y: ['hr'], yTitle: 'Heart rate (bpm)' }]
     ];
-    specs.forEach(([id, sp]) => { if (sp.y.some(k => pts.v[k] && pts.v[k].some(F))) vtChart('vc_' + id, ctx, sp); else $('#vc_' + id).innerHTML = '<p class="hint" style="padding:16px">Not in this file.</p>'; });
+    specs.forEach(([id, sp]) => { if (sp.y.some(k => pts.v[k] && pts.v[k].some(F))) vtChart('vc_' + id, ctx, Object.assign({ fit: true }, sp)); else $('#vc_' + id).innerHTML = '<p class="hint" style="padding:16px">Not in this file.</p>'; });
     intensityChart(ctx);
+    $('[data-fit]').onclick = e => { S.set.showFit = !S.set.showFit; e.currentTarget.setAttribute('aria-pressed', S.set.showFit); moveLines(ctx); };
     $$('[data-ow]').forEach(b => (b.onclick = () => { S.set.oxyWin = b.dataset.ow; $$('[data-ow]').forEach(x => x.setAttribute('aria-pressed', x === b)); runOxynet(incResults); }));
     incResults();
     S._ctx = ctx;
@@ -1899,17 +1947,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       const iName = I.label.toLowerCase();
       const row = (q, v, a) => `<tr><td><b class="${q}c">${vtName(q)}</b>${F(S.picks.inc[q]) ? '' : ' <span class="hint">suggested</span>'}</td><td><input type="number" step="0.01" class="vtinput" data-vti="${q}" value="${F(v) ? v.toFixed(2) : ''}"></td><td>${fx(a.kg, 1)}</td><td>${fx(a.pct, 0)}</td><td>${iVal(a.iv)}</td><td>${iVal(a.st)}</td><td>${fx(a.hr, 0)}</td><td>${mmss(a.t)}</td></tr>`;
       $('#vtT').innerHTML = `<tr><th>Threshold</th><th>VO₂ (L/min)</th><th>VO₂ (mL/kg/min)</th><th>% VO₂peak</th><th>${I.label} (regression)</th><th>Stage</th><th>Heart rate (bpm)</th><th>Time</th></tr>` + row('vt1', v1, a1) + row('vt2', v2, a2);
-      $$('[data-vti]').forEach(el => (el.onchange = () => later(() => { const x = parseFloat(el.value); if (S.picks.incSrc) delete S.picks.incSrc[el.dataset.vti]; if (F(x)) S.picks.inc[el.dataset.vti] = x; else delete S.picks.inc[el.dataset.vti]; moveLines(ctx, true); incResults(); summaries(); })));
+      $$('[data-vti]').forEach(el => (el.onchange = () => later(() => { const x = parseFloat(el.value); if (S.picks.incSrc) delete S.picks.incSrc[el.dataset.vti]; if (F(x)) S.picks.inc[el.dataset.vti] = x; else delete S.picks.inc[el.dataset.vti]; moveLines(ctx); incResults(); summaries(); })));
       $('#addV2').hidden = F(v2);
       const mrow = (q, ms) => ms.map(m => `<tr><td><b class="${q}c">${vtName(q)}</b> ${m.label}</td><td>${m.ok ? fx(m.vo2, 2) : '<span class="hint">no break</span>'}</td><td>${m.ok ? `<button data-use="${q}:${m.vo2}">Use</button>` : ''}</td></tr>`).join('');
       const oxr = q => ['cnn', 'lstm'].map(mm => { const r = S.oxy && S.oxy.res && S.oxy.res[mm]; if (!r) return ''; const o = r[q], ok = o && !r.problem, nm = 'Oxynet ' + mm.toUpperCase(); return `<tr><td><b class="${q}c">${vtName(q)}</b> ${nm}</td><td>${ok ? fx(o.vo2, 2) : '<span class="hint">not placed</span>'}</td><td>${ok ? `<button data-use="${q}:${o.vo2}:${nm}">Use</button>` : ''}</td></tr>`; }).join('');
       const sv = S.gas.meta.saved || {}, svr = q => (F(sv[q]) ? `<tr><td><b class="${q}c">${vtName(q)}</b> Saved in the COSMED file</td><td>${fx(sv[q], 2)}</td><td><button data-use="${q}:${sv[q]}:COSMED file">Use</button></td></tr>` : '');
       $('#mT').innerHTML = '<tr><th>Method</th><th>VO₂</th><th></th></tr>' + mrow('vt1', D.sugg.vt1Methods) + oxr('vt1') + svr('vt1') + mrow('vt2', D.sugg.vt2Methods) + oxr('vt2') + svr('vt2');
-      $$('[data-use]').forEach(b => (b.onclick = () => { const [q, v, src] = b.dataset.use.split(':'); S.picks.inc[q] = +(+v).toFixed(3); S.picks.incSrc = S.picks.incSrc || {}; if (src) S.picks.incSrc[q] = src; else delete S.picks.incSrc[q]; moveLines(ctx, true); incResults(); summaries(); }));
+      $$('[data-use]').forEach(b => (b.onclick = () => { const [q, v, src] = b.dataset.use.split(':'); S.picks.inc[q] = +(+v).toFixed(3); S.picks.incSrc = S.picks.incSrc || {}; if (src) S.picks.incSrc[q] = src; else delete S.picks.incSrc[q]; moveLines(ctx); incResults(); summaries(); }));
       $('#eT').innerHTML = '<tr><th>Criterion</th><th style="text-align:left">Result</th><th>Met</th></tr>' + D.effort.map(r => `<tr><td>${r.name}</td><td style="text-align:left;white-space:normal;min-width:16em">${esc(r.detail)}</td><td>${r.met === null ? '–' : r.met ? 'Yes' : '<b class="flag">No</b>'}</td></tr>`).join('');
       const isT = I.mode === 'treadmill', ec = isT ? '<th>Economy (mL/kg/km)</th><th>Energy cost (J/kg/m)</th>' : '<th>Gross efficiency (%)</th>';
       $('#sT').innerHTML = `<tr><th>${iLab()}</th><th>Length</th><th>VO₂ (L/min)</th><th>VO₂/kg</th><th>VCO₂</th><th>RER</th><th>VE</th><th>Heart rate</th><th>RPE</th>${ec}</tr>` + D.values.map((q, i) => `<tr><td>${q.p.toFixed(iDp())}${q.warm ? ' <span class="hint">warm-up</span>' : ''}</td><td>${mmss(q.dur)}</td><td>${fx(q.m.vo2, 2)}</td><td>${fx(q.m.vo2rel, 1)}</td><td>${fx(q.m.vco2, 2)}</td><td>${fx(q.m.rer, 2)}</td><td>${fx(q.m.ve, 1)}</td><td>${fx(q.m.hr, 0)}</td><td>${F(D.rpe[i]) ? D.rpe[i] : '–'}</td>${isT ? `<td>${fx(q.economy, 0)}</td><td>${fx(q.costJ, 2)}</td>` : `<td>${fx(q.ge, 1)}</td>`}</tr>`).join('');
-      updateIntensityMarks(ctx);
     }
   }
   function intensityChart(ctx) {
@@ -1922,11 +1969,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (fit) tr.push({ x: [lo, hi], y: [fit.m * lo + fit.b, fit.m * hi + fit.b], mode: 'lines', type: 'scatter', line: { color: css('--fg'), width: 2 }, hoverinfo: 'skip' });
     const LL = lay({ margin: { l: 58, r: 12, t: 22, b: 44 }, xaxis: ax('VO<sub>2</sub> (L/min)'), yaxis: ax(iLab()), annotations: fit ? [{ xref: 'paper', yref: 'paper', x: .98, y: .03, xanchor: 'right', yanchor: 'bottom', showarrow: false, align: 'right', text: `${iLab()} = ${fit.m.toFixed(2)} × VO<sub>2</sub> ${fit.b >= 0 ? '+' : '−'} ${Math.abs(fit.b).toFixed(2)}<br>R² = ${fit.r2.toFixed(3)}, ${fit.nStages} stages (open points left out)`, font: { size: 11, color: css('--muted') } }] : [] });
     Plotly.newPlot(gd, tr, LL, Object.assign({}, CFG, { displayModeBar: false }));
-  }
-  function updateIntensityMarks(ctx) {
-    const gd = document.getElementById('vc_iv'), D = S.D.inc; if (!gd || !gd.data || !D.fit) return;
-    const shapes = ['vt1', 'vt2'].filter(q => F(incVT(q))).map(q => ({ type: 'line', xref: 'x', yref: 'paper', x0: incVT(q), x1: incVT(q), y0: 0, y1: 1, line: { color: vtColor(q), width: 2.5 } }));
-    Plotly.relayout(gd, { shapes });
+    attachVT(gd, ctx, { x: 'vo2', y: [] });
   }
 
   /* ---------------- Oxynet ---------------- */
@@ -1959,10 +2002,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     ['cnn', 'lstm'].forEach(m => {
       const r = S.oxy.res[m], el = document.getElementById('ox_' + m), note = $('#oxm_' + m); if (!r || !el) return;
       if (r.error) { el.innerHTML = `<p class="hint" style="padding:16px">${esc(r.error)}</p>`; if (note) note.textContent = ''; return; }
-      const x = r.time.map(t => t / 60), tr = [['md', '--t3', 'Moderate'], ['hv', '--t2', 'Heavy'], ['sv', '--t1', 'Severe']].filter(q => r[q[0]]).map(([k, c, n]) => ({ x, y: r[k], mode: 'lines', type: 'scatter', line: { color: css(c), width: 2 }, name: n, hovertemplate: `%{x:.1f} min<br>${n} %{y:.2f}<extra></extra>` }));
+      const x = r.time.map(t => (t - 40) / 60), tr = [['md', '--t3', 'Moderate'], ['hv', '--t2', 'Heavy'], ['sv', '--t1', 'Severe']].filter(q => r[q[0]]).map(([k, c, n]) => ({ x, y: r[k], mode: 'lines', type: 'scatter', line: { color: css(c), width: 2 }, name: n, hovertemplate: `%{x:.1f} min<br>${n} %{y:.2f}<extra></extra>` }));
       const shapes = [], ann = [];
       if (!r.problem) ['vt1', 'vt2'].forEach(q => { const o = r[q]; if (!o) return; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: o.time / 60, x1: o.time / 60, y0: 0, y1: 1, line: { color: vtColor(q), width: 2, dash: 'dash' } }); ann.push({ xref: 'x', yref: 'paper', x: o.time / 60, y: 1, yanchor: 'bottom', showarrow: false, text: `<b>${vtName(q)}</b>`, font: { size: 11, color: vtColor(q) } }); });
-      Plotly.newPlot(el, tr, lay({ margin: { l: 52, r: 12, t: 22, b: 44 }, xaxis: ax('Time (min)'), yaxis: ax('Model output'), shapes, annotations: ann }), Object.assign({}, CFG, { displayModeBar: false }));
+      Plotly.newPlot(el, tr, lay({ margin: { l: 52, r: 12, t: 22, b: 44 }, xaxis: ax('Start of the 40-s window (min)'), yaxis: ax('Model output'), shapes, annotations: ann }), Object.assign({}, CFG, { displayModeBar: false }));
       if (note) note.textContent = r.problem ? r.problem + ' No suggestion from this model.' : `VT1 ${fx(r.vt1.vo2, 2)} L/min at ${mmss(r.vt1.time)}; VT2 ${fx(r.vt2.vo2, 2)} L/min at ${mmss(r.vt2.time)}.`;
     });
   }
@@ -1970,26 +2013,24 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   /* ---------------- Step tests ---------------- */
   function vSteps() {
     const set = S.set.st, pr = S.proto, D = S.D.st, av = availVars().filter(k => k !== 'vo2' && k !== 'rpm' && k !== 'vo2kg');
-    if (!pr.tests.length || !D) { $('#views').innerHTML = `<p class="msg">No step tests ${(pr.allTests || []).length ? 'are ticked' : 'were found'}. Check Test details, or enter the stages by hand there.</p>` + perTable(); return; }
+    if (!pr.tests.length || !D) { $('#views').innerHTML = `<p class="msg">No step tests ${(pr.allTests || []).length ? 'are ticked' : 'were found'}. Check Test details, or enter the stages by hand there.</p>`; return; }
     set.meas = set.meas.filter(k => av.includes(k)); if (!set.meas.length) set.meas = [av[0]];
     const X = S.D.X, A = D.A, dur = pr.pattern ? pr.pattern.stepDur : 240, wins = [dur, 180, 120, 60].filter((v, i, a) => v <= dur && a.indexOf(v) === i);
     if (set.win > dur) set.win = Math.min(120, dur);
     const cmpVars = ['vo2', 'vo2kg', 'hr', 'rer', 've', 'eqo2', 'eqco2', 'peto2', 'petco2', 'cho', 'fat'].filter(k => k === 'cho' || k === 'fat' || av.concat(['vo2', 'vo2kg']).includes(k));
     const name = i => L.testName(pr, i), ec = S.I.mode === 'treadmill' ? 'Economy' : 'Gross efficiency';
-    set.cmp = set.cmp.filter(k => cmpVars.includes(k) || k === 'econ'); if (!set.cmp.length) set.cmp = ['vo2'];
+    set.cmp = set.cmp.filter(k => cmpVars.includes(k) || k === 'econ' || k === 'rpe'); if (!set.cmp.length) set.cmp = ['vo2'];
     $('#views').innerHTML = `
       <h2 class="row">VT1 in each test</h2><div class="panel"><div class="tblwrap"><table id="vt1T"></table></div><div class="tools" style="padding:0 8px 8px"><button id="rstT">Reset to suggestions</button></div></div>
       <div class="tools"><span>Plot against VO₂ (up to 4):</span>${chips(av, set.meas, 'data-sm')}</div>
-      <div class="tools"><span>Using the last:</span>${wins.map(w => `<button data-sw="${w}" aria-pressed="${set.win === w}">${w === dur ? mmss(w) + ' (whole stage)' : mmss(w)}</button>`).join('')}<span class="hint">Drag the <b class="vt1c">VT1</b> line sideways; it moves on every chart for that test.</span></div>
+      <div class="tools"><span>Chart points and the VT1 suggestion use the last:</span>${wins.map(w => `<button data-sw="${w}" aria-pressed="${set.win === w}">${w === dur ? mmss(w) + ' (whole stage)' : mmss(w)}</button>`).join('')}<button data-fit aria-pressed="${S.set.showFit}">Fitted lines</button><span class="hint">Drag the <b class="vt1c">VT1</b> line sideways; it moves on every chart for that test.</span></div>
       ${set.meas.map(k => `<h2 class="row">${VARS[k].h} against VO<sub>2</sub><span>${avgLabel()}</span></h2><div class="grid3">${pr.tests.map((T, i) => `<div class="panel"><h3><span class="dot" style="background:${tcol(i)}"></span>${name(i)}<span>${mmss(T.t0)}–${mmss(T.t1)}${T.complete ? '' : ' · partial'}</span></h3><div class="chart mid" id="st_${k}_${i}"></div></div>`).join('')}</div>`).join('')}
       <h2 class="row">Compare the tests, stage by stage<span>mean of the last ${set.regWin} s of each stage</span></h2>
-      <div class="tools"><span>Show (up to 4):</span>${cmpVars.map(k => `<button data-cm="${k}" aria-pressed="${set.cmp.includes(k)}">${VARS[k] ? VARS[k].h : k}</button>`).join('')}<button data-cm="econ" aria-pressed="${set.cmp.includes('econ')}">${ec}</button>
-        <span class="sep"></span><span>Stage means over:</span>${[[30, '30 s'], [60, '60 s'], [120, '2 min']].map(([v, l]) => `<button data-rw="${v}" aria-pressed="${set.regWin === v}">${l}</button>`).join('')}</div>
+      <div class="tools"><span>Show (up to 4):</span>${cmpVars.map(k => `<button data-cm="${k}" aria-pressed="${set.cmp.includes(k)}">${VARS[k] ? VARS[k].h : k}</button>`).join('')}<button data-cm="econ" aria-pressed="${set.cmp.includes('econ')}">${ec}</button><button data-cm="rpe" aria-pressed="${set.cmp.includes('rpe')}">RPE</button>
+        <span class="sep"></span><span>Stage means and VO₂–${S.I.label.toLowerCase()} regressions use the last:</span>${[[30, '30 s'], [60, '60 s'], [120, '2 min']].map(([v, l]) => `<button data-rw="${v}" aria-pressed="${set.regWin === v}">${l}</button>`).join('')}</div>
       <div style="padding:2px 2px">${pr.tests.map((T, i) => `<span class="lg"><i style="background:${tcol(i)}"></i>${name(i)}</span>`).join('')}</div>
-      <div class="grid3">${set.cmp.map(k => `<div class="panel"><h3>${k === 'econ' ? ec : VARS[k].h}<span>${k === 'econ' ? (S.I.mode === 'treadmill' ? 'mL/kg/km' : '%') : VARS[k].u}</span></h3><div class="chart mid" id="cm_${k}"></div></div>`).join('')}</div>
-      <div class="panel"><div class="tblwrap"><table id="cmT"></table></div></div>
-      ${perTable()}
-      <ul class="notes"><li>${S.I.label} at VT1 comes from each test’s regression of stage-end VO₂ on ${S.I.label.toLowerCase()}, over the full stages.</li><li>The VT1 suggestion is a two-line breakpoint from V-slope and VE/VO₂. It is a starting point for the researcher’s own judgement.</li>${S.I.mode === 'treadmill' ? '<li>Economy is only meaningful in a steady state, so read stages above VT1 with care.</li>' : ''}</ul>`;
+      <div class="grid3">${set.cmp.map(k => `<div class="panel"><h3>${k === 'econ' ? ec : k === 'rpe' ? 'RPE' : VARS[k].h}<span>${k === 'econ' ? (S.I.mode === 'treadmill' ? 'mL/kg/km' : '%') : k === 'rpe' ? 'COSMED markers' : VARS[k].u}</span></h3><div class="chart mid" id="cm_${k}"></div></div>`).join('')}</div>
+      <ul class="notes"><li>${S.I.label} at VT1 comes from each test’s regression of stage-end VO₂ on ${S.I.label.toLowerCase()}, over the full stages.</li><li>The VT1 line starts at the mean of the two-line breakpoints from V-slope and VE/VO₂ against VO₂, using the time chosen above. If neither shows a break, it starts at the 45th percentile of VO₂. This is a starting point for the researcher’s own judgement.</li>${S.I.mode === 'treadmill' ? '<li>Economy is only meaningful in a steady state, so read stages above VT1 with care.</li>' : ''}</ul>`;
     multiToggle('data-sm', set.meas, 4, () => vSteps());
     multiToggle('data-cm', set.cmp, 4, () => vSteps());
     $$('[data-sw]').forEach(b => (b.onclick = () => { set.win = +b.dataset.sw; recompute(); }));
@@ -1997,44 +2038,81 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const ctxs = pr.tests.map((T, ti) => {
       const key = testKey(T), ids = []; X.t.forEach((t, i) => { if (A.test[i] === ti && C.inWin(A, i, set.win) && F(X.v.vo2[i]) && X.v.vo2[i] > .3) ids.push(i); });
       const pts = { t: ids.map(i => X.t[i]), v: {} }; Object.keys(X.v).forEach(k => (pts.v[k] = ids.map(i => X.v[k][i])));
-      return { lines: ['vt1'], pts, charts: [], get: () => testVT1(ti), set: (q, v) => { S.picks.tests[key] = { vt1: Math.round(v * 1000) / 1000 }; vtTable(); }, toX: v => v, fromX: x => x, done: () => { vtTable(); summaries(); } };
+      return { lines: ['vt1'], pts, charts: [], get: () => testVT1(ti), set: (q, v) => { S.picks.tests[key] = { vt1: Math.round(v * 1000) / 1000 }; }, toX: v => v, fromX: x => x, live: () => vtTable(), done: () => { vtTable(); summaries(); } };
     });
-    set.meas.forEach(k => pr.tests.forEach((T, ti) => { if (ctxs[ti].pts.t.length) vtChart(`st_${k}_${ti}`, ctxs[ti], { x: 'vo2', y: [k], yTitle: vlab(k), seg: k === 'vco2' || k === 'eqo2' ? 'vt1' : null }); }));
-    $('#rstT').onclick = () => { S.picks.tests = {}; ctxs.forEach(c => moveLines(c, true)); vtTable(); summaries(); };
+    set.meas.forEach(k => pr.tests.forEach((T, ti) => { if (ctxs[ti].pts.t.length) vtChart(`st_${k}_${ti}`, ctxs[ti], { x: 'vo2', y: [k], yTitle: vlab(k), fit: true }); }));
+    $('[data-fit]').onclick = e => { S.set.showFit = !S.set.showFit; e.currentTarget.setAttribute('aria-pressed', S.set.showFit); ctxs.forEach(c => moveLines(c)); };
+    $('#rstT').onclick = () => { S.picks.tests = {}; ctxs.forEach(c => moveLines(c)); vtTable(); summaries(); };
     function vtTable() {
       const base = testVT1(0), bI = D.fits[0] ? D.fits[0].m * base + D.fits[0].b : NaN;
       $('#vt1T').innerHTML = `<tr><th>Test</th><th>${iLab()} steps</th><th>VT1 VO₂ (L/min)</th><th>VT1 ${S.I.label.toLowerCase()} (${S.I.unit})</th><th>Regression R²</th><th>Heart rate at VT1</th><th>VO₂ change from test 1</th><th>${S.I.label} change from test 1</th></tr>` + pr.tests.map((T, i) => {
         const v = testVT1(i), f = D.fits[i], iv = f && F(v) ? f.m * v + f.b : NaN, sv = D.SM[i].filter(q => F(q.m.vo2) && F(q.m.hr)), hr = sv.length >= 2 ? (() => { const r = C.linreg(sv.map(q => q.m.vo2), sv.map(q => q.m.hr)); return r.m * v + r.b; })() : NaN, pickd = F((S.picks.tests[testKey(T)] || {}).vt1);
         return `<tr><td><span class="dot" style="background:${tcol(i)}"></span>${name(i)}${pickd ? '' : ' <span class="hint">suggested</span>'}</td><td>${T.steps.map(s => +s.p.toFixed(1)).join(', ')}</td><td><input type="number" step="0.01" class="vtinput" data-tv="${i}" value="${F(v) ? v.toFixed(2) : ''}"></td><td>${fx(iv, iDp())}</td><td>${f ? f.r2.toFixed(3) : '–'}</td><td>${fx(hr, 0)}</td><td>${i ? (v - base >= 0 ? '+' : '') + fx(v - base, 2) : ''}</td><td>${i && F(iv) && F(bI) ? (iv - bI >= 0 ? '+' : '') + fx(iv - bI, iDp()) : ''}</td></tr>`;
       }).join('');
-      $$('[data-tv]').forEach(el => (el.onchange = () => later(() => { const i = +el.dataset.tv, x = parseFloat(el.value), key = testKey(pr.tests[i]); if (F(x)) S.picks.tests[key] = { vt1: x }; else delete S.picks.tests[key]; moveLines(ctxs[i], true); vtTable(); summaries(); })));
+      $$('[data-tv]').forEach(el => (el.onchange = () => later(() => { const i = +el.dataset.tv, x = parseFloat(el.value), key = testKey(pr.tests[i]); if (F(x)) S.picks.tests[key] = { vt1: x }; else delete S.picks.tests[key]; moveLines(ctxs[i]); vtTable(); summaries(); })));
     }
     vtTable();
     // Stage comparison charts and table
+    const rpeOf = (i, j) => D.rpe[i] && F(D.rpe[i][j]) ? D.rpe[i][j] : NaN;
     const valOf = (q, k) => (k === 'econ' ? (S.I.mode === 'treadmill' ? q.economy : q.ge) : k === 'vo2kg' ? q.m.vo2rel : q.m[k]);
     const allP = [...new Set(D.SM.flat().map(q => q.p))].sort((a, b) => a - b);
     set.cmp.forEach(k => {
-      const dp = k === 'econ' ? (S.I.mode === 'treadmill' ? 0 : 1) : VARS[k].dp;
-      const tr = D.SM.map((v, i) => ({ x: v.map(q => q.p), y: v.map(q => valOf(q, k)), mode: 'lines+markers', type: 'scatter', line: { color: tcol(i), width: 2 }, marker: { size: 8, color: tcol(i), symbol: ['circle', 'square', 'diamond', 'triangle-up', 'x', 'cross'][i % 6], line: { color: css('--panel'), width: 2 } }, name: name(i), hovertemplate: `${name(i)}<br>%{x} ${S.I.unit}: %{y:.${dp}f}<extra></extra>` }));
+      const dp = k === 'rpe' ? 1 : k === 'econ' ? (S.I.mode === 'treadmill' ? 0 : 1) : VARS[k].dp;
+      const tr = D.SM.map((v, i) => ({ x: v.map(q => q.p), y: v.map((q, j) => (k === 'rpe' ? rpeOf(i, j) : valOf(q, k))), mode: 'lines+markers', type: 'scatter', line: { color: tcol(i), width: 2 }, marker: { size: 8, color: tcol(i), symbol: ['circle', 'square', 'diamond', 'triangle-up', 'x', 'cross'][i % 6], line: { color: css('--panel'), width: 2 } }, name: name(i), hovertemplate: `${name(i)}<br>%{x} ${S.I.unit}: %{y:.${dp}f}<extra></extra>` }));
       Plotly.newPlot('cm_' + k, tr, lay({ margin: { l: 58, r: 12, t: 12, b: 44 }, xaxis: ax(iLab(), { tickvals: allP.length <= 8 ? allP : undefined }), yaxis: ax('') }), Object.assign({}, CFG, { displayModeBar: false }));
     });
-    const rpeOf = (i, j) => D.rpe[i] && F(D.rpe[i][j]) ? D.rpe[i][j] : NaN;
-    let head = `<tr><th>${iLab()}</th>` + pr.tests.map((_, i) => `<th>${name(i)}</th>`).join('') + '</tr>', body = '';
-    [...set.cmp, 'rpe'].forEach(k => {
-      const dp = k === 'rpe' ? 1 : k === 'econ' ? (S.I.mode === 'treadmill' ? 0 : 1) : VARS[k].dp, lab = k === 'rpe' ? 'RPE' : k === 'econ' ? (S.I.mode === 'treadmill' ? 'Economy (mL/kg/km)' : 'Gross efficiency (%)') : vlab(k);
-      body += `<tr class="sect"><td colspan="${pr.tests.length + 1}">${lab}</td></tr>`;
-      allP.forEach(p => { body += `<tr><td>${p.toFixed(iDp())}</td>` + D.SM.map((v, i) => { const j = v.findIndex(q => q.p === p); return `<td>${j >= 0 ? fx(k === 'rpe' ? rpeOf(i, j) : valOf(v[j], k), dp) : '–'}</td>`; }).join('') + '</tr>'; });
-    });
-    $('#cmT').innerHTML = head + body;
-    const pa = $('#perAvg'); if (pa) pa.onchange = e => { S.set.per.avgMin = parseFloat(e.target.value); recompute(); };
   }
   const tcol = i => css('--t' + ((i % 6) + 1));
-  // How far into the block of steady work a recording ended, because the mask may go on and off several times in one block.
-  function stretchLabel(p) { const q = S.proto.plateaus.find(b => b.p === S.proto.base && p.t0 >= b.t0 - 30 && p.t0 < b.t1); return q ? `Ends ${Math.round((Math.min(p.t1, q.t1) - q.t0) / 60)} min into the block` : ''; }
-  function perTable() {
-    const per = S.D.per, isT = S.I && S.I.mode === 'treadmill';
-    if (!per || !per.length) return '';
-    return `<h2 class="row">Steady work at ${iVal(S.proto.base)}<span>each stretch of gas data, end of the recording</span></h2><div class="tools"><span>Average the last</span><select id="perAvg">${[1, 2, 3, 4].map(m => `<option value="${m}" ${S.set.per.avgMin === m ? 'selected' : ''}>${m} min</option>`).join('')}</select></div><div class="panel"><div class="tblwrap"><table><tr><th>Stretch</th><th>Time</th><th>VO₂ (L/min)</th><th>RER</th><th>Carbohydrate (g/min)</th><th>Fat (g/min)</th>${isT ? '<th>Economy (mL/kg/km)</th>' : '<th>Gross efficiency (%)</th>'}</tr>${per.map(p => { const econ = isT && F(S.meta.mass) && p.vo2 ? p.vo2[0] * 1000 / S.meta.mass * 60 / S.proto.base : NaN; return `<tr><td style="text-align:left">${stretchLabel(p)}</td><td>${mmss(p.t0)}–${mmss(p.t1)}</td><td>${fx(p.vo2[0], 2)}</td><td>${fx(p.rer[0], 2)}</td><td>${fx(p.cho[0], 2)}</td><td>${fx(p.fat[0], 2)}</td><td>${isT ? fx(econ, 0) : fx(p.ge[0], 1)}</td></tr>`; }).join('')}</table></div></div>`;
+  /* ---------------- Prolonged exercise ---------------- */
+  function periodRows() {
+    const pr = S.proto, X = S.D.X, isT = S.I.mode === 'treadmill', mass = S.meta.mass, blocks = L.steadyTotals(pr, S.I.unit).blocks;
+    const mk = (S.gas.markers || []).map(m => ({ t: m.t, v: parseFloat(String(m.text).replace(',', '.')) })).filter(m => F(m.v) && m.v >= 6 && m.v <= 20);
+    return (S.D.per || []).filter(p => p.avgWin && p.n).map(p => {
+      const b = blocks.findIndex(q => p.t0 >= q.t0 - 30 && p.t0 < q.t1), q = blocks[b], val = k => L.periodValue(X, p, k), r = { p, block: b + 1, into: q ? (p.avgWin[1] - q.t0) / 60 : NaN, mid: (p.avgWin[0] + p.avgWin[1]) / 120 };
+      ['vo2', 'vo2kg', 'vco2', 've', 'hr', 'eqo2', 'eqco2', 'rf', 'vt'].forEach(k => (r[k] = val(k)));
+      r.rer = p.rer; r.cho = p.cho; r.fat = p.fat;
+      r.econ = isT ? [F(mass) && mass > 0 ? r.vo2[0] * 1000 / mass * 60 / pr.base : NaN, F(mass) && mass > 0 ? r.vo2[1] * 1000 / mass * 60 / pr.base : NaN] : p.ge;
+      const e = C.energy(p.cho[0], p.fat[0], C.ee(r.vo2[0], r.vco2[0]), isT ? 0 : pr.base); r.energy = e;
+      const hit = mk.filter(m => m.t >= p.t0 - 30 && m.t <= p.t1 + 30); r.rpe = hit.length ? hit.at(-1).v : NaN;
+      return r;
+    });
+  }
+  function vProlonged() {
+    const pr = S.proto, I = S.I, set = S.set.per, rows = periodRows(), isT = I.mode === 'treadmill', ec = isT ? 'Economy' : 'Gross efficiency', ecU = isT ? 'mL/kg/km' : '%', tot = L.steadyTotals(pr, I.unit);
+    if (!rows.length) { $('#views').innerHTML = `<p class="msg">No gas recordings were found during the steady work at ${iVal(pr.base)}.</p>`; return; }
+    const pm = (a, d) => (a && F(a[0]) ? a[0].toFixed(d) + ' ± ' + (F(a[1]) ? a[1].toFixed(d) : '–') : '–'), keys = ['vo2', 'vo2kg', 'hr', 've', 'rer', 'eqo2', 'eqco2', 'cho', 'fat'].filter(k => rows.some(r => r[k] && F(r[k][0])));
+    const lab = k => (k === 'econ' ? ec : VARS[k].h), unit = k => (k === 'econ' ? ecU : VARS[k].u), dpOf = k => (k === 'econ' ? (isT ? 0 : 1) : VARS[k].dp), name = (r, i) => `Recording ${i + 1}`;
+    set.vars = set.vars.filter(k => keys.includes(k) || k === 'econ'); if (!set.vars.length) set.vars = ['vo2'];
+    const first = rows[0], last = rows.at(-1), vt0 = S.D.st && pr.tests.length ? (() => { const f = S.D.st.fits[0], v = testVT1(0); return f && F(v) ? f.m * v + f.b : NaN; })() : NaN;
+    const diff = (k, d) => (F(last[k][0]) && F(first[k][0]) ? (last[k][0] - first[k][0] >= 0 ? '+' : '') + (last[k][0] - first[k][0]).toFixed(d) : '–');
+    const allout = pr.maot && I.source === 'lode' ? C.threeMAOT({ t: I.t, p: I.p, rpm: I.rpm }, pr.maot, false) : null;
+    const tile = (big, lab2, sub) => `<div class="stat"><b>${big}</b><span>${lab2}</span>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    $('#views').innerHTML = `
+      <div class="stats">${tile(iVal(pr.base), 'Steady ' + I.label.toLowerCase(), F(vt0) ? `${fx(100 * pr.base / vt0, 0)}% of VT1 from the first step test` : '')}${tile(mmss(tot.sec), 'Time at this ' + I.label.toLowerCase(), `${tot.blocks.length} block${tot.blocks.length > 1 ? 's' : ''}`)}${tile(fx(tot.amount, isT ? 1 : 0) + ' ' + tot.amountUnit, isT ? 'Distance' : 'Work')}${tile(diff('hr', 0) + ' bpm', 'Heart rate, first to last recording')}${tile(diff('vo2', 2) + ' L/min', 'VO₂, first to last recording')}${tile(diff('cho', 2) + ' g/min', 'Carbohydrate oxidation, first to last recording')}</div>
+      <div class="tools"><span>Show (up to 6):</span>${keys.map(k => `<button data-pv="${k}" aria-pressed="${set.vars.includes(k)}">${VARS[k].h}</button>`).join('')}<button data-pv="econ" aria-pressed="${set.vars.includes('econ')}">${ec}</button>
+        <span class="sep"></span><span>Average the last:</span>${[1, 2, 4].map(m => `<button data-pa="${m}" aria-pressed="${set.avgMin === m}">${m} min</button>`).join('')}<span class="hint">of each recording</span></div>
+      <div class="grid3">${set.vars.map(k => `<div class="panel"><h3>${lab(k)}<span>${unit(k)}, mean ± SD</span></h3><div class="chart mid" id="pv_${k}"></div></div>`).join('')}</div>
+      <h2 class="row">Each recording<span>mean ± SD of the last ${set.avgMin} min</span></h2>
+      <div class="panel"><div class="tblwrap"><table id="pT"></table></div></div>
+      <h2 class="row">Energy<span>same windows</span></h2>
+      <div class="grid3"><div class="panel"><h3>Energy from carbohydrate and fat<span>kJ/min</span></h3><div style="padding:2px 8px"><span class="lg"><i style="background:${css('--t2')}"></i>Carbohydrate</span><span class="lg"><i style="background:${css('--t1')}"></i>Fat</span></div><div class="chart mid" id="peS"></div></div>
+      <div class="panel"><div class="tblwrap"><table id="peT"></table></div></div></div>
+      ${allout ? `<h2 class="row">All-out test<span>${mmss(pr.maot.t0)}–${mmss(pr.maot.t1)}, start spike left out of W′</span></h2><div class="stats">${tile(fx(allout.CP, 1) + ' W', 'Critical power', 'Mean of the last 30 s')}${tile(fx(allout.Wp / 1000, 2) + ' kJ', 'W′')}${tile(fx(allout.peak, 0) + ' W', 'Peak power')}${tile(fx(allout.mean, 0) + ' W', 'Mean power')}</div>` : ''}
+      <ul class="notes"><li>Each recording is a stretch of gas data at the steady ${I.label.toLowerCase()}. The window ends just before the mask came off and looks back 4 min, leaving out partial breaths at mask-off and any 15-s bins below 80% or above 125% of the median VO₂. A recording of more than 10 min is split into 5-min windows.</li>
+      <li>Oxidation: carbohydrate = 4.210 VCO₂ − 2.962 VO₂; fat = 1.695 VO₂ − 1.701 VCO₂ (Jeukendrup and Wallis, 2005). Valid while RER stays below 1, and carbohydrate includes any ingested during exercise. Energy from each substrate uses 17.57 kJ/g for carbohydrate and 39.33 kJ/g for fat. Energy expenditure: 16.89 VO₂ + 4.84 VCO₂ kJ/min (Brouwer, 1957).</li>
+      <li>${isT ? 'Economy = VO₂ per kilogram per kilometre, at the steady speed.' : 'Gross efficiency = power ÷ metabolic power × 100.'} For any other part of the session, zoom to it on the Protocol tab and read the mean ± SD under the chart.</li></ul>`;
+    multiToggle('data-pv', set.vars, 6, () => vProlonged());
+    $$('[data-pa]').forEach(b => (b.onclick = () => { set.avgMin = +b.dataset.pa; recompute(); }));
+    const bands = pr.phases.filter(q => q.kind === 'test' || q.kind === 'allout'), x = rows.map(r => r.mid);
+    set.vars.forEach(k => {
+      const y = rows.map(r => r[k][0]), e = rows.map(r => r[k][1]);
+      Plotly.newPlot('pv_' + k, [{ x, y, error_y: { type: 'data', array: e, color: css('--muted'), thickness: 1.2, width: 4 }, type: 'scatter', mode: 'lines+markers', line: { color: css('--ma'), width: 2 }, marker: { color: css('--ma'), size: 9 }, customdata: rows.map((r, i) => name(r, i)), hovertemplate: `%{customdata}, %{x:.1f} min<br>%{y:.${dpOf(k)}f} ${unit(k)}<extra></extra>` }],
+        lay({ margin: { l: 58, r: 12, t: 22, b: 44 }, xaxis: ax('Time in the session (min)'), yaxis: ax(''), shapes: bands.map(q => ({ type: 'rect', xref: 'x', yref: 'paper', x0: q.t0 / 60, x1: q.t1 / 60, y0: 0, y1: 1, fillcolor: css(q.kind === 'test' ? '--test' : '--maot'), line: { width: 0 }, layer: 'below' })), annotations: bands.map(q => ({ xref: 'x', yref: 'paper', x: (q.t0 + q.t1) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: q.label, font: { size: 10, color: css('--muted') } })) }), Object.assign({}, CFG, { displayModeBar: false }));
+    });
+    const multi = tot.blocks.length > 1, cols = ['vo2', 'vo2kg', 'hr', 've', 'rer', 'cho', 'fat'].filter(k => keys.includes(k)), short = { cho: 'Carbohydrate', fat: 'Fat' };
+    $('#pT').innerHTML = `<tr><th>Recording</th>${multi ? '<th>Block</th>' : ''}<th>Averaged (min of session)</th><th>Minutes into block</th>${cols.map(k => `<th>${short[k] || VARS[k].h}${VARS[k].u ? ` (${VARS[k].u})` : ''}</th>`).join('')}<th>${ec} (${ecU})</th><th>RPE</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td>${multi ? `<td>${r.block || '–'}</td>` : ''}<td>${fx(r.p.avgWin[0] / 60, 1)}–${fx(r.p.avgWin[1] / 60, 1)}</td><td>${fx(r.into, 0)}</td>${cols.map(k => `<td>${pm(r[k], dpOf(k))}</td>`).join('')}<td>${pm(r.econ, isT ? 0 : 1)}</td><td>${F(r.rpe) ? r.rpe : '–'}</td></tr>`).join('');
+    Plotly.newPlot('peS', [['cho', 'Carbohydrate', '--t2'], ['fat', 'Fat', '--t1']].map(([k, n, c]) => ({ x, y: rows.map(r => r.energy[k]), type: 'scatter', mode: 'lines+markers', name: n, line: { color: css(c), width: 2 }, marker: { color: css(c), size: 9, symbol: k === 'cho' ? 'circle' : 'square' }, hovertemplate: n + ', %{x:.1f} min<br>%{y:.1f} kJ/min<extra></extra>' })), lay({ margin: { l: 52, r: 12, t: 12, b: 44 }, xaxis: ax('Time in the session (min)'), yaxis: ax('Energy (kJ/min)', { rangemode: 'tozero' }) }), Object.assign({}, CFG, { displayModeBar: false }));
+    $('#peT').innerHTML = `<tr><th>Recording</th><th>Carbohydrate (kJ/min)</th><th>Fat (kJ/min)</th><th>% from carbohydrate</th><th>Expenditure (kJ/min)</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td><td>${fx(r.energy.cho, 1)}</td><td>${fx(r.energy.fat, 1)}</td><td>${fx(r.energy.pctCho, 0)}</td><td>${fx(r.energy.total, 1)}</td></tr>`).join('');
   }
 
   /* ---------------- Summary ---------------- */
@@ -2065,7 +2143,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         D.st.SM[i].forEach((q, j) => stageRow(nm, j + 1, q, D.st.rpe[i][j]));
       });
     }
-    return { rows, thr, stages };
+    const periods = [];
+    if (pr.type !== 'incremental' && F(pr.base) && I && D.per) periodRows().forEach((r, i) => {
+      periods.push(Object.assign({}, idcols, { recording: i + 1, block: r.block || '', intensity: pr.base, intensity_unit: unit, avg_start_s: Math.round(r.p.avgWin[0]), avg_end_s: Math.round(r.p.avgWin[1]), min_into_block: rd(r.into, 1), vo2_L_min: rd(r.vo2[0], 3), vo2_mL_kg_min: rd(r.vo2kg[0], 2), vco2_L_min: rd(r.vco2[0], 3), rer: rd(r.rer[0], 3), ve_L_min: rd(r.ve[0], 2), hr_bpm: rd(r.hr[0], 1), cho_g_min: rd(r.cho[0], 3), fat_g_min: rd(r.fat[0], 3), cho_kJ_min: rd(r.energy.cho, 2), fat_kJ_min: rd(r.energy.fat, 2), pct_energy_cho: rd(r.energy.pctCho, 1), expenditure_kJ_min: rd(r.energy.total, 2), gross_efficiency_pct: I.mode === 'cycling' ? rd(r.econ[0], 2) : '', economy_mL_kg_km: I.mode === 'treadmill' ? rd(r.econ[0], 1) : '', rpe: F(r.rpe) ? r.rpe : '' }));
+      [['vo2', 'L/min', r.vo2[0]], ['hr', 'bpm', r.hr[0]], ['rer', '', r.rer[0]], ['ve', 'L/min', r.ve[0]], ['cho', 'g/min', r.cho[0]], ['fat', 'g/min', r.fat[0]], [I.mode === 'cycling' ? 'gross_efficiency' : 'economy', I.mode === 'cycling' ? '%' : 'mL/kg/km', r.econ[0]], ['rpe', 'Borg', r.rpe]].forEach(([k, u, v]) => push('prolonged', 'recording_' + (i + 1), pr.base, k, v, u));
+    });
+    return { rows, thr, stages, periods };
   }
   const rd = (v, d) => (F(v) ? +v.toFixed(d) : '');
   function methodsText() {
@@ -2079,7 +2162,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const gas = `Gas exchange was recorded with a COSMED metabolic cart (${bxb ? 'breath-by-breath export' : g.avgWidth + '-s average export'}) and displayed as ${avgT}. ${set.outl.remove ? `Breaths more than ${set.outl.nsd} SD from their local mean were removed.` : ''}`.trim();
     const eq = I && I.mode === 'cycling' ? ' Gross efficiency was calculated as external power divided by metabolic power (Brouwer, 1957).' : I ? ' Running economy was calculated as stage-end VO₂ per kilogram per kilometre.' : '';
     if (pr.type === 'incremental') return `${gas} VO₂peak was the highest ${set.inc.peakWin}-s rolling mean. ${I ? `Stage values were the mean of the last ${set.inc.stageWin} s of each stage. ` : ''}VT1 and VT2 were identified visually from V-slope, ventilatory equivalents and end-tidal gases, starting from two-line breakpoint suggestions.${I ? ` ${I.label} at each threshold was estimated from the linear regression of stage-end VO₂ on ${I.label.toLowerCase()}.` : ''}${entered}${ox}${eq}${tool}`;
-    return `${gas} Stage values were the mean of the last ${set.st.regWin} s of each stage. VT1 in each step test was identified visually from V-slope and ventilatory equivalents, using the last ${mmss(set.st.win)} of each stage and starting from a two-line breakpoint suggestion, and ${I ? I.label.toLowerCase() : 'intensity'} at VT1 was estimated from the linear regression of stage-end VO₂ on ${I ? I.label.toLowerCase() : 'intensity'} for that test.${joined}${eq}${tool}`;
+    return `${gas} Stage values were the mean of the last ${set.st.regWin} s of each stage. VT1 in each step test was identified visually from V-slope and ventilatory equivalents, using the last ${mmss(set.st.win)} of each stage and starting from a two-line breakpoint suggestion, and ${I ? I.label.toLowerCase() : 'intensity'} at VT1 was estimated from the linear regression of stage-end VO₂ on ${I ? I.label.toLowerCase() : 'intensity'} for that test.${joined}${F(pr.base) && S.D.per && S.D.per.length ? ` During the steady exercise, values were the mean of the last ${set.per.avgMin} min of each gas recording, and substrate oxidation was calculated from VO₂ and VCO₂ (Jeukendrup and Wallis, 2005).` : ''}${eq}${tool}`;
   }
   const REFS = [
     ['Zignoli A, Fornasiero A, Rota P, et al. Oxynet: a collective intelligence that detects ventilatory thresholds in cardiopulmonary exercise tests. <i>European Journal of Sport Science</i>. 2022;22(3):425-435.', '10.1080/17461391.2020.1866081'],
@@ -2116,7 +2199,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function settingsRows() {
     const set = S.set, out = [['tool', 'Lab CPET tool'], ['tool_version', VERSION], ['created_by', AUTHOR], ['exported', new Date().toISOString()], ['gas_file_type', S.gas.kind === 'bxb' ? 'breath-by-breath' : S.gas.avgWidth + '-s averages'], ['cosmed_files_joined', S.gas.files ? S.gas.files.map(f => f.name + ' at ' + f.start + ' s').join('; ') : ''], ['intensity_source', S.I ? (S.I.plan ? 'steps entered by the researcher' : S.I.source) : 'none'], ['entered_steps', S.set.plan ? JSON.stringify(S.set.plan) : ''], ['lode_offset_s', set.offset], ['body_mass_kg', S.meta.mass], ['averaging', avgLabel()], ['outlier_flagging', set.outl.local ? set.outl.nsd + ' SD' : 'off'], ['flagged_removed', set.outl.remove]];
     if (S.proto.type === 'incremental') { out.push(['analysis_window_min', S.D.inc ? (S.D.inc.t0 / 60).toFixed(2) + '-' + (S.D.inc.t1 / 60).toFixed(2) : ''], ['vo2peak_window_s', set.inc.peakWin], ['stage_window_s', set.inc.stageWin]); }
-    else out.push(['stage_window_s', set.st.regWin], ['vt1_chart_window_s', set.st.win], ['tests_excluded', set.excluded.join(' ')]);
+    else out.push(['stage_window_s', set.st.regWin], ['vt1_chart_window_s', set.st.win], ['tests_excluded', set.excluded.join(' ')], ['steady_average_min', set.per.avgMin]);
     return out;
   }
   $('#bExport').onclick = async () => {
@@ -2125,6 +2208,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     add('Long format', R.rows); add('Stages', R.stages); add('Thresholds', R.thr);
     const ox = S.oxy && S.oxy.done && S.proto.type === 'incremental' ? ['cnn', 'lstm'].flatMap(m => { const r = S.oxy.res[m]; return ['vt1', 'vt2'].map(q => ({ model: 'Oxynet ' + m.toUpperCase(), threshold: q.toUpperCase(), vo2_L_min: r && r[q] && !r.problem ? rd(r[q].vo2, 3) : '', time_s: r && r[q] && !r.problem ? r[q].time : '', note: r ? (r.problem || r.error || '') : '', data_used: S.set.oxyWin === 'whole' ? 'all exercise data' : 'analysis window' })); }) : [];
     if (ox.length) add('Oxynet suggestions', ox);
+    if (R.periods.length) add('Prolonged exercise', R.periods);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Lab CPET tool ' + VERSION + ', created by ' + AUTHOR], [''], ['Please cite when Oxynet suggestions are used:'], ...REFS.map(([t, d]) => [t.replace(/<[^>]+>/g, '') + ' doi:' + d]), ['pyoxynet 1.0.2, Andrea Zignoli and the Oxynet team, MIT licence.']]), 'Credits');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Check', 'Message'], ...S.checks.map(c => [c.level, c.text])]), 'Data checks');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Setting', 'Value'], ...settingsRows()]), 'Settings');

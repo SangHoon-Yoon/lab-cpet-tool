@@ -390,6 +390,46 @@
     return { x: [x0, k, x1], y: [f(x0), f(k), f(x1)], s1: c[1], s2: c[1] + c[2] };
   }
 
-  const API = { joinCosmed, exerciseEnd, speedChanges, availableIntensity, buildIntensity, detect, testName, fmtI, monoMap, suggestIncremental, rollingPeak, meanInWindow, stageValues, intensityFit, stageRPE, effortChecks, dataChecks, alignment, fixedHinge };
+  /* ---------- Connected straight lines with chosen joins (fitted lines on the threshold charts) ---------- */
+  function piecewise(xs, ys, knots) {
+    const pts = []; for (let i = 0; i < xs.length; i++) if (F(xs[i]) && F(ys[i])) pts.push([xs[i], ys[i]]);
+    if (pts.length < 3) return null;
+    const use = [...knots].filter(F).sort((a, b) => a - b).filter((k, i, a) => { const lo = i ? a[i - 1] : -Infinity; return pts.filter(q => q[0] < k && q[0] >= lo).length >= 2 && pts.filter(q => q[0] >= k).length >= 2; });
+    const n = use.length + 2, A = Array.from({ length: n }, () => new Array(n + 1).fill(0)), basis = x => [1, x, ...use.map(k => Math.max(0, x - k))];
+    pts.forEach(([x, y]) => { const r = basis(x); for (let a = 0; a < n; a++) { A[a][n] += r[a] * y; for (let b = 0; b < n; b++) A[a][b] += r[a] * r[b]; } });
+    for (let c = 0; c < n; c++) { let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r; if (Math.abs(A[p][c]) < 1e-12) return null; [A[c], A[p]] = [A[p], A[c]]; for (let r = 0; r < n; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let q = c; q <= n; q++) A[r][q] -= f * A[c][q]; } }
+    const w = A.map((r, i) => r[n] / r[i]), f = x => basis(x).reduce((t, b, i) => t + b * w[i], 0), lo = Math.min(...pts.map(q => q[0])), hi = Math.max(...pts.map(q => q[0])), X = [lo, ...use, hi];
+    return { x: X, y: X.map(f) };
+  }
+
+  /* ---------- Steady exercise ---------- */
+  // Mean and SD of any variable over a period's averaged points.
+  function periodValue(S, p, key) {
+    const ids = p.avg.filter(i => F(S.v[key] ? S.v[key][i] : NaN)); if (!ids.length) return [NaN, NaN];
+    let s = 0, w = 0; ids.forEach(i => { s += S.v[key][i] * S.wt[i]; w += S.wt[i]; }); const m = s / w; let v = 0; ids.forEach(i => { v += S.wt[i] * (S.v[key][i] - m) ** 2; });
+    return [m, ids.length > 1 ? Math.sqrt(v / w * ids.length / (ids.length - 1)) : NaN];
+  }
+  // If the mask stayed on through a long stretch, the study-style "last minutes before mask-off" gives only one point, so split it into windows.
+  function splitLongPeriods(per, S, I, base, o) {
+    const out = [], step = o.splitSec || 300;
+    per.forEach(p => {
+      if (p.t1 - p.t0 <= 2 * step || !p.perWin) { out.push(p); return; }
+      const ends = []; for (let e = p.perWin[1]; e - step >= p.t0 + 60; e -= step) ends.push(e);
+      ends.reverse().forEach(e => {
+        const ids = []; for (let i = 0; i < S.t.length; i++) if (S.t[i] > e - o.avgSec + 1e-6 && S.t[i] <= e + 1e-6 && loadAt(I, S.at[i]) === base && F(S.v.vo2[i])) ids.push(i);
+        const J = ids.map((_, j) => j), W = ids.map(i => S.wt[i]), st = f => { const y = ids.map(f), m = (() => { let a = 0, b = 0; y.forEach((v, j) => { if (F(v)) { a += v * W[j]; b += W[j]; } }); return b ? a / b : NaN; })(); let q = 0, c = 0, n = 0; y.forEach((v, j) => { if (F(v)) { q += W[j] * (v - m) ** 2; c += W[j]; n++; } }); return [m, n > 1 ? Math.sqrt(q / c * n / (n - 1)) : NaN]; };
+        void J;
+        out.push(Object.assign({}, p, { perWin: [e - step, e], avgWin: [e - o.avgSec, e], t0: e - step, t1: e, avg: ids, period: ids, n: ids.length, vo2: st(i => S.v.vo2[i]), rer: st(i => S.v.vco2[i] / S.v.vo2[i]), cho: st(i => C.cho(S.v.vo2[i], S.v.vco2[i])), fat: st(i => C.fat(S.v.vo2[i], S.v.vco2[i])), ge: st(i => C.ge(base, S.v.vo2[i], S.v.vco2[i])) }));
+      });
+    });
+    return out;
+  }
+  // Time and amount of steady work, outside the step tests.
+  function steadyTotals(pr, unit) {
+    const inTest = q => pr.tests.some(T => q.t0 >= T.t0 - 1 && q.t1 <= T.t1 + 1), blocks = pr.plateaus.filter(q => q.p === pr.base && q.dur >= 60 && !inTest(q)), sec = blocks.reduce((a, q) => a + q.dur, 0);
+    return { blocks, sec, amount: unit === 'W' ? pr.base * sec / 1000 : pr.base * sec / 3600, amountUnit: unit === 'W' ? 'kJ' : 'km' };
+  }
+
+  const API = { piecewise, periodValue, splitLongPeriods, steadyTotals, joinCosmed, exerciseEnd, speedChanges, availableIntensity, buildIntensity, detect, testName, fmtI, monoMap, suggestIncremental, rollingPeak, meanInWindow, stageValues, intensityFit, stageRPE, effortChecks, dataChecks, alignment, fixedHinge };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.LabCore = API;
 })(this);
