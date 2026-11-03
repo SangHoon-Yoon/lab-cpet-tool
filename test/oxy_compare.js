@@ -1,0 +1,9 @@
+const O=require('../src/oxynet.js'),fs=require('fs');const R=JSON.parse(fs.readFileSync('/tmp/claude-0/-home-claude/f2a3b0f6-b28d-5952-946e-21cdf36e71d8/scratchpad/oxy_ref.json','utf8').replace(/\bNaN\b/g,'null'));
+(async()=>{let bad=0;for(const [pat,[a,b]] of Object.entries({TREAD_CHAR:[90,1575],GXT:[300,1500]}))for(const m of ['CNN','LSTM']){const d=R.data[pat],id=d.time.map((t,i)=>t>=a&&t<=b?i:-1).filter(i=>i>=0),pick=k=>id.map(i=>d[k][i]);
+ const r=await O.run({t:pick('time'),vo2:pick('VO2_I'),vco2:pick('VCO2_I'),ve:pick('VE_I'),peto2:pick('PetO2_I'),petco2:pick('PetCO2_I')},m.toLowerCase());const ref=R.ref[pat+'_'+m];
+ if(ref.error){console.log(pat,m,'pyoxynet error:',ref.error,'| JS:',r.problem||r.error);continue;}
+ let mx=0;for(const k of ['md','hv','sv'])r[k].forEach((v,i)=>mx=Math.max(mx,Math.abs(v-ref[k][i])));
+ const same=r.vt1.time===ref.vt1.time&&r.vt2.time===ref.vt2.time;if(mx>1e-3||!same)bad++;
+ console.log(pat,m,'points',r.time.length,ref.time.length,'largest output difference',mx.toExponential(2),'VT1',r.vt1.time,ref.vt1.time,r.vt1.vo2.toFixed(3),(+ref.vt1.VO2).toFixed(3),'VT2',r.vt2.time,ref.vt2.time,r.vt2.vo2.toFixed(3),(+ref.vt2.VO2).toFixed(3),r.ms+' ms');}
+ for(const [pat,w] of Object.entries({TREAD_CHAR:[[0,1e4],[90,1e4],[180,1e4]],GXT:[[0,1500],[300,1500],[390,1500]]}))for(const m of ['cnn','lstm'])for(const [a,b] of w){const d=R.data[pat],id=d.time.map((t,i)=>t>=a&&t<=b?i:-1).filter(i=>i>=0),pick=k=>id.map(i=>d[k][i]);const r=await O.run({t:pick('time'),vo2:pick('VO2_I'),vco2:pick('VCO2_I'),ve:pick('VE_I'),peto2:pick('PetO2_I'),petco2:pick('PetCO2_I')},m);console.log(' window',pat,m,a+'-'+b,'VT1',r.vt1&&r.vt1.vo2.toFixed(2),r.vt1&&r.vt1.time,'VT2',r.vt2&&r.vt2.vo2.toFixed(2),r.vt2&&r.vt2.time,r.problem||'');}
+ console.log(bad?bad+' DIFFER':'all match pyoxynet');process.exit(bad?1:0)})();

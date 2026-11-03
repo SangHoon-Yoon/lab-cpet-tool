@@ -1,0 +1,5 @@
+node_modules/
+# Participant data and anything derived from it never go in the repository
+test/sim/
+test/shots/
+*.xlsx

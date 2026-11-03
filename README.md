@@ -1,2 +1,16 @@
-# lab-cpet-tool
-Universal CPET tool for SPaN
+# Lab CPET tool
+
+Universal CPET tool for SPaN.
+
+Created by SangHoon Yoon.
+
+Single-file browser tool for COSMED gas-exchange tests. Open `dist/lab-cpet-tool.html`; it runs offline and no data leave the computer.
+
+- Treadmill: COSMED export only (speed comes from that file). Cycling: COSMED and Lode exports, or COSMED with the power steps entered by hand.
+- A session recorded as several COSMED files is joined by the clock times in the file headers.
+- Incremental tests: VO2peak, VT1, VT2, stage table, maximal-effort criteria, Oxynet suggestions. Without a Lode file, enter the power steps by hand.
+- Prolonged trials with step tests: any number of steps and step length, VT1 per test, stage comparison, steady-work table.
+- Export: Excel (long format, stages, thresholds, checks, settings, methods) and long-format CSV.
+
+Develop: edit `src/`, then run `python3 build.py`. Tests: `node test/run.js`; `test/e2e.js` and `test/e2e2.js` need Playwright. The tests read participant sample files that are deliberately not in this repository.
+`src/gdcore.js` and `src/parse.js` started from the GlyDurability2026 app. Plotly 2.35.2 (gl2d bundle, MIT) and SheetJS 0.18.5 (Apache 2.0) are in `vendor/`. Oxynet models come from pyoxynet 1.0.2 (Andrea Zignoli and the Oxynet team, MIT); `tools/export_oxynet.py` converts them and `src/oxynet.js` runs them.

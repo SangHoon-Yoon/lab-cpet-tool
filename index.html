@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab CPET Tool</title>
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="brand">Lab CPET tool<small id="who">No test loaded</small></div>
+  <button id="bLoad">New test</button>
+  <button id="bOpen">Open analysis</button>
+  <button id="bSave" disabled>Save analysis</button>
+  <button id="bExport" disabled>Export Excel</button>
+  <button id="bCsv" disabled>Export CSV</button>
+  <input type="file" id="fileIn" multiple accept=".xlsx,.xls,.csv,.tcx,.gpx,.json" hidden>
+</div></header>
+
+<div class="wrap"><main>
+  <section id="start">
+    <div class="drop" id="drop">
+      <h1>Load a test</h1>
+      <p class="sub">Drop the files here. <b>Treadmill:</b> the COSMED export is enough, because it holds the speed. If a session was recorded as several COSMED files, add them all and they are joined by their clock times. <b>Cycling:</b> the COSMED export, plus the Lode export if you saved it. Without a Lode file, you can enter the power steps on the next screen. You can add a heart-rate file (Polar or Garmin CSV, TCX or GPX) if the COSMED did not record heart rate.</p>
+      <button class="primary" id="bPick">Choose files</button>
+      <ul class="filelist" id="flist"></ul>
+      <p class="msg" id="fmsg"></p>
+      <button class="primary" id="bGo" disabled>Continue</button>
+      <p class="hint">Everything runs in this browser and works offline. No data leave this computer.</p>
+    </div>
+  </section>
+
+  <section id="app" hidden>
+    <details class="box" id="dBox" open><summary>Test details<span id="dSum"></span></summary><div id="dForm"></div></details>
+    <details class="box" id="qBox"><summary>Data processing<span id="qSum"></span></summary><div id="qForm"></div></details>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+    <div id="views"></div>
+  </section>
+</main>
+<footer class="credit" id="credit"></footer></div>
+
+<script src="vendor/plotly.min.js"></script>
+<script src="vendor/xlsx.min.js"></script>
+<script src="src/parse.js"></script>
+<script src="src/gdcore.js"></script>
+<script src="src/protocol.js"></script>
+<script src="src/oxynet_models.js"></script>
+<script src="src/oxynet.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
