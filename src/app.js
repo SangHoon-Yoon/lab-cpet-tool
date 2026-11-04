@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.8.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.9.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -28,7 +28,7 @@
     outl: { local: true, nsd: 4, half: 5, vars: ['vo2', 'vco2', 've'], limits: true, rfMin: 5, rfMax: 100, vtMin: 0.3, remove: false, show: false },
     avg: { mode: 'bin', bin: 15, ma: 7, roll: 15 },
     view: { vars: ['vo2', 'hr', 've'] },
-    inc: { t0: null, t1: null, stageWin: 60, peakWin: 30, x: 'vo2' },
+    inc: { t0: null, t1: null, skip: 0, stageWin: 60, peakWin: 30, x: 'vo2' },
     st: { meas: ['eqo2', 'vco2'], win: null, regWin: 60, cmp: ['vo2', 'hr', 'rer'] }, per: { avgMin: 1, vars: ['vo2', 'hr', 'cho', 'fat', 'econ'] }, hrOffset: 0
   });
   const S = { pending: [], gas: null, lode: null, hr: null, meta: {}, set: defaults(), picks: { inc: {}, tests: {} }, I: null, proto: null, D: null, view: 'protocol', align: null, oxy: null, oxyCache: {} };
@@ -135,7 +135,7 @@
     const D = { fl, keep, X, ref, R0, mode };
     // Incremental test
     if (pr.type === 'incremental' && pr.inc) {
-      const inc = pr.inc, t0 = F(set.inc.t0) ? set.inc.t0 : inc.t0, t1 = F(set.inc.t1) ? set.inc.t1 : inc.t1;
+      const inc = pr.inc, t0 = F(set.inc.t0) ? set.inc.t0 : inc.t0 + (inc.none ? 0 : set.inc.skip || 0), t1 = F(set.inc.t1) ? set.inc.t1 : inc.t1;
       const sugg = L.suggestIncremental(ref, t0, t1, { noFinalSurge: !!pr.max });
       const stages = inc.stages, values = stages.map(st => L.stageValues(R0, st, set.inc.stageWin, mass, mode));
       const fit = L.intensityFit(values), rpe = L.stageRPE(g, stages);
@@ -489,11 +489,11 @@
       <div class="stats" id="tiles"></div>
       <div id="vtwarn"></div>
       <div class="panel" style="padding:10px"><div class="tools">
-        <span>${pr.max ? 'Threshold window' : 'Analysis window'} (min):</span><input type="number" step="0.25" id="cA" value="${(D.t0 / 60).toFixed(2)}"><span>to</span><input type="number" step="0.25" id="cB" value="${(D.t1 / 60).toFixed(2)}"><button id="cR">Reset</button>
+        <span>${pr.max ? 'Threshold window' : 'Analysis window'} (min):</span><input type="number" step="0.25" id="cA" value="${(D.t0 / 60).toFixed(2)}"><span>to</span><input type="number" step="0.25" id="cB" value="${(D.t1 / 60).toFixed(2)}"><button id="cR">Reset</button>${pr.inc.none ? '' : `<label class="chk">Leave out the first <input type="number" min="0" step="5" id="cS" value="${set.skip || 0}" style="width:4.5em"> s of the first stage</label>`}
         <span class="sep"></span><span>${pr.max ? 'VO₂max' : 'VO₂peak'} over:</span>${pkW.map(([v, l]) => `<button data-pk="${v}" aria-pressed="${set.peakWin === v}">${l}</button>`).join('')}
         <span class="sep"></span><span>Stage means and the VO₂–${I.label.toLowerCase()} regression use the last:</span>${stW.map(([v, l]) => `<button data-sw="${v}" aria-pressed="${set.stageWin === v}">${l}</button>`).join('')}
       </div>
-      <p class="hint" style="margin-top:6px">${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : pr.max ? 'Thresholds and the regression use the threshold stages, and by default the window covers all of them. VO₂max and the peak values come from the VO₂max stages.' : 'By default the window covers all the incremental stages.'}</p></div>
+      <p class="hint" style="margin-top:6px">${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : pr.max ? 'Thresholds and the regression use the threshold stages, and by default the window covers all of them. VO₂max and the peak values come from the VO₂max stages.' : 'By default the window covers all the incremental stages.'}${pr.inc.none ? '' : ' If the gas data look off when the first stage starts, leave out those seconds: this affects the threshold charts, the suggestions and any Oxynet run on this window, but not the stage means, regression or peak values.'}</p></div>
       <div class="tools"><span>Plot thresholds against:</span><button data-x="vo2" aria-pressed="${xk === 'vo2'}">VO<sub>2</sub></button><button data-x="t" aria-pressed="${xk === 't'}">Time</button><button id="addV2" hidden>Add a VT2 line</button>
         <span class="hint">Drag a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b> line sideways on any chart (the cursor changes over it); it moves on all of them.</span></div>
       <div class="grid3">
@@ -509,8 +509,9 @@
       <h2 class="row">Stages<span>mean of the last ${set.stageWin} s of each stage</span></h2><div class="panel"><div class="tblwrap"><table id="sT"></table></div></div>
       <ul class="notes">${pr.max ? '<li>Oxynet starts with the VO₂max stages here, because they are closest to the tests it was designed for: rising to exhaustion in one go. That also means its thresholds come from different stages than the lines above, with VO₂ lagging more in 1-min stages, so treat them as a loose guide.</li>' : ''}<li>${I.label} at a threshold comes from a regression of stage-end ${I.label === 'Speed' ? 'VO₂ on speed' : 'VO₂ on power'}, using stages of at least 2 min. “Stage” is the stage running when the line’s VO₂ was reached.</li><li>The solid lines start at the classical suggestion, and Oxynet never moves them unless you click Use. VT1 is the median of three two-line breakpoints (V-slope, VE/VO₂, PETO₂) up to 80% of the VO₂ range. VT2 is the median of three (VE against VCO₂, VE/VCO₂, PETCO₂) from 2 min after VT1 to ${pr.max ? 'the end of the threshold stages' : '90 s before the end'}. All use the 15-s data in the analysis window, as a starting point for the researcher’s own judgement.</li></ul>`;
     const on = (id, fn) => { const el = $(id); if (el) el.onchange = e => later(() => fn(e)); };
+    on('#cS', e => { const first = pr.inc.stages.find(q => !q.warm), lim = first ? Math.max(0, first.dur - 30) : 0, v = parseFloat(e.target.value); set.skip = F(v) ? Math.max(0, Math.min(lim, v)) : 0; set.t0 = null; recompute(); });
     on('#cA', e => { set.t0 = parseFloat(e.target.value) * 60; recompute(); }); on('#cB', e => { set.t1 = parseFloat(e.target.value) * 60; recompute(); });
-    $('#cR').onclick = () => { set.t0 = set.t1 = null; recompute(); };
+    $('#cR').onclick = () => { set.t0 = set.t1 = null; set.skip = 0; recompute(); };
     $$('[data-pk]').forEach(b => (b.onclick = () => { set.peakWin = +b.dataset.pk; recompute(); }));
     $$('[data-sw]').forEach(b => (b.onclick = () => { set.stageWin = +b.dataset.sw; recompute(); }));
     $$('[data-x]').forEach(b => (b.onclick = () => { set.x = b.dataset.x; vIncremental(); }));
@@ -764,13 +765,14 @@
     const pr = S.proto, I = S.I, set = S.set, g = S.gas, bxb = g.kind === 'bxb';
     const avgT = avgLabel().replace('breath-by-breath', 'breath-by-breath data');
     const joined = g.files ? ` The ${g.files.length} recordings of the session were aligned by their clock times.` : '';
+    const skipped = pr.type === 'incremental' && set.inc.skip > 0 && !F(set.inc.t0) ? ` The first ${set.inc.skip} s of the first stage were left out of the threshold estimation.` : '';
     const entered = I && I.plan ? ' Power was taken from the protocol entered by the researcher, not from a recording.' : '';
     const tool = ` Data were analysed with the Lab CPET tool (version ${VERSION}, created by ${AUTHOR}).`;
     const oxUsed = S.oxy && S.oxy.done && S.proto.type === 'incremental', fromOx = Object.entries((S.picks.incSrc) || {}).filter(e => /^Oxynet/.test(e[1]));
     const ox = oxUsed ? ` Suggestions from the Oxynet open-source models (pyoxynet; CNN and LSTM) were also available to the researcher, run on ${oxyName()}${fromOx.length ? `, and ${fromOx.map(e => `the ${e[1].replace('Oxynet ', '')} suggestion was used for ${e[0].toUpperCase()}`).join(' and ')}` : ''} (Zignoli et al., 2022; Keir et al., 2026).` : '';
     const gas = `Gas exchange was recorded with a COSMED metabolic cart (${bxb ? 'breath-by-breath export' : g.avgWidth + '-s average export'}) and displayed as ${avgT}. ${set.outl.remove ? `Breaths more than ${set.outl.nsd} SD from their local mean were removed.` : ''}`.trim();
     const eq = I && I.mode === 'cycling' ? ' Gross efficiency was calculated as external power divided by metabolic power (Brouwer, 1957).' : I ? ' Running economy was calculated as stage-end VO₂ per kilogram per kilometre.' : '';
-    if (pr.type === 'incremental') return `${gas} ${pr.max ? `Thresholds came from the longer stages. After a recovery block, VO₂max was the highest ${set.inc.peakWin}-s rolling mean during the shorter stages to failure.` : `VO₂peak was the highest ${set.inc.peakWin}-s rolling mean.`} ${I ? `Stage values were the mean of the last ${set.inc.stageWin} s of each stage. ` : ''}VT1 and VT2 were identified visually from V-slope, ventilatory equivalents and end-tidal gases, starting from two-line breakpoint suggestions.${I ? ` ${I.label} at each threshold was estimated from the linear regression of stage-end VO₂ on ${I.label.toLowerCase()}.` : ''}${entered}${ox}${eq}${tool}`;
+    if (pr.type === 'incremental') return `${gas} ${pr.max ? `Thresholds came from the longer stages. After a recovery block, VO₂max was the highest ${set.inc.peakWin}-s rolling mean during the shorter stages to failure.` : `VO₂peak was the highest ${set.inc.peakWin}-s rolling mean.`} ${I ? `Stage values were the mean of the last ${set.inc.stageWin} s of each stage. ` : ''}VT1 and VT2 were identified visually from V-slope, ventilatory equivalents and end-tidal gases, starting from two-line breakpoint suggestions.${I ? ` ${I.label} at each threshold was estimated from the linear regression of stage-end VO₂ on ${I.label.toLowerCase()}.` : ''}${skipped}${entered}${ox}${eq}${tool}`;
     return `${gas} Stage values were the mean of the last ${set.st.regWin} s of each stage. VT1 in each step test was identified visually from V-slope and ventilatory equivalents, plotted from ${isWholeStage() ? 'the whole' : 'the last ' + mmss(set.st.win)} of each stage, starting from a two-line breakpoint suggestion on the last 2 min of each stage, and ${I ? I.label.toLowerCase() : 'intensity'} at VT1 was estimated from the linear regression of stage-end VO₂ on ${I ? I.label.toLowerCase() : 'intensity'} for that test.${joined}${F(pr.base) && S.D.per && S.D.per.length ? ` During the steady exercise, values were the mean of the last ${set.per.avgMin} min of each gas recording, and substrate oxidation was calculated from VO₂ and VCO₂ (Jeukendrup and Wallis, 2005).` : ''}${eq}${tool}`;
   }
   const REFS = [
@@ -807,7 +809,7 @@
   function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
   function settingsRows() {
     const set = S.set, out = [['tool', 'Lab CPET tool'], ['tool_version', VERSION], ['created_by', AUTHOR], ['exported', new Date().toISOString()], ['gas_file_type', S.gas.kind === 'bxb' ? 'breath-by-breath' : S.gas.avgWidth + '-s averages'], ['cosmed_files_joined', S.gas.files ? S.gas.files.map(f => f.name + ' at ' + f.start + ' s').join('; ') : ''], ['intensity_source', S.I ? (S.I.plan ? 'steps entered by the researcher' : S.I.source) : 'none'], ['entered_steps', S.set.plan ? JSON.stringify(S.set.plan) : ''], ['lode_offset_s', set.offset], ['body_mass_kg', S.meta.mass], ['averaging', avgLabel()], ['outlier_flagging', set.outl.local ? set.outl.nsd + ' SD' : 'off'], ['flagged_removed', set.outl.remove]];
-    if (S.proto.type === 'incremental') { out.push(['analysis_window_min', S.D.inc ? (S.D.inc.t0 / 60).toFixed(2) + '-' + (S.D.inc.t1 / 60).toFixed(2) : ''], ['vo2peak_window_s', set.inc.peakWin], ['stage_window_s', set.inc.stageWin]); }
+    if (S.proto.type === 'incremental') { out.push(['analysis_window_min', S.D.inc ? (S.D.inc.t0 / 60).toFixed(2) + '-' + (S.D.inc.t1 / 60).toFixed(2) : ''], ['first_stage_seconds_left_out', set.inc.skip || 0], ['vo2peak_window_s', set.inc.peakWin], ['stage_window_s', set.inc.stageWin]); }
     else out.push(['stage_window_s', set.st.regWin], ['vt1_chart_window_s', isWholeStage() ? 'whole stage' : set.st.win], ['tests_excluded', set.excluded.join(' ')], ['steady_average_min', set.per.avgMin]);
     return out;
   }
