@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.7.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.8.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -135,7 +135,7 @@
     const D = { fl, keep, X, ref, R0, mode };
     // Incremental test
     if (pr.type === 'incremental' && pr.inc) {
-      const inc = pr.inc, t0 = F(set.inc.t0) ? set.inc.t0 : inc.t0 + (inc.none ? 0 : 90), t1 = F(set.inc.t1) ? set.inc.t1 : inc.t1;
+      const inc = pr.inc, t0 = F(set.inc.t0) ? set.inc.t0 : inc.t0, t1 = F(set.inc.t1) ? set.inc.t1 : inc.t1;
       const sugg = L.suggestIncremental(ref, t0, t1, { noFinalSurge: !!pr.max });
       const stages = inc.stages, values = stages.map(st => L.stageValues(R0, st, set.inc.stageWin, mass, mode));
       const fit = L.intensityFit(values), rpe = L.stageRPE(g, stages);
@@ -493,7 +493,7 @@
         <span class="sep"></span><span>${pr.max ? 'VO₂max' : 'VO₂peak'} over:</span>${pkW.map(([v, l]) => `<button data-pk="${v}" aria-pressed="${set.peakWin === v}">${l}</button>`).join('')}
         <span class="sep"></span><span>Stage means and the VO₂–${I.label.toLowerCase()} regression use the last:</span>${stW.map(([v, l]) => `<button data-sw="${v}" aria-pressed="${set.stageWin === v}">${l}</button>`).join('')}
       </div>
-      <p class="hint" style="margin-top:6px">${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : pr.max ? 'Thresholds and the regression use the threshold stages. By default the window starts 90 s into the first of them. VO₂max and the peak values come from the VO₂max stages.' : 'The window starts 90 s into the first stage by default, so the rise in VO₂ at the start does not feed the threshold fits.'}</p></div>
+      <p class="hint" style="margin-top:6px">${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : pr.max ? 'Thresholds and the regression use the threshold stages, and by default the window covers all of them. VO₂max and the peak values come from the VO₂max stages.' : 'By default the window covers all the incremental stages.'}</p></div>
       <div class="tools"><span>Plot thresholds against:</span><button data-x="vo2" aria-pressed="${xk === 'vo2'}">VO<sub>2</sub></button><button data-x="t" aria-pressed="${xk === 't'}">Time</button><button id="addV2" hidden>Add a VT2 line</button>
         <span class="hint">Drag a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b> line sideways on any chart (the cursor changes over it); it moves on all of them.</span></div>
       <div class="grid3">
