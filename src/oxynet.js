@@ -114,11 +114,11 @@
       if (Date.now() - tick > 60) { tick = Date.now(); if (onProgress) onProgress((i + 1) / (n - past)); await nextTick(); }
     }
     const sm = P.map(p => optimalFilter(time, p, 100)), lead = (from, to) => { let b = 0, v = -Infinity; for (let c = 0; c < 3; c++) { let s = 0; for (let i = from; i < to; i++) s += sm[c][i]; if (s > v) { v = s; b = c; } } return b; };
-    const L = time.length, mod = lead(0, 5), sev = lead(L - 5, L), hv = [0, 1, 2].find(c => c !== mod && c !== sev);
+    const L = time.length, mod = lead(0, 5), sev = lead(L - 5, L), hv = [0, 1, 2].filter(c => c !== mod && c !== sev).at(-1); // as in pyoxynet, the last unused output
     const out = { model: name, time, md: Array.from(sm[mod]), hv: hv === undefined ? null : Array.from(sm[hv]), sv: Array.from(sm[sev]), vo2F: Array.from(optimalFilter(time, vo2, 100)), ms: Date.now() - t0Clock };
     if (hv === undefined) { out.problem = 'The same output leads at the start and end of the test, so it does not show three domains.'; return out; }
     let i1 = -1, i2 = -1; for (let i = 0; i < L; i++) { if (i1 < 0 && out.hv[i] >= out.md[i]) i1 = i; if (out.sv[i] <= out.hv[i]) i2 = i; }
-    const place = (i, label) => { if (i < 0) { out.problem = `The outputs never cross where ${label} would be.`; return null; } const k = i - past; if (k < 0) { out.problem = `The outputs cross within the first ${past} s of ${label}, before the model has seen a full window.`; return null; } return { time: time[k], vo2: out.vo2F[k], index: k, crossing: time[i] }; };
+    const place = (i, label) => { if (i < 0) { out.problem = out.problem || `The outputs never cross where ${label} would be.`; return null; } const k = i - past; if (k < 0) { out.problem = out.problem || `The outputs cross within the first ${past} s of ${label}, before the model has seen a full window.`; return null; } return { time: time[k], vo2: out.vo2F[k], index: k, crossing: time[i] }; };
     out.vt1 = place(i1, 'VT1'); out.vt2 = place(i2, 'VT2');
     if (out.vt1 && out.vt2 && out.vt1.time >= out.vt2.time) out.problem = 'The outputs put VT1 at or after VT2, so the two are not consistent in this test.';
     return out;

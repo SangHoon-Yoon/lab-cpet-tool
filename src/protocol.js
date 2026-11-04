@@ -118,20 +118,25 @@
     const longest = runs.slice().sort((a, b) => durOf(b) - durOf(a))[0];
     const ramp = findRamp(P, unit, minV, tol);
 
+    const two = opts.type === 'prolonged' || opts.type === 'incremental' ? null : findTwoPhase(P, runs, tol, unit, minV);
     let type = 'prolonged';
-    if (ramp && ramp.dur >= 0.5 * exTime) type = 'incremental';
+    if (two) type = 'incremental';
+    else if (ramp && ramp.dur >= 0.5 * exTime) type = 'incremental';
     else if (longest) { const c = coreOf(longest, tol); if (durOf(longest) >= 0.6 * exTime && (longest.length >= 7 || (c && c.n >= 6))) type = 'incremental'; }
-    if (opts.type) type = opts.type;
+    if (opts.type && opts.type !== 'two') type = opts.type;
 
     const out = { unit, label: I.label, type, plateaus: P, runs, tests: [], pattern: null, base: NaN, maot: null, ttf: null, pauses: [], inc: null, ramp: null, phases: [] };
 
     // Incremental: the longest run (or ramp), with any differing first stage marked as warm-up.
     if (ramp) out.ramp = ramp;
-    if (longest || ramp) {
+    if (two) {
+      out.inc = { ramp: false, stages: two.first, t0: two.first.find(q => !q.warm).t0, t1: two.first.at(-1).t1, peak: two.first.at(-1).p };
+      out.max = { stages: two.second.filter(q => !q.warm), t0: two.second.find(q => !q.warm).t0, t1: two.second.at(-1).t1, peak: two.second.at(-1).p, walk: [two.first.at(-1).t1, two.second.find(q => !q.warm).t0] };
+    } else if (longest || ramp) {
       if (ramp && (!longest || ramp.dur > durOf(longest))) out.inc = { ramp: true, stages: [], t0: ramp.t0, t1: ramp.t1, peak: ramp.p1 };
       else {
         const st = longest.map(q => ({ p: q.p, t0: q.t0, t1: q.t1, dur: q.dur, full: true, warm: false }));
-        if (st.length >= 3) { const d0 = st[1].p - st[0].p, d1 = st[2].p - st[1].p; if (Math.abs(d0 - d1) > tol && Math.abs(st[1].dur - st[2].dur) <= 10) st[0].warm = true; }
+        if (firstIsWarm(st)) st[0].warm = true;
         if (st.length >= 2 && st.at(-1).dur < 0.5 * st.at(-2).dur) st.at(-1).full = false; // a final stage cut short
         if (F(I.warmEnd) && I.warmEnd > 0) st.forEach(q => { if (q.t1 <= I.warmEnd + 1) q.warm = true; });
         out.inc = { ramp: false, stages: st, t0: st.find(q => !q.warm).t0, t1: st.at(-1).t1, peak: st.at(-1).p };
@@ -171,7 +176,7 @@
     const ref = F(out.base) ? out.base : median(LP.map(q => q.p));
     if (unit === 'W' && F(ref)) {
       let on = null; for (let i = I.t.length - 1; i > 5; i--) if (I.p[i] >= 1.8 * ref && I.p[i - 1] <= 1.2 * ref) { on = i; break; }
-      if (on !== null && (!out.inc || I.t[on] > out.inc.t1 || type === 'prolonged')) {
+      if (on !== null && !out.max && (!out.inc || I.t[on] > out.inc.t1 || type === 'prolonged')) {
         const t0 = I.t[on]; let e = I.t.length - 1;
         for (let i = on; i < I.t.length; i++) if (I.t[i] > t0 + 60 && I.p[i] < 0.4 * ref) { e = i; break; }
         if (I.t[e] - t0 >= 30 && !plateausAtOnset(LP, t0)) out.maot = { i0: on, i1: e, t0, t1: I.t[e], dur: I.t[e] - t0 };
@@ -185,7 +190,8 @@
     // Shaded phases for the viewer.
     if (type === 'incremental' && out.inc) {
       if (!out.inc.ramp && out.inc.stages[0].warm) out.phases.push({ kind: 'warm', t0: out.inc.stages[0].t0, t1: out.inc.stages[0].t1, label: 'Warm-up' });
-      out.phases.push({ kind: 'test', t0: out.inc.t0, t1: out.inc.t1, label: out.inc.ramp ? 'Ramp' : 'Incremental test' });
+      out.phases.push({ kind: 'test', t0: out.inc.t0, t1: out.inc.t1, label: out.inc.ramp ? 'Ramp' : out.max ? 'Threshold stages' : 'Incremental test' });
+      if (out.max) out.phases.push({ kind: 'test', t0: out.max.t0, t1: out.max.t1, label: 'VO₂max stages' });
     } else {
       out.tests.forEach((T, i) => out.phases.push({ kind: 'test', t0: T.t0, t1: T.t1, label: testName(out, i) + (T.complete ? '' : ' (partial)') }));
       P.filter(q => q.p > minV && q.dur >= 120 && !inTest(q) && !(out.maot && q.t0 >= out.maot.t0)).forEach(q => out.phases.push({ kind: 'steady', t0: q.t0, t1: q.t1, label: fmtI(q.p, unit) }));
@@ -193,6 +199,23 @@
     if (out.maot) out.phases.push({ kind: 'allout', t0: out.maot.t0, t1: out.maot.t1, label: 'All-out' });
     out.phases.sort((a, b) => a.t0 - b.t0);
     return out;
+  }
+  // A first stage well below the next, with a bigger jump than the stages after it, is a warm-up.
+  function firstIsWarm(st) { if (st.length < 3) return false; const d0 = st[1].p - st[0].p, d1 = st[2].p - st[1].p; return d0 > 1.4 * d1 && st[0].p < 0.85 * st[1].p; }
+  // Longer stages for thresholds, an easy block, then shorter stages to failure. Stage lengths in the first part may differ.
+  function findTwoPhase(P, runs, tol, unit, minV) {
+    const stage = q => ({ p: q.p, t0: q.t0, t1: q.t1, dur: q.dur, full: true, warm: false });
+    const parts = runs.map(r => { const st = r.map(stage); if (firstIsWarm(st)) st[0].warm = true; return st; }).filter(st => st.filter(q => !q.warm).length >= 2);
+    if (parts.length !== 2) return null;
+    const [a, b] = parts, work = st => st.filter(q => !q.warm), med = st => median(work(st).map(q => q.dur)), gap = work(b)[0].t0 - a.at(-1).t1;
+    if (!(med(a) >= 120 && med(b) <= 90 && work(b).length >= 3 && gap >= 30 && gap <= 900)) return null;
+    // Between the two parts there must be only the easy block, below where the parts start.
+    if (P.some(q => q.t0 >= a.at(-1).t1 - 1 && q.t1 <= work(b)[0].t0 + 1 && q.dur >= 20 && q.p >= work(b)[0].p - tol)) return null;
+    // Keep a last stage too short to count as a full plateau (10 s or more).
+    const last = b.at(-1), extra = P.find(q => q.p > last.p + tol && q.t0 >= last.t1 - 1 && q.t0 - last.t1 <= 10 && q.dur >= 10 && q.dur < 20);
+    if (extra) b.push(stage(extra));
+    const m = med(b); if (b.at(-1).dur < 0.75 * m) b.at(-1).full = false;
+    return { first: a, second: b };
   }
   const plateausAtOnset = (LP, t0) => LP.some(q => Math.abs(q.t0 - t0) < 2 && q.dur >= 60); // a long plateau is a stage, not an all-out start
   const fmtI = (v, u) => (u === 'W' ? Math.round(v) + ' W' : (+v.toFixed(1)) + ' km/h');
@@ -228,7 +251,7 @@
 
   /* ---------- Classical threshold suggestions for an incremental test ---------- */
   // Each estimate is a two-line (hinge) breakpoint. VT2 is found first, so V-slope can be fitted below it, as Beaver et al. (1986) require.
-  function suggestIncremental(ref, t0, t1) {
+  function suggestIncremental(ref, t0, t1, opts) {
     const M = monoMap(ref, t0, t1), ids = [];
     for (let i = 0; i < ref.t.length; i++) if (ref.t[i] >= t0 && ref.t[i] <= t1 && F(ref.v.vo2[i]) && ref.v.vo2[i] > 0.3) ids.push(i);
     const col = (k, sub) => (sub || ids).map(i => ref.v[k] ? ref.v[k][i] : NaN);
@@ -243,14 +266,16 @@
     // VT2 above VT1 and against time: near VO2peak VO2 stops rising, so a VO2 axis would crowd the late breakpoints together.
     // The last 90 s are left out, because the final surge in ventilation would otherwise take the breakpoint.
     const from = F(vt1) ? M.tOf(vt1) + 120 : quant(ref.t.filter(x => x >= t0 && x <= t1), 0.5);
-    const upperIds = ids.filter(i => ref.t[i] >= from && ref.t[i] <= t1 - 90), ut = upperIds.map(i => ref.t[i]), vt2m = [], cap = lo + 0.97 * span;
+    const upperIds = ids.filter(i => ref.t[i] >= from && ref.t[i] <= t1 - (opts && opts.noFinalSurge ? 0 : 90)), ut = upperIds.map(i => ref.t[i]), vt2m = [], cap = lo + 0.97 * span;
     add(vt2m, 've_vco2', 'VE against VCO₂', hinge(col('vco2', upperIds), col('ve', upperIds), 0.15), h => h.s2 > h.s1 * 1.1, b => M.vo2At(M.tOfVco2(b)));
     add(vt2m, 'eqco2', 'VE/VCO₂ rises', hinge(ut, col('eqco2', upperIds), 0.15), h => h.s2 > 0 && h.s2 > h.s1, b => M.vo2At(b));
     add(vt2m, 'petco2', 'PETCO₂ falls', hinge(ut, col('petco2', upperIds), 0.15), h => h.s2 < 0 && h.s2 < h.s1, b => M.vo2At(b));
     const v2ok = vt2m.filter(m => m.ok).map(m => m.vo2), vt2 = v2ok.length ? median(v2ok) : NaN;
+    // Breakpoints at the very start of the search range may only mean the rise began before the data do.
+    const startEdge = (() => { const xs = col('vo2', low).filter(F), a = quant(xs, 0.15), b = quant(xs, 0.85), near = vt1m.filter(m => m.ok && m.vo2 <= a + 0.03 * (b - a)); return near.length >= 2; })();
     const spread = a => (a.length > 1 ? Math.max(...a) - Math.min(...a) : NaN);
     const low2 = !F(vt2) || vt2 >= cap || v2ok.length < 2 || spread(v2ok) > 0.3, low1 = !F(vt1) || v1ok.length < 2 || spread(v1ok) > 0.3;
-    return { vt1, vt2, vt1Methods: vt1m, vt2Methods: vt2m, map: M, unsure: { vt1: low1, vt2: low2 }, spread: { vt1: spread(v1ok), vt2: spread(v2ok) } };
+    return { vt1, vt2, vt1Methods: vt1m, vt2Methods: vt2m, map: M, startEdge, unsure: { vt1: low1, vt2: low2 }, spread: { vt1: spread(v1ok), vt2: spread(v2ok) } };
   }
 
   /* ---------- Peak values ---------- */
@@ -355,9 +380,11 @@
     if (!I) warn('No power or speed yet: thresholds, VO₂peak and the charts all work, but power and stage results need the steps entered below or a Lode file.');
     if (I && I.plan) { info('Power comes from the steps you entered, not from a recording.'); const pl = ss.set && ss.set.plan; if (pl && F(pl.switchMin) && Math.abs(((pl.switchMin - (pl.warmMin || 0)) / pl.stageMin) % 1) > 0.01 && Math.abs(((pl.switchMin - (pl.warmMin || 0)) / pl.stageMin) % 1) < 0.99) warn(`The ${pl.shortMin || 1}-min stages start partway through a ${pl.stageMin}-min stage, so that stage is shorter. Check the time entered.`); }
     if (I && I.mode === 'treadmill' && g.aux && g.aux.grade) {
-      const gs = g.aux.grade.filter((x, i) => F(x) && !/RECOVERY/i.test(g.aux.phase[i] || '')), lo = Math.min(...gs), hi = Math.max(...gs);
-      if (gs.length && hi - lo > 0.05) warn(`Treadmill grade changes during the test (${lo}–${hi}%). Results are reported against speed only, so check they are comparable.`);
-      else if (gs.length) info(`Treadmill grade was ${hi}% throughout.`);
+      // Only the test stages count: a walk at a different grade does not affect the results.
+      const stagesOnly = pr && pr.type === 'incremental' && pr.inc && !pr.inc.ramp && !pr.inc.none ? pr.inc.stages.filter(q => !q.warm).concat(pr.max ? pr.max.stages : []) : pr && pr.tests && pr.tests.length ? pr.tests.flatMap(T => T.steps) : null;
+      const gs = g.aux.grade.filter((x, i) => F(x) && !/RECOVERY/i.test(g.aux.phase[i] || '') && g.aux.speed[i] > 2.5 && (!stagesOnly || stagesOnly.some(q => g.t[i] > q.t0 + 5 && g.t[i] <= q.t1 - 5))).sort((a, b) => a - b), lo = gs.length ? gs[Math.floor(gs.length * .02)] : NaN, hi = gs.length ? gs[Math.ceil(gs.length * .98) - 1] : NaN;
+      if (gs.length && hi - lo > 0.05) warn(`Treadmill grade changes during the test stages (${lo}–${hi}%). Results are reported against speed only, so check they are comparable.`);
+      else if (gs.length) info(`Treadmill grade was ${hi}% during the test stages.`);
     }
     if (g.kind === 'avg') info(`The COSMED file holds ${g.avgWidth}-s averages, so outliers are checked on averages and shorter averaging is not possible. Export breath-by-breath for finer detail.`);
     const fl = ss.D ? ss.D.fl.flag : [], n = fl.length || 1, nf = fl.filter ? fl.filter(x => x === 1 || x === 2).length : 0;
@@ -366,7 +393,8 @@
     if (g.files) { const rest = g.files.slice(1).map((f, i) => ((f.start - g.files[i].end) / 60).toFixed(1)); info(`${g.files.length} COSMED files were joined by their clock times, with ${rest.join(' and ')} min of rest between them. Check the order: ${g.files.map(f => f.protocol && f.protocol !== 'None' ? f.protocol : f.name).join(', then ')}.`); const ms = new Set(g.files.map(f => f.mass).filter(F)); if (ms.size > 1) warn(`Body mass differs between the files (${[...ms].join(', ')} kg).`); }
     { let last = -1; for (let i = 0; i < g.t.length; i++) { if (!isRow(i)) { if (g.aux && g.aux.phase[i] === 'REST') last = -1; continue; } if (last >= 0 && g.t[i] - g.t[last] > gapLim) gaps.push([g.t[last], g.t[i]]); last = i; } }
     if (gaps.length) info(`${gaps.length} gap${gaps.length > 1 ? 's' : ''} in the gas data, ${(gaps.reduce((a, q) => a + q[1] - q[0], 0) / 60).toFixed(1)} min in total (mask off).`);
-    const testBlocks = pr ? (pr.type === 'incremental' ? (pr.inc && !pr.inc.ramp ? pr.inc.stages.filter(q => !q.warm) : []) : pr.tests.flatMap(T => T.steps)) : [];
+    if (pr && pr.max) { const lens = pr.inc.stages.filter(q => !q.warm), lo = Math.min(...lens.map(q => q.dur)), hi = Math.max(...lens.map(q => q.dur)); if (hi - lo > 30) warn(`The threshold stages are not all the same length: ${lens.map(q => (+q.p.toFixed(1)) + ' ' + I.unit + ' for ' + Math.floor(q.dur / 60) + ':' + String(Math.round(q.dur % 60)).padStart(2, '0')).join(', ')}. Check this matches what was run.`); const di = ss.D && ss.D.inc; if (di && di.peak1 && di.peak.vo2 && di.peak1.value > di.peak.vo2.value) warn(`VO₂ was higher in the threshold stages (${di.peak1.value.toFixed(2)} L/min) than in the VO₂max stages (${di.peak.vo2.value.toFixed(2)} L/min). Check that the VO₂max stages were maximal.`); }
+    const testBlocks = pr ? (pr.type === 'incremental' ? (pr.inc && !pr.inc.ramp ? pr.inc.stages.filter(q => !q.warm).concat(pr.max ? pr.max.stages : []) : []) : pr.tests.flatMap(T => T.steps)) : [];
     const hit = testBlocks.filter(st => gaps.some(q => q[0] < st.t1 && q[1] > st.t0));
     if (hit.length) warn(`Gas data are missing during ${hit.length} stage${hit.length > 1 ? 's' : ''}: ${hit.map(q => fmtI(q.p, I.unit)).join(', ')}.`);
     else if (testBlocks.length) ok('Gas data cover every test stage.');

@@ -9,6 +9,7 @@ Single-file browser tool for COSMED gas-exchange tests. Open `dist/lab-cpet-tool
 - Treadmill: COSMED export only (speed comes from that file). Cycling: COSMED and Lode exports, or COSMED with the power steps entered by hand.
 - A session recorded as several COSMED files is joined by the clock times in the file headers.
 - Incremental tests: VO2peak, VT1, VT2, stage table, maximal-effort criteria, Oxynet suggestions. Without a Lode file, enter the power steps by hand.
+- Incremental tests with a separate VO2max phase: thresholds from the longer stages, then VO2max from shorter stages after a recovery block.
 - Prolonged trials with step tests: any number of steps and step length, VT1 per test, stage comparison, and analysis of each gas recording during the steady exercise (oxidation, energy, efficiency or economy, drift).
 - Export: Excel (long format, stages, thresholds, checks, settings, methods) and long-format CSV.
 

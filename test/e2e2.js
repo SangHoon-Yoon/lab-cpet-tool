@@ -22,12 +22,12 @@ const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
  const p2=await pg.evaluate(()=>{document.getElementById('vc_vs').scrollIntoView({block:'center'});const gd=document.getElementById('vc_vs'),xa=gd._fullLayout.xaxis,ya=gd._fullLayout.yaxis,r=gd.getBoundingClientRect();return{x:r.left+xa._offset+xa.l2p(+gd.querySelector('.vtov [data-q=vt1]').dataset.x),y:r.top+ya._offset+60}});
  await pg.mouse.move(p2.x,p2.y);await pg.mouse.down();await pg.mouse.move(p2.x-50,p2.y,{steps:5});await pg.mouse.up();await pg.waitForTimeout(500);
  const th=await pg.evaluate(()=>LabApp.results().thr[0]);ok(th.source==='placed by user'&&th.vo2_L_min<before,'VT1 dragged from '+before+' to '+th.vo2_L_min);
- const sync=await pg.evaluate(()=>{const a=+document.querySelector('#vc_eq .vtov [data-q=vt1]').dataset.x,b=+document.querySelector('#vc_vs .vtov [data-q=vt1]').dataset.x;return[a,b]});ok(Math.abs(sync[0]-sync[1])<1e-6,'line moved on all charts');
+ const sync=await pg.evaluate(()=>{const a=+document.querySelector('#vc_eo .vtov [data-q=vt1]').dataset.x,b=+document.querySelector('#vc_vs .vtov [data-q=vt1]').dataset.x;return[a,b]});ok(Math.abs(sync[0]-sync[1])<1e-6,'line moved on all charts');
  ok((await pg.$eval('[data-vti=vt1]',e=>e.value))===th.vo2_L_min.toFixed(2),'table follows the line');
  // Add VT2, numeric entry, time axis
  await pg.click('#addV2');await pg.waitForTimeout(300);await pg.fill('[data-vti=vt2]','3.65');await pg.dispatchEvent('[data-vti=vt2]','change');await pg.waitForTimeout(400);const t2=await pg.evaluate(()=>LabApp.results().thr[1]);ok(t2&&Math.abs(t2.vo2_L_min-3.65)<1e-9,'VT2 typed in: '+JSON.stringify([t2.vo2_L_min,t2.pct_vo2peak,t2.intensity_regression,t2.intensity_stage,t2.hr_bpm]));
  await pg.click('[data-x=t]');await pg.waitForTimeout(900);await pg.screenshot({path:out+'x_inc_time.png',fullPage:true});
- const t3=await pg.evaluate(()=>{const gd=document.getElementById('vc_eq');return [...gd.querySelectorAll('.vtov line')].map(s=>+s.dataset.x)});console.log('  time-view line positions (min)',t3.map(v=>v.toFixed(2)));
+ const t3=await pg.evaluate(()=>{const gd=document.getElementById('vc_eo');return [...gd.querySelectorAll('.vtov line')].map(s=>+s.dataset.x)});console.log('  time-view line positions (min)',t3.map(v=>v.toFixed(2)));
  await pg.click('[data-x=vo2]');await pg.waitForTimeout(500);
  // Exports
  const [d1]=await Promise.all([pg.waitForEvent('download'),pg.click('#bExport')]);const px=dl+'t.xlsx';await d1.saveAs(px);const wb=X.readFile(px);console.log('  sheets',wb.SheetNames.join(', '));const st=X.utils.sheet_to_json(wb.Sheets.Stages);ok(st.length===12&&st[0].vo2_L_min>2,'Stages sheet: '+JSON.stringify(st[0]).slice(0,240));const lf=X.utils.sheet_to_json(wb.Sheets['Long format']);ok(lf.some(r=>r.variable==='vo2peak'),'long format has VO2peak '+JSON.stringify(lf.find(r=>r.variable==='vo2peak')).slice(0,180));
