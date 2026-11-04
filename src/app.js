@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.6.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.7.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -319,6 +319,7 @@
 
   /* ---------------- Plot helpers ---------------- */
   const CFG = { responsive: true, displaylogo: false, displayModeBar: true, scrollZoom: true, showTips: false, doubleClick: false, modeBarButtons: [['pan2d', 'zoom2d', 'zoomIn2d', 'zoomOut2d', 'resetScale2d']] };
+  const FIGCFG = Object.assign({}, CFG, { modeBarButtons: [['resetScale2d']] }); // every figure has a home button that zooms all the way out
   function ax(title, extra) { return Object.assign({ showline: true, linecolor: css('--axis'), linewidth: 1.2, ticks: 'outside', tickcolor: css('--axis'), ticklen: 4, gridcolor: css('--grid'), zeroline: false, automargin: false, tickfont: { color: css('--muted'), size: 11 }, title: { text: title || '', font: { color: css('--fg'), size: 12 } } }, extra || {}); }
   function lay(extra) { return Object.assign({ paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { family: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif', color: css('--fg') }, dragmode: 'pan', hovermode: 'closest', margin: { l: 62, r: 16, t: 26, b: 48 }, showlegend: false }, extra || {}); }
   function robustRange(vals) { const v = vals.filter(F); if (!v.length) return undefined; const a = C.quant(v, .01), b = C.quant(v, .99), p = Math.max((b - a) * .1, Math.abs(b) * .01, 1e-3); return [a - p, b + p]; }
@@ -343,7 +344,7 @@
       <div class="panel"><div class="readout big" id="cur">Move over the chart to read every variable at one moment.</div>
         <div class="chartwrap" id="cwrap"><div class="chart" id="pv" style="height:${H}px"></div><div class="cursor" id="cline"></div><div class="zshade" id="zshade"></div></div>
         <div class="readout" id="ro"></div></div>
-      <ul class="notes"><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. Double-click resets. The line under the chart gives the mean ± SD of what is in view.</li>
+      <ul class="notes"><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
       ${I ? `<li>Shaded: test stages (blue)${pr.maot ? ', all-out test (red)' : ''}. The ${I.label.toLowerCase()} panel gives each stage’s ${I.label.toLowerCase()}, with RPE and any other COSMED markers above it.</li>` : ''}</ul>`;
     multiToggle('data-sv', vars, 6, () => vProtocol());
     const curAvg = set.avg.mode === 'raw' ? 'raw' : set.avg.mode + ':' + avgParOf(set);
@@ -428,7 +429,7 @@
     const xr0 = xv.filter(F), pad = (Math.max(...xr0) - Math.min(...xr0)) * .03, xr = [Math.min(...xr0) - pad, Math.max(...xr0) + pad];
     const xTitle = { vo2: 'VO<sub>2</sub> (L/min)', vco2: 'VCO<sub>2</sub> (L/min)', t: 'Time (min)' }[spec.x];
     const LL = lay({ margin: { l: 58, r: 12, t: 22, b: 44 }, xaxis: ax(xTitle, { range: xr }), yaxis: ax(spec.yTitle, { range: robustRange(ally) }) });
-    Plotly.newPlot(gd, tr, LL, Object.assign({}, CFG, { displayModeBar: false }));
+    Plotly.newPlot(gd, tr, LL, FIGCFG);
     gd.addEventListener('click', e => { if (e.detail > 1) Plotly.relayout(gd, { 'xaxis.range': xr, 'yaxis.range': LL.yaxis.range }); });
     attachVT(gd, ctx, Object.assign({ xv }, spec));
     if (spec.fit) { // each figure has its own fitted-lines button
@@ -493,12 +494,12 @@
         <span class="sep"></span><span>Stage means and the VO₂–${I.label.toLowerCase()} regression use the last:</span>${stW.map(([v, l]) => `<button data-sw="${v}" aria-pressed="${set.stageWin === v}">${l}</button>`).join('')}
       </div>
       <p class="hint" style="margin-top:6px">${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : pr.max ? 'Thresholds and the regression use the threshold stages. By default the window starts 90 s into the first of them. VO₂max and the peak values come from the VO₂max stages.' : 'The window starts 90 s into the first stage by default, so the rise in VO₂ at the start does not feed the threshold fits.'}</p></div>
-      <div class="tools"><span>Plot thresholds against:</span><button data-x="vo2" aria-pressed="${xk === 'vo2'}">VO<sub>2</sub></button><button data-x="t" aria-pressed="${xk === 't'}">Time</button>
+      <div class="tools"><span>Plot thresholds against:</span><button data-x="vo2" aria-pressed="${xk === 'vo2'}">VO<sub>2</sub></button><button data-x="t" aria-pressed="${xk === 't'}">Time</button><button id="addV2" hidden>Add a VT2 line</button>
         <span class="hint">Drag a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b> line sideways on any chart (the cursor changes over it); it moves on all of them.</span></div>
       <div class="grid3">
         ${[['vs', 'V-slope', 'VCO<sub>2</sub> against VO<sub>2</sub>'], ['eo', 'VE/VO<sub>2</sub>', 'ventilatory equivalent for O<sub>2</sub>'], ['ec', 'VE/VCO<sub>2</sub>', 'ventilatory equivalent for CO<sub>2</sub>'], ['po', 'End-tidal O<sub>2</sub>', 'P<sub>ET</sub>O<sub>2</sub>'], ['pc', 'End-tidal CO<sub>2</sub>', 'P<sub>ET</sub>CO<sub>2</sub>'], ['vv', 'Ventilation against VCO<sub>2</sub>', 'VE against VCO<sub>2</sub>'], ['ve', 'Ventilation', 'VE'], ['rr', 'RER', ''], ['hh', 'Heart rate', ''], ['iv', iLab(), 'stage-end values against VO<sub>2</sub>']].map(([id, t, s]) => `<div class="panel"><h3>${t}<span>${s}</span></h3><div class="chart mid" id="vc_${id}"></div></div>`).join('')}
       </div>
-      <h2 class="row">Thresholds</h2><div class="panel"><div class="tblwrap"><table id="vtT"></table></div><div class="tools" style="padding:0 8px 8px"><button id="rst">Reset both to suggestions</button><button id="addV2" hidden>Add a VT2 line</button></div></div>
+      <h2 class="row">Thresholds</h2><div class="panel"><div class="tblwrap"><table id="vtT"></table></div><div class="tools" style="padding:0 8px 8px"><button id="rst">Reset both to suggestions</button></div></div>
       <h2 class="row">Oxynet suggestions<span>from the open-source pyoxynet models, run on this computer</span></h2>
       <div class="tools"><span>Give Oxynet:</span>${pr.max ? `<button data-ow="max" aria-pressed="${oxyChoice() === 'max'}">VO₂max stages</button>` : ''}<button data-ow="analysis" aria-pressed="${oxyChoice() === 'analysis'}">${pr.max ? 'Threshold window' : 'Analysis window'}</button><button data-ow="whole" aria-pressed="${oxyChoice() === 'whole'}">All exercise data</button><span class="hint" id="oxS"></span></div>
       <div class="grid3">${[['cnn', 'CNN model'], ['lstm', 'LSTM model']].map(([m, t]) => `<div class="panel"><h3>${t}<span>domain outputs over time</span></h3><div style="padding:2px 8px">${[['--t3', 'Moderate'], ['--t2', 'Heavy'], ['--t1', 'Severe']].map(([c, n]) => `<span class="lg"><i style="background:${css(c)}"></i>${n}</span>`).join('')}</div><div class="chart mid" id="ox_${m}"></div><p class="hint" id="oxm_${m}" style="padding:0 10px 6px"></p></div>`).join('')}</div>
@@ -545,7 +546,7 @@
       const un = D.sugg.unsure, msgs = [];
       if (!F(S.picks.inc.vt1) && D.sugg.startEdge) msgs.push('The VT1 breakpoints sit at the very start of the data they were searched in, so VT1 may be at or below the first stage used. Check it by eye.');
       else if (!F(S.picks.inc.vt1) && un.vt1) msgs.push(F(D.sugg.vt1) ? `The VT1 methods disagree${F(D.sugg.spread.vt1) ? ` by ${fx(D.sugg.spread.vt1, 2)} L/min` : ''}. Check it by eye.` : 'No VT1 break was found. Add it by eye.');
-      if (!F(S.picks.inc.vt2) && un.vt2) msgs.push(F(D.sugg.vt2) ? `The VT2 suggestion is weak${F(D.sugg.spread.vt2) ? ` (methods differ by ${fx(D.sugg.spread.vt2, 2)} L/min)` : ''}. Check it by eye.` : (pr.max ? 'No VT2 break was found in the threshold stages. These stages can stop before VT2, so it may not have been reached. Use “Add a VT2 line” below if you can place it by eye.' : 'No VT2 break was found before the final surge in ventilation. Use “Add a VT2 line” below if you can place it by eye.'));
+      if (!F(S.picks.inc.vt2) && un.vt2) msgs.push(F(D.sugg.vt2) ? `The VT2 suggestion is weak${F(D.sugg.spread.vt2) ? ` (methods differ by ${fx(D.sugg.spread.vt2, 2)} L/min)` : ''}. Check it by eye.` : (pr.max ? 'No VT2 break was found in the threshold stages. These stages can stop before VT2, so it may not have been reached. Use “Add a VT2 line” if you can place it by eye.' : 'No VT2 break was found before the final surge in ventilation. Use “Add a VT2 line” if you can place it by eye.'));
       $('#vtwarn').innerHTML = msgs.length ? `<div class="warnbox">${msgs.map(esc).join(' ')}</div>` : '';
       const iName = I.label.toLowerCase();
       const row = (q, v, a) => `<tr><td><b class="${q}c">${vtName(q)}</b>${F(S.picks.inc[q]) ? '' : ' <span class="hint">suggested</span>'}</td><td><input type="number" step="0.01" class="vtinput" data-vti="${q}" value="${F(v) ? v.toFixed(2) : ''}"></td><td>${fx(a.kg, 1)}</td><td>${fx(a.pct, 0)}</td><td>${iVal(a.iv)}</td><td>${iVal(a.st)}</td><td>${fx(a.hr, 0)}</td><td>${mmss(a.t)}</td></tr>`;
@@ -574,7 +575,7 @@
     const xs = use.map(q => q.m.vo2), lo = Math.min(...xs), hi = Math.max(...xs);
     if (fit) tr.push({ x: [lo, hi], y: [fit.m * lo + fit.b, fit.m * hi + fit.b], mode: 'lines', type: 'scatter', line: { color: css('--fg'), width: 2 }, hoverinfo: 'skip' });
     const LL = lay({ margin: { l: 58, r: 12, t: 22, b: 44 }, xaxis: ax('VO<sub>2</sub> (L/min)'), yaxis: ax(iLab()), annotations: fit ? [{ xref: 'paper', yref: 'paper', x: .98, y: .03, xanchor: 'right', yanchor: 'bottom', showarrow: false, align: 'right', text: `${iLab()} = ${fit.m.toFixed(2)} × VO<sub>2</sub> ${fit.b >= 0 ? '+' : '−'} ${Math.abs(fit.b).toFixed(2)}<br>R² = ${fit.r2.toFixed(3)}, ${fit.nStages} stages ${use.length > fit.nStages ? '(open points left out)' : ''}`, font: { size: 11, color: css('--muted') } }] : [] });
-    Plotly.newPlot(gd, tr, LL, Object.assign({}, CFG, { displayModeBar: false }));
+    Plotly.newPlot(gd, tr, LL, FIGCFG);
     attachVT(gd, ctx, { x: 'vo2', y: [] });
   }
 
@@ -613,7 +614,7 @@
       const x = r.time.map(t => (t - 40) / 60), tr = [['md', '--t3', 'Moderate'], ['hv', '--t2', 'Heavy'], ['sv', '--t1', 'Severe']].filter(q => r[q[0]]).map(([k, c, n]) => ({ x, y: r[k], mode: 'lines', type: 'scatter', line: { color: css(c), width: 2 }, name: n, hovertemplate: `%{x:.1f} min<br>${n} %{y:.2f}<extra></extra>` }));
       const shapes = [], ann = [];
       if (!r.problem) ['vt1', 'vt2'].forEach(q => { const o = r[q]; if (!o) return; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: o.time / 60, x1: o.time / 60, y0: 0, y1: 1, line: { color: vtColor(q), width: 2, dash: 'dash' } }); ann.push({ xref: 'x', yref: 'paper', x: o.time / 60, y: 1, yanchor: 'bottom', showarrow: false, text: `<b>${vtName(q)}</b>`, font: { size: 11, color: vtColor(q) } }); });
-      Plotly.newPlot(el, tr, lay({ margin: { l: 52, r: 12, t: 22, b: 44 }, xaxis: ax('Start of the 40-s window (min)'), yaxis: ax('Model output'), shapes, annotations: ann }), Object.assign({}, CFG, { displayModeBar: false }));
+      Plotly.newPlot(el, tr, lay({ margin: { l: 52, r: 12, t: 22, b: 44 }, xaxis: ax('Start of the 40-s window (min)'), yaxis: ax('Model output'), shapes, annotations: ann }), FIGCFG);
       if (note) note.textContent = r.problem ? r.problem + ' No suggestion from this model.' : `VT1 ${fx(r.vt1.vo2, 2)} L/min at ${mmss(r.vt1.time)}; VT2 ${fx(r.vt2.vo2, 2)} L/min at ${mmss(r.vt2.time)}.`;
     });
   }
@@ -666,7 +667,7 @@
     set.cmp.forEach(k => {
       const dp = k === 'rpe' ? 1 : k === 'econ' ? (S.I.mode === 'treadmill' ? 0 : 1) : VARS[k].dp;
       const tr = D.SM.map((v, i) => ({ x: v.map(q => q.p), y: v.map((q, j) => (k === 'rpe' ? rpeOf(i, j) : valOf(q, k))), mode: 'lines+markers', type: 'scatter', line: { color: tcol(i), width: 2 }, marker: { size: 8, color: tcol(i), symbol: ['circle', 'square', 'diamond', 'triangle-up', 'x', 'cross'][i % 6], line: { color: css('--panel'), width: 2 } }, name: name(i), hovertemplate: `${name(i)}<br>%{x} ${S.I.unit}: %{y:.${dp}f}<extra></extra>` }));
-      Plotly.newPlot('cm_' + k, tr, lay({ margin: { l: 58, r: 12, t: 12, b: 44 }, xaxis: ax(iLab(), { tickvals: allP.length <= 8 ? allP : undefined }), yaxis: ax('') }), Object.assign({}, CFG, { displayModeBar: false }));
+      Plotly.newPlot('cm_' + k, tr, lay({ margin: { l: 58, r: 12, t: 12, b: 44 }, xaxis: ax(iLab(), { tickvals: allP.length <= 8 ? allP : undefined }), yaxis: ax('') }), FIGCFG);
     });
   }
   const tcol = i => css('--t' + ((i % 6) + 1));
@@ -714,11 +715,11 @@
     set.vars.forEach(k => {
       const y = rows.map(r => r[k][0]), e = rows.map(r => r[k][1]);
       Plotly.newPlot('pv_' + k, [{ x, y, error_y: { type: 'data', array: e, color: css('--muted'), thickness: 1.2, width: 4 }, type: 'scatter', mode: 'lines+markers', line: { color: css('--ma'), width: 2 }, marker: { color: css('--ma'), size: 9 }, customdata: rows.map((r, i) => name(r, i)), hovertemplate: `%{customdata}, %{x:.1f} min<br>%{y:.${dpOf(k)}f} ${unit(k)}<extra></extra>` }],
-        lay({ margin: { l: 58, r: 12, t: 22, b: 44 }, xaxis: ax('Time in the session (min)'), yaxis: ax(''), shapes: bands.map(q => ({ type: 'rect', xref: 'x', yref: 'paper', x0: q.t0 / 60, x1: q.t1 / 60, y0: 0, y1: 1, fillcolor: css(q.kind === 'test' ? '--test' : '--maot'), line: { width: 0 }, layer: 'below' })), annotations: bands.map(q => ({ xref: 'x', yref: 'paper', x: (q.t0 + q.t1) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: q.label, font: { size: 10, color: css('--muted') } })) }), Object.assign({}, CFG, { displayModeBar: false }));
+        lay({ margin: { l: 58, r: 12, t: 22, b: 44 }, xaxis: ax('Time in the session (min)'), yaxis: ax(''), shapes: bands.map(q => ({ type: 'rect', xref: 'x', yref: 'paper', x0: q.t0 / 60, x1: q.t1 / 60, y0: 0, y1: 1, fillcolor: css(q.kind === 'test' ? '--test' : '--maot'), line: { width: 0 }, layer: 'below' })), annotations: bands.map(q => ({ xref: 'x', yref: 'paper', x: (q.t0 + q.t1) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: q.label, font: { size: 10, color: css('--muted') } })) }), FIGCFG);
     });
     const multi = tot.blocks.length > 1, cols = ['vo2', 'vo2kg', 'hr', 've', 'rer', 'cho', 'fat'].filter(k => keys.includes(k)), short = { cho: 'Carbohydrate', fat: 'Fat' };
     $('#pT').innerHTML = `<tr><th>Recording</th>${multi ? '<th>Block</th>' : ''}<th>Averaged (min of session)</th><th>Minutes into block</th>${cols.map(k => `<th>${short[k] || VARS[k].h}${VARS[k].u ? ` (${VARS[k].u})` : ''}</th>`).join('')}<th>${ec} (${ecU})</th><th>RPE</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td>${multi ? `<td>${r.block || '–'}</td>` : ''}<td>${fx(r.p.avgWin[0] / 60, 1)}–${fx(r.p.avgWin[1] / 60, 1)}</td><td>${fx(r.into, 0)}</td>${cols.map(k => `<td>${pm(r[k], dpOf(k))}</td>`).join('')}<td>${pm(r.econ, isT ? 0 : 1)}</td><td>${F(r.rpe) ? r.rpe : '–'}</td></tr>`).join('');
-    Plotly.newPlot('peS', [['cho', 'Carbohydrate', '--t2'], ['fat', 'Fat', '--t1']].map(([k, n, c]) => ({ x, y: rows.map(r => r.energy[k]), type: 'scatter', mode: 'lines+markers', name: n, line: { color: css(c), width: 2 }, marker: { color: css(c), size: 9, symbol: k === 'cho' ? 'circle' : 'square' }, hovertemplate: n + ', %{x:.1f} min<br>%{y:.1f} kJ/min<extra></extra>' })), lay({ margin: { l: 52, r: 12, t: 12, b: 44 }, xaxis: ax('Time in the session (min)'), yaxis: ax('Energy (kJ/min)', { rangemode: 'tozero' }) }), Object.assign({}, CFG, { displayModeBar: false }));
+    Plotly.newPlot('peS', [['cho', 'Carbohydrate', '--t2'], ['fat', 'Fat', '--t1']].map(([k, n, c]) => ({ x, y: rows.map(r => r.energy[k]), type: 'scatter', mode: 'lines+markers', name: n, line: { color: css(c), width: 2 }, marker: { color: css(c), size: 9, symbol: k === 'cho' ? 'circle' : 'square' }, hovertemplate: n + ', %{x:.1f} min<br>%{y:.1f} kJ/min<extra></extra>' })), lay({ margin: { l: 52, r: 12, t: 12, b: 44 }, xaxis: ax('Time in the session (min)'), yaxis: ax('Energy (kJ/min)', { rangemode: 'tozero' }) }), FIGCFG);
     $('#peT').innerHTML = `<tr><th>Recording</th><th>Carbohydrate (kJ/min)</th><th>Fat (kJ/min)</th><th>% from carbohydrate</th><th>Expenditure (kJ/min)</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td><td>${fx(r.energy.cho, 1)}</td><td>${fx(r.energy.fat, 1)}</td><td>${fx(r.energy.pctCho, 0)}</td><td>${fx(r.energy.total, 1)}</td></tr>`).join('');
   }
 
