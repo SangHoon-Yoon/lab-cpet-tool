@@ -515,7 +515,7 @@
     $$('[data-sw]').forEach(b => (b.onclick = () => { set.stageWin = +b.dataset.sw; recompute(); }));
     $$('[data-x]').forEach(b => (b.onclick = () => { set.x = b.dataset.x; vIncremental(); }));
     $('#rst').onclick = () => { S.picks.inc = {}; S.picks.incSrc = {}; moveLines(ctx); incResults(); summaries(); };
-    $('#addV2').onclick = () => { S.picks.inc.vt2 = Math.round(((F(incVT('vt1')) ? incVT('vt1') : M.lo) + D.peak.vo2.value) / 2 * 1000) / 1000; moveLines(ctx); incResults(); };
+    $('#addV2').onclick = () => { S.picks.inc.vt2 = Math.round(((F(incVT('vt1')) ? incVT('vt1') : M.lo) + (pr.max ? M.hi : D.peak.vo2.value)) / 2 * 1000) / 1000; moveLines(ctx); incResults(); };
     const specs = [
       ['vs', { x: 'vo2', y: ['vco2'], yTitle: 'VCO<sub>2</sub> (L/min)' }],
       ['eo', { x: xk, y: ['eqo2'], yTitle: 'VE/VO<sub>2</sub>' }],
