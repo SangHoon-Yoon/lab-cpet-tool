@@ -140,3 +140,4 @@ main{grid-template-columns:minmax(0,1fr)}
 #ipop{position:fixed;z-index:50;max-width:min(480px,calc(100vw - 16px));background:var(--panel,var(--bg));color:var(--fg,inherit);border:1px solid var(--grid);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:10px 14px;font-size:.85rem;line-height:1.5}
 #ipop[hidden]{display:none}
 #ipop p{margin:0}#ipop ul{margin:0;padding-left:18px;color:inherit;font-size:inherit}#ipop li+li{margin-top:6px}
+details.fold{margin-top:12px}details.fold .foldbody{padding:8px 0 4px}details.fold .methods{margin:0}

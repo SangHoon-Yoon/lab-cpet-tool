@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.12.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.12.1', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -347,6 +347,10 @@
     window.addEventListener('scroll', close, true); window.addEventListener('resize', close);
     new MutationObserver(() => { if (document.querySelector('[data-info]')) infoize(); if (owner && !document.body.contains(owner)) close(); }).observe(document.body, { childList: true, subtree: true });
   }
+  // A section that opens and closes when its title is clicked (an HTML <details> element). Which ones are open is remembered while the page is open.
+  const openFolds = new Set();
+  const fold = (id, title, sub, body) => `<details class="box fold" data-fold="${id}" ${openFolds.has(id) ? 'open' : ''}><summary>${title}<span>${sub}</span></summary><div class="foldbody">${body}</div></details>`;
+  document.addEventListener('toggle', e => { const d = e.target; if (d.dataset && d.dataset.fold) (d.open ? openFolds.add(d.dataset.fold) : openFolds.delete(d.dataset.fold)); }, true);
   function render() {
     $$('#views .js-plotly-plot').forEach(el => Plotly.purge(el));
     ({ protocol: vProtocol, incremental: vIncremental, steps: vSteps, prolonged: vProlonged, summary: vSummary })[S.view]();
@@ -887,9 +891,9 @@
     $('#views').innerHTML = `
       ${S.proto.type === 'incremental' && S.D.inc && S.D.inc.peak.vo2 ? `<div class="stats"><div class="stat key"><b>${fx(S.D.inc.peak.vo2.value, 2)} L/min</b><span>${S.proto.max ? 'VO₂max' : 'VO₂peak'}</span><small>${S.D.inc.peak.vo2kg ? fx(S.D.inc.peak.vo2kg.value, 1) + ' mL/kg/min' : ''}</small></div></div>` : ''}
       <h2 class="row">Thresholds</h2><div class="panel"><div class="tblwrap"><table><tr>${names.map(n => `<th>${n}</th>`).join('')}</tr>${R.thr.map(r => `<tr>${cols.map(c => `<td>${esc(r[c] === '' ? '–' : r[c])}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length}">None yet.</td></tr>`}</table></div></div>
-      <h2 class="row">Data checks</h2><div class="panel" style="padding:12px"><ul class="checks" id="chk2"></ul></div>
-      <h2 class="row">Methods paragraph</h2><div class="methods" id="meth"></div><div class="tools"><button id="cpM">Copy</button><span class="hint" id="cpS"></span></div>
-      <h2 class="row">About and credits</h2>${creditsHTML()}
+      ${fold('chk', 'Data checks', (() => { const w = (S.checks || []).filter(c => c.level === 'warn').length; return w ? `${w} to look at` : 'nothing to look at'; })(), '<ul class="checks" id="chk2"></ul>')}
+      ${fold('meth', 'Methods paragraph', 'to copy into a paper', '<div class="methods" id="meth"></div><div class="tools"><button id="cpM">Copy</button><span class="hint" id="cpS"></span></div>')}
+      ${fold('cred', 'About and credits', 'version ' + VERSION + ', citations', creditsHTML())}
       <ul class="notes"><li>Exports carry the tool version (${VERSION}) and every setting, so a result can be reproduced. “Save analysis” keeps your data, settings and threshold lines in one file to reopen later.</li></ul>`;
     const ic = { ok: '✓', warn: '!', info: 'i' };
     $('#chk2').innerHTML = S.checks.map(c => `<li class="${c.level}"><span class="ic" aria-hidden="true">${ic[c.level]}</span><span>${esc(c.text)}</span></li>`).join('');
