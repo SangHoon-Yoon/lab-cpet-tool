@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.12.1', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.12.2', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -65,9 +65,11 @@
       listFiles();
     }
   }
+  // Remove a wrongly added file before continuing.
+  $('#flist').addEventListener('click', ev => { const b = ev.target.closest('[data-rm]'); if (!b) return; ev.preventDefault(); ev.stopPropagation(); S.pending.splice(+b.dataset.rm, 1); listFiles(); });
   function listFiles() {
     const K = { cosmed: 'COSMED', lode: 'Lode', hr: 'Heart rate', '?': '…' };
-    $('#flist').innerHTML = S.pending.map(it => `<li><span class="pill ${it.status === 'ok' ? 'ok' : it.status === 'bad' ? 'bad' : 'warn'}">${K[it.kind] || it.kind}</span><b>${esc(it.name)}</b><span class="hint">${esc(it.status === 'bad' ? it.err : it.desc || '')}</span></li>`).join('');
+    $('#flist').innerHTML = S.pending.map((it, i) => `<li><span class="pill ${it.status === 'ok' ? 'ok' : it.status === 'bad' ? 'bad' : 'warn'}">${K[it.kind] || it.kind}</span><b>${esc(it.name)}</b><span class="hint">${esc(it.status === 'bad' ? it.err : it.desc || '')}</span><button type="button" class="rm" data-rm="${i}" title="Remove this file" aria-label="Remove ${esc(it.name)}">×</button></li>`).join('');
     const ok = S.pending.filter(i => i.status === 'ok'), cos = ok.filter(i => i.kind === 'cosmed');
     let msg = '', blocked = false;
     if (S.pending.length && !cos.length) msg = 'Add the COSMED export.';
@@ -98,7 +100,7 @@
     if (S.hr && !S.set.hrOffset) { const ce = P.cosmedStartEpoch(m); if (S.hr.start && ce) S.set.hrOffset = Math.round(S.hr.start - ce); }
     rebuild();
     S.align = L.alignment(S.gas, S.I);
-    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = true;
+    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = !S.I;
     ['#bSave', '#bExport', '#bCsv'].forEach(b => ($(b).disabled = false));
     buildDetails(); buildProc(); buildTabs(); recompute();
   }

@@ -141,3 +141,4 @@ main{grid-template-columns:minmax(0,1fr)}
 #ipop[hidden]{display:none}
 #ipop p{margin:0}#ipop ul{margin:0;padding-left:18px;color:inherit;font-size:inherit}#ipop li+li{margin-top:6px}
 details.fold{margin-top:12px}details.fold .foldbody{padding:8px 0 4px}details.fold .methods{margin:0}
+.filelist .rm{margin-left:auto;align-self:center;border:none;background:transparent;color:var(--muted);font-size:1.1rem;line-height:1;padding:0 4px;cursor:pointer;border-radius:4px}.filelist .rm:hover{color:var(--accent);background:var(--accent-soft)}
