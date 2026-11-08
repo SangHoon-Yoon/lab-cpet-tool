@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.11.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.12.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -325,6 +325,28 @@
     $('#tabs').innerHTML = T.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.view}">${l}</button>`).join('');
     $$('[data-tab]').forEach(b => (b.onclick = () => { S.view = b.dataset.tab; $$('[data-tab]').forEach(x => x.setAttribute('aria-selected', x === b)); render(); }));
   }
+  // Instructions and notes live in pop-ups behind an (i) button, so each tab stays uncluttered.
+  // Mark any element with data-info="<id of the element that gets the button>"; it is moved into a pop-up after each render.
+  function infoize() {
+    document.querySelectorAll('[data-info]').forEach(el => {
+      const tgt = document.getElementById(el.dataset.info); el.removeAttribute('data-info'); if (!tgt) return;
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'ib'; b.textContent = 'i'; b.title = 'More information'; b.setAttribute('aria-label', 'More information'); b.setAttribute('aria-expanded', 'false');
+      el.classList.remove('hint'); el.removeAttribute('style'); b._pop = el.tagName === 'UL' ? el.outerHTML : `<p>${el.innerHTML}</p>`; tgt.appendChild(b); el.remove();
+    });
+  }
+  function setupInfo() {
+    const pop = document.createElement('div'); pop.id = 'ipop'; pop.setAttribute('role', 'dialog'); pop.hidden = true; document.body.appendChild(pop); let owner = null;
+    const close = () => { pop.hidden = true; if (owner) owner.setAttribute('aria-expanded', 'false'); owner = null; };
+    document.addEventListener('click', e => {
+      const b = e.target.closest('.ib');
+      if (b) { e.preventDefault(); if (owner === b) return close(); close(); owner = b; b.setAttribute('aria-expanded', 'true'); pop.innerHTML = b._pop; pop.hidden = false;
+        const r = b.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight; pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left - 12)) + 'px'; pop.style.top = (r.bottom + 6 + h > window.innerHeight && r.top - h - 6 > 0 ? r.top - h - 6 : r.bottom + 6) + 'px'; return; }
+      if (!pop.contains(e.target)) close();
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    window.addEventListener('scroll', close, true); window.addEventListener('resize', close);
+    new MutationObserver(() => { if (document.querySelector('[data-info]')) infoize(); if (owner && !document.body.contains(owner)) close(); }).observe(document.body, { childList: true, subtree: true });
+  }
   function render() {
     $$('#views .js-plotly-plot').forEach(el => Plotly.purge(el));
     ({ protocol: vProtocol, incremental: vIncremental, steps: vSteps, prolonged: vProlonged, summary: vSummary })[S.view]();
@@ -353,11 +375,11 @@
     $('#views').innerHTML = `
       <div class="tools"><span>Show (up to 6):</span>${chips(av, vars, 'data-sv')}</div>
       <div class="tools"><span>Averaging:</span><select id="vAvg">${[['raw', S.gas.kind === 'bxb' ? 'Breath by breath' : 'As in file'], ['bin:15', '15-s bins'], ['bin:30', '30-s bins'], ['bin:60', '60-s bins'], ['roll:30', '30-s rolling'], ['custom', 'Custom (under Data processing)']].map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')}</select>
-        <span class="sep"></span><span>Go to:</span>${jumps.map(j => `<button data-j="${j[0]}">${j[1]}</button>`).join('')}</div>
+        <span class="sep"></span><span>Go to:</span>${jumps.map(j => `<button data-j="${j[0]}">${j[1]}</button>`).join('')}<span id="pvInfo"></span></div>
       <div class="panel"><div class="readout big" id="cur">Move over the chart to read every variable at one moment.</div>
         <div class="chartwrap" id="cwrap"><div class="chart" id="pv" style="height:${H}px"></div><div class="cursor" id="cline"></div><div class="zshade" id="zshade"></div></div>
         <div class="readout" id="ro"></div></div>
-      <ul class="notes"><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
+      <ul class="notes" data-info="pvInfo"><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
       ${I ? `<li>Shaded: test stages (blue)${pr.maot ? ', all-out test (red)' : ''}. The ${I.label.toLowerCase()} panel gives each stage’s ${I.label.toLowerCase()}, with RPE and any other COSMED markers above it.</li>` : ''}</ul>`;
     multiToggle('data-sv', vars, 6, () => vProtocol());
     const curAvg = set.avg.mode === 'raw' ? 'raw' : set.avg.mode + ':' + avgParOf(set);
@@ -412,9 +434,9 @@
       const fl = gd._fullLayout, xa = fl.xaxis, box = gd.getBoundingClientRect(), x0 = ev.clientX - box.left, y0 = ev.clientY - box.top, top = fl.margin.t, h = fl.height - fl.margin.t - fl.margin.b;
       if (x0 < xa._offset || x0 > xa._offset + xa._length || y0 < top || y0 > top + h) return;
       const clamp = x => Math.max(xa._offset, Math.min(xa._offset + xa._length, x));
-      const mm = e => { const x = clamp(e.clientX - box.left); shade.style.display = 'block'; shade.style.left = Math.min(x, x0) + 'px'; shade.style.width = Math.abs(x - x0) + 'px'; shade.style.top = top + 'px'; shade.style.height = h + 'px'; };
-      const mu = () => { shade.style.display = 'none'; window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); };
-      window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true);
+      const mm = e => { if (!e.buttons) return mu(); const x = clamp(e.clientX - box.left); shade.style.display = 'block'; shade.style.left = Math.min(x, x0) + 'px'; shade.style.width = Math.abs(x - x0) + 'px'; shade.style.top = top + 'px'; shade.style.height = h + 'px'; };
+      const mu = () => { shade.style.display = 'none'; window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu); };
+      window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
     }, true);
     // Cursor: a line across all panels and one reading of every variable.
     const line = $('#cline'), wrap = $('#cwrap'), cur = $('#cur');
@@ -463,9 +485,9 @@
     gd.addEventListener('mousedown', ev => {
       const q = near(ev); if (!q) return; ev.stopPropagation(); ev.preventDefault();
       const r = gd.getBoundingClientRect(); let raf = 0;
-      const mm = e => { const xa = gd._fullLayout.xaxis; let x = xa.p2l(e.clientX - r.left - xa._offset); x = Math.max(xa.range[0], Math.min(xa.range[1], x)); ctx.set(q, ctx.fromX(x, spec.x)); if (!raf) raf = requestAnimationFrame(() => { raf = 0; moveLines(ctx); ctx.live(); }); };
-      const mu = () => { window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); moveLines(ctx); ctx.done(); };
-      window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true);
+      const mm = e => { if (!e.buttons) return mu(); const xa = gd._fullLayout.xaxis; let x = xa.p2l(e.clientX - r.left - xa._offset); x = Math.max(xa.range[0], Math.min(xa.range[1], x)); ctx.set(q, ctx.fromX(x, spec.x)); if (!raf) raf = requestAnimationFrame(() => { raf = 0; moveLines(ctx); ctx.live(); }); };
+      const mu = () => { window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu); moveLines(ctx); ctx.done(); };
+      window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
     }, true);
   }
   function drawOverlay(ctx, c) {
@@ -503,24 +525,24 @@
       <div id="vtwarn"></div>
       <div class="panel" style="padding:10px"><div class="tools">
         <span>${pr.max ? 'Threshold window' : 'Analysis window'} (min):</span><input type="number" step="0.25" id="cA" value="${(D.t0 / 60).toFixed(2)}"><span>to</span><input type="number" step="0.25" id="cB" value="${(D.t1 / 60).toFixed(2)}"><button id="cR">Reset</button>${pr.inc.none ? '' : `<label class="chk">Leave out the first <input type="number" min="0" step="5" id="cS" value="${set.skip || 0}" style="width:4.5em"> s of the first stage</label>`}
-        <span class="sep"></span><span>${pr.max ? 'VO₂max' : 'VO₂peak'} over:</span>${pkW.map(([v, l]) => `<button data-pk="${v}" aria-pressed="${set.peakWin === v}">${l}</button>`).join('')}
+        <span id="winInfo"></span><span class="sep"></span><span>${pr.max ? 'VO₂max' : 'VO₂peak'} over:</span>${pkW.map(([v, l]) => `<button data-pk="${v}" aria-pressed="${set.peakWin === v}">${l}</button>`).join('')}
         <span class="sep"></span><span>Stage means and the VO₂–${I.label.toLowerCase()} regression use the last:</span>${stW.map(([v, l]) => `<button data-sw="${v}" aria-pressed="${set.stageWin === v}">${l}</button>`).join('')}
       </div>
-      <p class="hint" style="margin-top:6px">${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : pr.max ? 'Thresholds and the regression use the threshold stages, and by default the window covers all of them. VO₂max and the peak values come from the VO₂max stages.' : 'By default the window covers all the incremental stages.'}${pr.inc.none ? '' : ' If the gas data look off when the first stage starts, leave out those seconds: this affects the threshold charts, the suggestions and any Oxynet run on this window, but not the stage means, regression or peak values.'}</p></div>
-      <div class="tools"><span>Plot thresholds against:</span><button data-x="vo2" aria-pressed="${xk === 'vo2'}">VO<sub>2</sub></button><button data-x="t" aria-pressed="${xk === 't'}">Time</button><button id="addV2" hidden>Add a VT2 line</button>
-        <span class="hint">Drag a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b> line sideways on any chart (the cursor changes over it); it moves on all of them.</span></div>
+      <p class="hint" data-info="winInfo">${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : pr.max ? 'Thresholds and the regression use the threshold stages, and by default the window covers all of them. VO₂max and the peak values come from the VO₂max stages.' : 'By default the window covers all the incremental stages.'}${pr.inc.none ? '' : ' If the gas data look off when the first stage starts, leave out those seconds: this affects the threshold charts, the suggestions and any Oxynet run on this window, but not the stage means, regression or peak values.'}</p></div>
+      <div class="tools"><span>Plot thresholds against:</span><button data-x="vo2" aria-pressed="${xk === 'vo2'}">VO<sub>2</sub></button><button data-x="t" aria-pressed="${xk === 't'}">Time</button><button id="addV2" hidden>Add a VT2 line</button><span id="plotInfo"></span>
+        <span class="hint" data-info="plotInfo">Drag a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b> line sideways on any chart (the cursor changes over it); it moves on all of them.</span></div>
       <div class="grid3">
         ${[['vs', 'V-slope', 'VCO<sub>2</sub> against VO<sub>2</sub>'], ['eo', 'VE/VO<sub>2</sub>', 'ventilatory equivalent for O<sub>2</sub>'], ['ec', 'VE/VCO<sub>2</sub>', 'ventilatory equivalent for CO<sub>2</sub>'], ['po', 'End-tidal O<sub>2</sub>', 'P<sub>ET</sub>O<sub>2</sub>'], ['pc', 'End-tidal CO<sub>2</sub>', 'P<sub>ET</sub>CO<sub>2</sub>'], ['vv', 'Ventilation against VCO<sub>2</sub>', 'VE against VCO<sub>2</sub>'], ['ve', 'Ventilation', 'VE'], ['rr', 'RER', ''], ['hh', 'Heart rate', ''], ['iv', iLab(), 'stage-end values against VO<sub>2</sub>']].map(([id, t, s]) => `<div class="panel"><h3>${t}<span>${s}</span></h3><div class="chart mid" id="vc_${id}"></div></div>`).join('')}
       </div>
-      <h2 class="row">Thresholds</h2><div class="panel"><div class="tblwrap"><table id="vtT"></table></div><div class="tools" style="padding:0 8px 8px"><button id="rst">Reset both to suggestions</button></div></div>
-      <h2 class="row">Oxynet suggestions<span>from the open-source pyoxynet models, run on this computer</span></h2>
+      <h2 class="row" id="thrH">Thresholds</h2><div class="panel"><div class="tblwrap"><table id="vtT"></table></div><div class="tools" style="padding:0 8px 8px"><button id="rst">Reset both to suggestions</button></div></div>
+      <h2 class="row" id="oxH">Oxynet suggestions<span>from the open-source pyoxynet models, run on this computer</span></h2>
       <div class="tools"><span>Give Oxynet:</span>${pr.max ? `<button data-ow="max" aria-pressed="${oxyChoice() === 'max'}">VO₂max stages</button>` : ''}<button data-ow="analysis" aria-pressed="${oxyChoice() === 'analysis'}">${pr.max ? 'Threshold window' : 'Analysis window'}</button><button data-ow="whole" aria-pressed="${oxyChoice() === 'whole'}">All exercise data</button><span class="hint" id="oxS"></span></div>
       <div class="grid3">${[['cnn', 'CNN model'], ['lstm', 'LSTM model']].map(([m, t]) => `<div class="panel"><h3>${t}<span>domain outputs over time</span></h3><div style="padding:2px 8px">${[['--t3', 'Moderate'], ['--t2', 'Heavy'], ['--t1', 'Severe']].map(([c, n]) => `<span class="lg"><i style="background:${css(c)}"></i>${n}</span>`).join('')}</div><div class="chart mid" id="ox_${m}"></div><p class="hint" id="oxm_${m}" style="padding:0 10px 6px"></p></div>`).join('')}</div>
-      <ul class="notes"><li>Oxynet reads 40-s windows and places each threshold at the start of the window in which its outputs cross, so each output is drawn at the start of its window and the dashed lines pass through the crossings. VT1 is the first crossing of moderate and heavy, and VT2 is the last crossing of heavy and severe. The outputs are smoothed network outputs, not calibrated probabilities. The LSTM outputs sum to 1, so they usually cross near 0.5; the CNN outputs do not, so they can cross higher. These are suggestions for the researcher, who places the final lines.</li><li>The result can shift noticeably with the data given, because Oxynet scales each signal over that data. Try each option${pr.max ? '' : ', and move the analysis window if a warm-up is included'}.</li><li>Oxynet: Zignoli et al. (2022), <i>Eur J Sport Sci</i>, <a href="https://doi.org/10.1080/17461391.2020.1866081">doi:10.1080/17461391.2020.1866081</a>; Keir et al. (2026), <i>Sports Med</i>, <a href="https://doi.org/10.1007/s40279-026-02403-w">doi:10.1007/s40279-026-02403-w</a>. Full credits are in the Summary tab.</li></ul>
+      <ul class="notes" data-info="oxH"><li>Oxynet reads 40-s windows and places each threshold at the start of the window in which its outputs cross, so each output is drawn at the start of its window and the dashed lines pass through the crossings. VT1 is the first crossing of moderate and heavy, and VT2 is the last crossing of heavy and severe. The outputs are smoothed network outputs, not calibrated probabilities. The LSTM outputs sum to 1, so they usually cross near 0.5; the CNN outputs do not, so they can cross higher. These are suggestions for the researcher, who places the final lines.</li><li>The result can shift noticeably with the data given, because Oxynet scales each signal over that data. Try each option${pr.max ? '' : ', and move the analysis window if a warm-up is included'}.</li><li>Oxynet: Zignoli et al. (2022), <i>Eur J Sport Sci</i>, <a href="https://doi.org/10.1080/17461391.2020.1866081">doi:10.1080/17461391.2020.1866081</a>; Keir et al. (2026), <i>Sports Med</i>, <a href="https://doi.org/10.1007/s40279-026-02403-w">doi:10.1007/s40279-026-02403-w</a>. Full credits are in the Summary tab.</li></ul>
       <div class="row2"><div class="panel" style="flex:1 1 380px"><h3>How each method placed them<span>VO₂ in L/min; “Use” moves the line there</span></h3><div class="tblwrap"><table id="mT"></table></div></div>
       <div class="panel" style="flex:1 1 380px"><h3>Was it maximal?</h3><div class="tblwrap"><table id="eT"></table></div></div></div>
       <h2 class="row">Stages<span>mean of the last ${set.stageWin} s of each stage</span></h2><div class="panel"><div class="tblwrap"><table id="sT"></table></div></div>
-      <ul class="notes">${pr.max ? '<li>Oxynet starts with the VO₂max stages here, because they are closest to the tests it was designed for: rising to exhaustion in one go. That also means its thresholds come from different stages than the lines above, with VO₂ lagging more in 1-min stages, so treat them as a loose guide.</li>' : ''}<li>${I.label} at a threshold comes from a regression of stage-end ${I.label === 'Speed' ? 'VO₂ on speed' : 'VO₂ on power'}, using stages of at least 2 min. “Stage” is the stage running when the line’s VO₂ was reached.</li><li>The solid lines start at the classical suggestion, and Oxynet never moves them unless you click Use. VT1 is the median of three two-line breakpoints (V-slope, VE/VO₂, PETO₂) up to 80% of the VO₂ range. VT2 is the median of three (VE against VCO₂, VE/VCO₂, PETCO₂) from 2 min after VT1 to ${pr.max ? 'the end of the threshold stages' : '90 s before the end'}. All use the 15-s data in the analysis window, as a starting point for the researcher’s own judgement.</li></ul>`;
+      <ul class="notes" data-info="thrH">${pr.max ? '<li>Oxynet starts with the VO₂max stages here, because they are closest to the tests it was designed for: rising to exhaustion in one go. That also means its thresholds come from different stages than the lines above, with VO₂ lagging more in 1-min stages, so treat them as a loose guide.</li>' : ''}<li>${I.label} at a threshold comes from a regression of stage-end ${I.label === 'Speed' ? 'VO₂ on speed' : 'VO₂ on power'}, using stages of at least 2 min. “Stage” is the stage running when the line’s VO₂ was reached.</li><li>The solid lines start at the classical suggestion, and Oxynet never moves them unless you click Use. VT1 is the median of three two-line breakpoints (V-slope, VE/VO₂, PETO₂) up to 80% of the VO₂ range. VT2 is the median of three (VE against VCO₂, VE/VCO₂, PETCO₂) from 2 min after VT1 to ${pr.max ? 'the end of the threshold stages' : '90 s before the end'}. All use the 15-s data in the analysis window, as a starting point for the researcher’s own judgement.</li></ul>`;
     const on = (id, fn) => { const el = $(id); if (el) el.onchange = e => later(() => fn(e)); };
     on('#cS', e => { const first = pr.inc.stages.find(q => !q.warm), lim = first ? Math.max(0, first.dur - 30) : 0, v = parseFloat(e.target.value); set.skip = F(v) ? Math.max(0, Math.min(lim, v)) : 0; set.t0 = null; recompute(); });
     on('#cA', e => { set.t0 = parseFloat(e.target.value) * 60; recompute(); }); on('#cB', e => { set.t1 = parseFloat(e.target.value) * 60; recompute(); });
@@ -647,21 +669,21 @@
     if (set.sel) { set.sels = set.sels || {}; pr.tests.forEach(T => { const k = testKey(T); if (!(k in set.sels)) set.sels[k] = set.sel.slice(); }); set.sel = null; }
     const selVars = ['vo2', 'hr', 've', 'eqo2', 'eqco2', 'rer', 'petco2'].filter(k => k === 'vo2' || av.includes(k)); if (!selVars.includes(set.selVar)) set.selVar = 'vo2';
     $('#views').innerHTML = `
-      <h2 class="row">Choose the data<span>a separate time range for each test</span></h2>
-      <div class="tools"><span>Show:</span><select id="selVar">${selVars.map(k => `<option value="${k}" ${k === set.selVar ? 'selected' : ''}>${VARS[k].l}</option>`).join('')}</select><span class="hint">Drag across a test’s chart to highlight the time to use from that test, or type the times. Only data in each test’s highlighted time are used for its threshold charts, suggested lines, stage means and VO₂–${S.I.label.toLowerCase()} regression. “Chart points use the last” still applies within it.</span></div>
+      <h2 class="row" id="selH">Choose the data<span>a separate time range for each test</span></h2>
+      <div class="tools"><span>Show:</span><select id="selVar">${selVars.map(k => `<option value="${k}" ${k === set.selVar ? 'selected' : ''}>${VARS[k].l}</option>`).join('')}</select><span class="hint" data-info="selH">Drag across a test’s chart to highlight the time to use from that test, or type the times. Drag either side of a highlight to make it longer or shorter, or click elsewhere on the chart to clear it and start again. Only data in each test’s highlighted time are used for its threshold charts, suggested lines, stage means and VO₂–${S.I.label.toLowerCase()} regression. “Chart points use the last” still applies within it.</span></div>
       <div class="grid3">${pr.tests.map((T, i) => { const r = testSel(T); return `<div class="panel"><h3><span class="dot" style="background:${tcol(i)}"></span>${name(i)}<span>${r ? `using ${fx(r[0] / 60, 2)}–${fx(r[1] / 60, 2)} min` : 'using all'}</span></h3>
         <div class="tools" style="padding:0 10px"><span>Use from</span><input type="number" step="0.25" min="0" id="selA${i}" value="${r ? (r[0] / 60).toFixed(2) : ''}" placeholder="start" style="width:5.5em"><span>to</span><input type="number" step="0.25" min="0" id="selB${i}" value="${r ? (r[1] / 60).toFixed(2) : ''}" placeholder="end" style="width:5.5em"><span>min</span><button id="selAll${i}" ${r ? '' : 'disabled'}>Use all</button></div>
         <div class="chartwrap" id="selWrap${i}"><div class="chart" id="selC${i}" style="height:230px"></div><div class="zshade" id="selShade${i}"></div></div></div>`; }).join('')}</div>
-      <h2 class="row">${set.vt2 ? 'VT1 and VT2' : 'VT1'} in each test</h2><div class="panel"><div class="tblwrap"><table id="vt1T"></table></div><div class="tools" style="padding:0 8px 8px"><button id="rstT">Reset to suggestions</button><button id="tgV2">${set.vt2 ? 'Remove VT2 lines' : 'Add VT2 lines'}</button></div></div>
+      <h2 class="row" id="vt1H">${set.vt2 ? 'VT1 and VT2' : 'VT1'} in each test</h2><div class="panel"><div class="tblwrap"><table id="vt1T"></table></div><div class="tools" style="padding:0 8px 8px"><button id="rstT">Reset to suggestions</button><button id="tgV2">${set.vt2 ? 'Remove VT2 lines' : 'Add VT2 lines'}</button></div></div>
       <div class="tools"><span>Plot against VO₂ (up to 4):</span>${chips(av, set.meas, 'data-sm')}</div>
-      <div class="tools"><span>Chart points use the last:</span>${wins.map(w => `<button data-sw="${w}" aria-pressed="${curWin === w}">${w === dur ? mmss(w) + ' (whole stage)' : mmss(w)}</button>`).join('')}<span class="hint">Drag ${set.vt2 ? 'a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b>' : 'the <b class="vt1c">VT1</b>'} line sideways; it moves on every chart for that test.</span></div>
+      <div class="tools"><span>Chart points use the last:</span>${wins.map(w => `<button data-sw="${w}" aria-pressed="${curWin === w}">${w === dur ? mmss(w) + ' (whole stage)' : mmss(w)}</button>`).join('')}<span id="swInfo"></span><span class="hint" data-info="swInfo">Drag ${set.vt2 ? 'a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b>' : 'the <b class="vt1c">VT1</b>'} line sideways; it moves on every chart for that test.</span></div>
       ${set.meas.map(k => `<h2 class="row">${VARS[k].h} against VO<sub>2</sub><span>${avgLabel()}</span></h2><div class="grid3">${pr.tests.map((T, i) => `<div class="panel"><h3><span class="dot" style="background:${tcol(i)}"></span>${name(i)}<span>${mmss(T.t0)}–${mmss(T.t1)}${T.complete ? '' : ' · partial'}</span></h3><div class="chart mid" id="st_${k}_${i}"></div></div>`).join('')}</div>`).join('')}
       <h2 class="row">Compare the tests, stage by stage<span>mean of the last ${set.regWin} s of each stage${sel ? ', within the highlighted time' : ''}</span></h2>
       <div class="tools"><span>Show (up to 4):</span>${cmpVars.map(k => `<button data-cm="${k}" aria-pressed="${set.cmp.includes(k)}">${VARS[k] ? VARS[k].h : k}</button>`).join('')}<button data-cm="econ" aria-pressed="${set.cmp.includes('econ')}">${ec}</button><button data-cm="rpe" aria-pressed="${set.cmp.includes('rpe')}">RPE</button>
         <span class="sep"></span><span>Stage means and VO₂–${S.I.label.toLowerCase()} regressions use the last:</span>${[[30, '30 s'], [60, '60 s'], [120, '2 min']].map(([v, l]) => `<button data-rw="${v}" aria-pressed="${set.regWin === v}">${l}</button>`).join('')}</div>
       <div style="padding:2px 2px">${pr.tests.map((T, i) => `<span class="lg"><i style="background:${tcol(i)}"></i>${name(i)}</span>`).join('')}</div>
       <div class="grid3">${set.cmp.map(k => `<div class="panel"><h3>${k === 'econ' ? ec : k === 'rpe' ? 'RPE' : VARS[k].h}<span>${k === 'econ' ? (S.I.mode === 'treadmill' ? 'mL/kg/km' : '%') : k === 'rpe' ? 'COSMED markers' : VARS[k].u}</span></h3><div class="chart mid" id="cm_${k}"></div></div>`).join('')}</div>
-      <ul class="notes"><li>${S.I.label} at a threshold comes from each test’s regression of stage-end VO₂ on ${S.I.label.toLowerCase()}, over the full stages${anySel() ? ' with data in each test’s highlighted time' : ''}.</li><li>The VT1 line starts at the mean of the two-line breakpoints from V-slope and VE/VO₂ against VO₂, using the last 2 min of each stage inside the highlighted time, because VO₂ is still rising early in a stage, especially the first. If neither shows a break, it starts at the 45th percentile of VO₂.${set.vt2 ? ' The VT2 line starts at the breakpoint where VE/VCO₂ begins to rise above VT1; if there is none, at the 90th percentile of VO₂. A 5-step test centred on VT1 often stops before VT2, so a VT2 line there may have nothing to mark.' : ''} These are starting points for the researcher’s own judgement.</li>${S.I.mode === 'treadmill' ? '<li>Economy is only meaningful in a steady state, so read stages above VT1 with care.</li>' : ''}</ul>`;
+      <ul class="notes" data-info="vt1H"><li>${S.I.label} at a threshold comes from each test’s regression of stage-end VO₂ on ${S.I.label.toLowerCase()}, over the full stages${anySel() ? ' with data in each test’s highlighted time' : ''}.</li><li>The VT1 line starts at the mean of the two-line breakpoints from V-slope and VE/VO₂ against VO₂, using the last 2 min of each stage inside the highlighted time, because VO₂ is still rising early in a stage, especially the first. If neither shows a break, it starts at the 45th percentile of VO₂.${set.vt2 ? ' The VT2 line starts at the breakpoint where VE/VCO₂ begins to rise above VT1; if there is none, at the 90th percentile of VO₂. A 5-step test centred on VT1 often stops before VT2, so a VT2 line there may have nothing to mark.' : ''} These are starting points for the researcher’s own judgement.</li>${S.I.mode === 'treadmill' ? '<li>Economy is only meaningful in a steady state, so read stages above VT1 with care.</li>' : ''}</ul>`;
     multiToggle('data-sm', set.meas, 4, () => vSteps());
     multiToggle('data-cm', set.cmp, 4, () => vSteps());
     $$('[data-sw]').forEach(b => (b.onclick = () => { set.win = +b.dataset.sw; recompute(); }));
@@ -704,21 +726,40 @@
     const tr = [{ x: xs, y: ys, type: 'scatter', mode: 'lines+markers', line: { color: tcol(ti), width: 1.5 }, marker: { color: tcol(ti), size: 4 }, hovertemplate: `%{x:.2f} min<br>${VARS[k].l} %{y:.${VARS[k].dp}f}<extra></extra>` }];
     const end = (T.t1 - T.t0) / 60, shapes = [], ann = [];
     T.steps.forEach((st, j) => { if (j) shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: (st.t0 - T.t0) / 60, x1: (st.t0 - T.t0) / 60, y0: 0, y1: 1, line: { color: css('--grid'), width: 1, dash: 'dot' } }); ann.push({ xref: 'x', yref: 'paper', x: ((st.t0 + st.t1) / 2 - T.t0) / 60, y: 1, yanchor: 'bottom', showarrow: false, text: 'Stage ' + (j + 1), font: { size: 10, color: css('--muted') } }); });
-    if (r) shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: r[0] / 60, x1: r[1] / 60, y0: 0, y1: 1, fillcolor: css('--test'), line: { color: css('--vt1'), width: 1 }, layer: 'below' });
+    gd._baseShapes = shapes.slice();
+    if (r) shapes.push(...selShapes(r[0] / 60, r[1] / 60));
     Plotly.newPlot(gd, tr, lay({ dragmode: false, showlegend: false, margin: { l: 58, r: 12, t: 24, b: 44 }, xaxis: ax('Time from the start of this test (min)', { range: [0, end], fixedrange: true }), yaxis: ax(vlab(k), { range: robustRange(ys), fixedrange: true }), shapes, annotations: ann }), Object.assign({}, CFG, { displayModeBar: false }));
     const put = v => { set.sels = set.sels || {}; if (v) set.sels[key] = v; else delete set.sels[key]; if (set.sel) set.sels[key] = v; recompute(); };
-    const apply = (a, b) => { a = Math.max(0, Math.min(a, b)); b = Math.max(a, b); if (b - a < 0.25) return; put(a <= 0.01 && b >= end - 0.01 ? null : [Math.round(a * 60), Math.round(b * 60)]); };
+    const apply = (a, b) => { a = Math.max(0, Math.min(a, b)); b = Math.max(a, b); if (b - a < 0.25) return selectionChart(ti); put(a <= 0.01 && b >= end - 0.01 ? null : [Math.round(a * 60), Math.round(b * 60)]); };
     const readBox = () => { const a = parseFloat($('#selA' + ti).value), b = parseFloat($('#selB' + ti).value); apply(F(a) ? a : 0, F(b) ? b : end); };
     $('#selA' + ti).onchange = () => later(readBox); $('#selB' + ti).onchange = () => later(readBox);
     $('#selAll' + ti).onclick = () => put(null);
-    const shade = $('#selShade' + ti);
-    $('#selWrap' + ti).onmousedown = ev => {
-      const fl = gd._fullLayout, xa = fl.xaxis, box = gd.getBoundingClientRect(), x0 = ev.clientX - box.left, y0 = ev.clientY - box.top, top = fl.margin.t, h = fl.height - fl.margin.t - fl.margin.b;
-      if (ev.button || x0 < xa._offset || x0 > xa._offset + xa._length || y0 < top || y0 > top + h) return; ev.preventDefault();
-      const clamp = x => Math.max(xa._offset, Math.min(xa._offset + xa._length, x)); let x1 = x0;
-      const mm = e => { x1 = clamp(e.clientX - box.left); shade.style.display = 'block'; shade.style.left = Math.min(x1, x0) + 'px'; shade.style.width = Math.abs(x1 - x0) + 'px'; shade.style.top = top + 'px'; shade.style.height = h + 'px'; };
-      const mu = () => { shade.style.display = 'none'; window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); if (Math.abs(x1 - x0) > 4) apply(xa.p2l(Math.min(x0, x1) - xa._offset), xa.p2l(Math.max(x0, x1) - xa._offset)); };
-      window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true);
+    rangeSelect(gd, $('#selWrap' + ti), $('#selShade' + ti), () => (r ? [r[0] / 60, r[1] / 60] : null), v => (v ? apply(v[0], v[1]) : put(null)));
+  }
+  // The highlighted time: a shaded band with a line on each side only.
+  const selShapes = (a, b) => [{ type: 'rect', xref: 'x', yref: 'paper', x0: a, x1: b, y0: 0, y1: 1, fillcolor: css('--test'), line: { width: 0 }, layer: 'below' },
+    ...[a, b].map(x => ({ type: 'line', xref: 'x', yref: 'paper', x0: x, x1: x, y0: 0, y1: 1, line: { color: css('--vt1'), width: 1.5 } }))];
+  // Drag across a chart to highlight a time; drag either side of the highlight to move it; a click without dragging clears it.
+  // The drag also ends if the button is let go outside the chart or the window.
+  function rangeSelect(gd, wrap, shade, get, onSet) {
+    const geo = () => { const fl = gd._fullLayout, xa = fl.xaxis, box = gd.getBoundingClientRect(); return { xa, box, top: fl.margin.t, h: fl.height - fl.margin.t - fl.margin.b }; };
+    const edge = (ev, g) => { const r = get(); if (!r) return null; const px = ev.clientX - g.box.left, py = ev.clientY - g.box.top; if (py < g.top || py > g.top + g.h) return null; const pa = g.xa._offset + g.xa.l2p(r[0]), pb = g.xa._offset + g.xa.l2p(r[1]), da = Math.abs(px - pa), db = Math.abs(px - pb); if (Math.min(da, db) > 6) return null; return da <= db ? 'a' : 'b'; };
+    const setCursor = c => { wrap.style.cursor = c; const el = gd.querySelector('.nsewdrag'); if (el) el.style.cursor = c; };
+    wrap.onmousemove = ev => { if (ev.buttons) return; const g = geo(), px = ev.clientX - g.box.left, py = ev.clientY - g.box.top; setCursor(edge(ev, g) ? 'ew-resize' : px >= g.xa._offset && px <= g.xa._offset + g.xa._length && py >= g.top && py <= g.top + g.h ? 'crosshair' : ''); };
+    wrap.onmousedown = ev => {
+      const g = geo(), xa = g.xa, x0 = ev.clientX - g.box.left, y0 = ev.clientY - g.box.top;
+      if (ev.button || x0 < xa._offset || x0 > xa._offset + xa._length || y0 < g.top || y0 > g.top + g.h) return; ev.preventDefault();
+      const clamp = x => Math.max(xa._offset, Math.min(xa._offset + xa._length, x)), r = get(), side = edge(ev, g);
+      const fixed = side ? xa._offset + xa.l2p(side === 'a' ? r[1] : r[0]) : x0; let x1 = side ? xa._offset + xa.l2p(side === 'a' ? r[0] : r[1]) : x0, moved = false;
+      const draw = () => { shade.style.display = 'block'; shade.style.left = Math.min(x1, fixed) + 'px'; shade.style.width = Math.abs(x1 - fixed) + 'px'; shade.style.top = g.top + 'px'; shade.style.height = g.h + 'px'; };
+      if (side) { Plotly.relayout(gd, { shapes: gd._baseShapes }); draw(); }
+      const mm = e => { if (!e.buttons) return mu(); const x = clamp(e.clientX - g.box.left); if (Math.abs(x - x0) > 3) moved = true; x1 = x; if (moved) draw(); };
+      const mu = () => {
+        shade.style.display = 'none'; window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu);
+        if (moved && Math.abs(x1 - fixed) > 4) onSet([xa.p2l(Math.min(x1, fixed) - xa._offset), xa.p2l(Math.max(x1, fixed) - xa._offset)]);
+        else if (side) onSet(r); else if (r) onSet(null);
+      };
+      window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
     };
   }
   /* ---------------- Prolonged exercise ---------------- */
@@ -750,13 +791,13 @@
       <div class="tools"><span>Show (up to 6):</span>${keys.map(k => `<button data-pv="${k}" aria-pressed="${set.vars.includes(k)}">${VARS[k].h}</button>`).join('')}<button data-pv="econ" aria-pressed="${set.vars.includes('econ')}">${ec}</button>
         <span class="sep"></span><span>Average the last:</span>${[1, 2, 4].map(m => `<button data-pa="${m}" aria-pressed="${set.avgMin === m}">${m} min</button>`).join('')}<span class="hint">of each recording</span></div>
       <div class="grid3">${set.vars.map(k => `<div class="panel"><h3>${lab(k)}<span>${unit(k)}, mean ± SD</span></h3><div class="chart mid" id="pv_${k}"></div></div>`).join('')}</div>
-      <h2 class="row">Each recording<span>mean ± SD of the last ${set.avgMin} min</span></h2>
+      <h2 class="row" id="recH">Each recording<span>mean ± SD of the last ${set.avgMin} min</span></h2>
       <div class="panel"><div class="tblwrap"><table id="pT"></table></div></div>
       <h2 class="row">Energy<span>same windows</span></h2>
       <div class="grid3"><div class="panel"><h3>Energy from carbohydrate and fat<span>kJ/min</span></h3><div style="padding:2px 8px"><span class="lg"><i style="background:${css('--t2')}"></i>Carbohydrate</span><span class="lg"><i style="background:${css('--t1')}"></i>Fat</span></div><div class="chart mid" id="peS"></div></div>
       <div class="panel"><div class="tblwrap"><table id="peT"></table></div></div></div>
       ${allout ? `<h2 class="row">All-out test<span>${mmss(pr.maot.t0)}–${mmss(pr.maot.t1)}, start spike left out of W′</span></h2><div class="stats">${tile(fx(allout.CP, 1) + ' W', 'Critical power', 'Mean of the last 30 s')}${tile(fx(allout.Wp / 1000, 2) + ' kJ', 'W′')}${tile(fx(allout.peak, 0) + ' W', 'Peak power')}${tile(fx(allout.mean, 0) + ' W', 'Mean power')}</div>` : ''}
-      <ul class="notes"><li>Each recording is a stretch of gas data at the steady ${I.label.toLowerCase()}. The window ends just before the mask came off and looks back 4 min, leaving out partial breaths at mask-off and any 15-s bins below 80% or above 125% of the median VO₂. A recording of more than 10 min is split into 5-min windows.</li>
+      <ul class="notes" data-info="recH"><li>Each recording is a stretch of gas data at the steady ${I.label.toLowerCase()}. The window ends just before the mask came off and looks back 4 min, leaving out partial breaths at mask-off and any 15-s bins below 80% or above 125% of the median VO₂. A recording of more than 10 min is split into 5-min windows.</li>
       <li>Oxidation: carbohydrate = 4.210 VCO₂ − 2.962 VO₂; fat = 1.695 VO₂ − 1.701 VCO₂ (Jeukendrup and Wallis, 2005). Valid while RER stays below 1, and carbohydrate includes any ingested during exercise. Energy from each substrate uses 17.57 kJ/g for carbohydrate and 39.33 kJ/g for fat. Energy expenditure: 16.89 VO₂ + 4.84 VCO₂ kJ/min (Brouwer, 1957).</li>
       <li>${isT ? 'Economy = VO₂ per kilogram per kilometre, at the steady speed.' : 'Gross efficiency = power ÷ metabolic power × 100.'} For any other part of the session, zoom to it on the Protocol tab and read the mean ± SD under the chart.</li></ul>`;
     multiToggle('data-pv', set.vars, 6, () => vProlonged());
@@ -893,5 +934,6 @@
     S.gas = o.gas; S.lode = o.lode; S.hr = o.hr; S.meta = o.meta; S.set = Object.assign(defaults(), o.set); S.picks = o.picks; S.oxy = null; S.oxyCache = {}; S.view = 'protocol';
     start();
   }
+  setupInfo();
   window.LabApp = { S, recompute, results, methodsText };
 })();
