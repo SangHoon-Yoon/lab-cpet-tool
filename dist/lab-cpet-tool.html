@@ -944,14 +944,17 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     for (let i = 1; i < use.length; i++) if (join.files[i].start < join.files[i - 1].end) return { problem: `${use[i].name} starts before ${use[i - 1].name} has ended, so the clock times look wrong.` };
     return { gas: join, note: dropped ? 'Duplicate exports of a recording were left out.' : '' };
   }
-  // The usual incremental test written as a plan: warm-up, then stages of one length, then shorter stages from a chosen time to the end.
+  // The usual incremental test written as a plan: warm-up, then stages of one length, then shorter stages to the end.
+  // The shorter stages start at a chosen intensity (switchP) and keep the same increment. Older saved plans gave a start time (switchMin) and could give their own increment (shortInc).
   function fromPlan(pl, gas) {
-    const unit = pl.unit || 'W', t = [0], p = [F(pl.warmP) && pl.warmMin > 0 ? pl.warmP : 0], warm = (pl.warmMin || 0) * 60, end = F(pl.endMin) ? pl.endMin * 60 : exerciseEnd(gas), sw = F(pl.switchMin) ? pl.switchMin * 60 : Infinity;
-    let x = warm, v = pl.startP, guard = 0;
+    const unit = pl.unit || 'W', t = [0], p = [F(pl.warmP) && pl.warmMin > 0 ? pl.warmP : 0], warm = (pl.warmMin || 0) * 60, end = F(pl.endMin) ? pl.endMin * 60 : exerciseEnd(gas);
+    const byP = F(pl.switchP), sw = !byP && F(pl.switchMin) ? pl.switchMin * 60 : Infinity, tol = Math.abs(pl.inc || 1) * 1e-6;
+    let x = warm, v = pl.startP, guard = 0, short = false;
     while (x < end - 1e-6 && guard++ < 500) {
-      const short = x >= sw - 1e-6, x1 = Math.min(x + (short ? (pl.shortMin || 1) : pl.stageMin) * 60, short ? end : Math.min(sw, end));
+      short = byP ? v >= pl.switchP - tol : x >= sw - 1e-6;
+      const x1 = Math.min(x + (short ? (pl.shortMin || 1) : pl.stageMin) * 60, short || byP ? end : Math.min(sw, end));
       if (x === 0) p[0] = v; else { t.push(x); p.push(v); }
-      x = x1; v += x >= sw - 1e-6 && F(pl.shortInc) ? pl.shortInc : pl.inc; // the step into a shorter stage uses the shorter-stage increment
+      x = x1; v += !byP && x >= sw - 1e-6 && F(pl.shortInc) ? pl.shortInc : pl.inc;
     }
     t.push(end); p.push(0); const last = Math.max(gas.t.at(-1), end) + 1; t.push(last); p.push(0);
     return { t, p, unit, label: unit === 'W' ? 'Power' : 'Speed', mode: unit === 'W' ? 'cycling' : 'treadmill', source: 'manual', plan: true, warmEnd: warm, tolerance: unit === 'W' ? 1 : 0.11, gapTol: 3 };
@@ -1468,7 +1471,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.12.2', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.12.3', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -1718,7 +1721,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     return out.join('; ');
   }
   // The usual incremental test: warm-up, longer stages, then shorter stages to failure.
-  function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, switchMin: NaN, shortMin: last.shortMin || 1, shortInc: NaN, endMin: +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
+  function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, switchP: NaN, shortMin: last.shortMin || 1, endMin: +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
   function planForm() {
     const set = S.set, q = set.plan || planDefaults(), need = !S.I, show = need || set.plan, val = v => (F(v) ? v : ''), uu = q.unit === 'W' ? 'W' : 'km/h', fld = (id, lab, v, extra) => `<label class="f"><span>${lab}</span><input type="number" step="any" id="${id}" value="${val(v)}" ${extra || ''}></label>`;
     return `<details class="adv" id="planD" ${show ? 'open' : ''}><summary>${S.lode || S.I && !S.I.plan ? 'Replace the detected stages with entered ones' : 'Enter the incremental test steps'}</summary><div class="plan ${need ? 'need' : ''}" style="margin-top:8px">
@@ -1728,7 +1731,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         <label class="f"><span>Unit</span><select id="plU"><option value="W">W (cycling)</option><option value="km/h">km/h (treadmill)</option></select></label>
         ${fld('plWm', 'Warm-up length (min)', q.warmMin)}${fld('plWp', `Warm-up intensity (${uu}, optional)`, q.warmP)}
         ${fld('plS', `Starting intensity (${uu})`, q.startP)}${fld('plI', `Increment (${uu})`, q.inc)}${fld('plD', 'Stage length (min)', q.stageMin)}
-        ${fld('plSw', 'Shorter stages started at (min, optional)', q.switchMin)}${fld('plSd', 'Shorter stage length (min)', q.shortMin)}${fld('plSi', `Increment in shorter stages (${uu}, optional)`, q.shortInc)}
+        ${fld('plSw', `Shorter stages started at (${uu}, optional)`, q.switchP)}${fld('plSd', 'Shorter stage length (min)', q.shortMin)}
         ${fld('plE', 'Test ended at (min)', q.endMin)}
       </div>
       <div class="tools"><button class="primary" id="plGo">Apply steps</button><button id="plOff" ${set.plan ? '' : 'disabled'}>Remove entered steps</button><span class="msg" id="plMsg"></span></div>
@@ -1738,9 +1741,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const set = S.set, g = id => parseFloat($(id).value), u = $('#plU'), q = set.plan || planDefaults(); u.value = q.unit === 'W' ? 'W' : 'km/h';
     const lode = $('#bAddLode'); if (lode) lode.onclick = ev => { ev.preventDefault(); S.addLode = true; fileIn.accept = '.xlsx,.xls'; fileIn.click(); };
     $('#plGo').onclick = () => {
-      const pl = { unit: u.value, warmMin: g('#plWm') || 0, warmP: g('#plWp'), startP: g('#plS'), inc: g('#plI'), stageMin: g('#plD'), switchMin: g('#plSw'), shortMin: g('#plSd') || 1, shortInc: g('#plSi'), endMin: g('#plE') };
+      const pl = { unit: u.value, warmMin: g('#plWm') || 0, warmP: g('#plWp'), startP: g('#plS'), inc: g('#plI'), stageMin: g('#plD'), switchP: g('#plSw'), shortMin: g('#plSd') || 1, endMin: g('#plE') };
       if (!F(pl.startP) || !F(pl.inc) || !(pl.stageMin > 0) || !(pl.endMin > pl.warmMin)) { $('#plMsg').textContent = 'Enter the starting intensity, increment, stage length and test end.'; return; }
-      if (F(pl.switchMin) && (pl.switchMin <= pl.warmMin || pl.switchMin >= pl.endMin)) { $('#plMsg').textContent = 'The shorter stages must start between the warm-up and the test end.'; return; }
+      if (F(pl.switchP)) { const k = (pl.switchP - pl.startP) / pl.inc, near = [Math.floor(k), Math.ceil(k)].map(j => +(pl.startP + Math.max(1, j) * pl.inc).toFixed(2)).filter((x, i, a) => a.indexOf(x) === i);
+        if (!(k >= 1 - 1e-6)) { $('#plMsg').textContent = `The shorter stages must start above the starting intensity, at ${+(pl.startP + pl.inc).toFixed(2)} ${pl.unit} or later.`; return; }
+        if (Math.abs(k - Math.round(k)) > 1e-6) { $('#plMsg').textContent = `With these increments the stages go up in steps of ${pl.inc} ${pl.unit}, so the shorter stages must start at one of them, such as ${near.join(' or ')} ${pl.unit}.`; return; }
+        if (pl.warmMin * 60 + k * pl.stageMin * 60 >= pl.endMin * 60) { $('#plMsg').textContent = 'At that intensity the shorter stages would start after the test ended. Check the intensity and the test end.'; return; } }
       set.plan = pl; set.blocks = null; set.type = 'incremental'; set.inc.t0 = set.inc.t1 = null;
       try { localStorage.setItem('labcpet:plan', JSON.stringify({ unit: pl.unit, warmMin: pl.warmMin, warmP: pl.warmP, startP: pl.startP, inc: pl.inc, stageMin: pl.stageMin, shortMin: pl.shortMin })); } catch (e) { }
       later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); });

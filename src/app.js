@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.12.2', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.12.3', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -251,7 +251,7 @@
     return out.join('; ');
   }
   // The usual incremental test: warm-up, longer stages, then shorter stages to failure.
-  function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, switchMin: NaN, shortMin: last.shortMin || 1, shortInc: NaN, endMin: +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
+  function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, switchP: NaN, shortMin: last.shortMin || 1, endMin: +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
   function planForm() {
     const set = S.set, q = set.plan || planDefaults(), need = !S.I, show = need || set.plan, val = v => (F(v) ? v : ''), uu = q.unit === 'W' ? 'W' : 'km/h', fld = (id, lab, v, extra) => `<label class="f"><span>${lab}</span><input type="number" step="any" id="${id}" value="${val(v)}" ${extra || ''}></label>`;
     return `<details class="adv" id="planD" ${show ? 'open' : ''}><summary>${S.lode || S.I && !S.I.plan ? 'Replace the detected stages with entered ones' : 'Enter the incremental test steps'}</summary><div class="plan ${need ? 'need' : ''}" style="margin-top:8px">
@@ -261,7 +261,7 @@
         <label class="f"><span>Unit</span><select id="plU"><option value="W">W (cycling)</option><option value="km/h">km/h (treadmill)</option></select></label>
         ${fld('plWm', 'Warm-up length (min)', q.warmMin)}${fld('plWp', `Warm-up intensity (${uu}, optional)`, q.warmP)}
         ${fld('plS', `Starting intensity (${uu})`, q.startP)}${fld('plI', `Increment (${uu})`, q.inc)}${fld('plD', 'Stage length (min)', q.stageMin)}
-        ${fld('plSw', 'Shorter stages started at (min, optional)', q.switchMin)}${fld('plSd', 'Shorter stage length (min)', q.shortMin)}${fld('plSi', `Increment in shorter stages (${uu}, optional)`, q.shortInc)}
+        ${fld('plSw', `Shorter stages started at (${uu}, optional)`, q.switchP)}${fld('plSd', 'Shorter stage length (min)', q.shortMin)}
         ${fld('plE', 'Test ended at (min)', q.endMin)}
       </div>
       <div class="tools"><button class="primary" id="plGo">Apply steps</button><button id="plOff" ${set.plan ? '' : 'disabled'}>Remove entered steps</button><span class="msg" id="plMsg"></span></div>
@@ -271,9 +271,12 @@
     const set = S.set, g = id => parseFloat($(id).value), u = $('#plU'), q = set.plan || planDefaults(); u.value = q.unit === 'W' ? 'W' : 'km/h';
     const lode = $('#bAddLode'); if (lode) lode.onclick = ev => { ev.preventDefault(); S.addLode = true; fileIn.accept = '.xlsx,.xls'; fileIn.click(); };
     $('#plGo').onclick = () => {
-      const pl = { unit: u.value, warmMin: g('#plWm') || 0, warmP: g('#plWp'), startP: g('#plS'), inc: g('#plI'), stageMin: g('#plD'), switchMin: g('#plSw'), shortMin: g('#plSd') || 1, shortInc: g('#plSi'), endMin: g('#plE') };
+      const pl = { unit: u.value, warmMin: g('#plWm') || 0, warmP: g('#plWp'), startP: g('#plS'), inc: g('#plI'), stageMin: g('#plD'), switchP: g('#plSw'), shortMin: g('#plSd') || 1, endMin: g('#plE') };
       if (!F(pl.startP) || !F(pl.inc) || !(pl.stageMin > 0) || !(pl.endMin > pl.warmMin)) { $('#plMsg').textContent = 'Enter the starting intensity, increment, stage length and test end.'; return; }
-      if (F(pl.switchMin) && (pl.switchMin <= pl.warmMin || pl.switchMin >= pl.endMin)) { $('#plMsg').textContent = 'The shorter stages must start between the warm-up and the test end.'; return; }
+      if (F(pl.switchP)) { const k = (pl.switchP - pl.startP) / pl.inc, near = [Math.floor(k), Math.ceil(k)].map(j => +(pl.startP + Math.max(1, j) * pl.inc).toFixed(2)).filter((x, i, a) => a.indexOf(x) === i);
+        if (!(k >= 1 - 1e-6)) { $('#plMsg').textContent = `The shorter stages must start above the starting intensity, at ${+(pl.startP + pl.inc).toFixed(2)} ${pl.unit} or later.`; return; }
+        if (Math.abs(k - Math.round(k)) > 1e-6) { $('#plMsg').textContent = `With these increments the stages go up in steps of ${pl.inc} ${pl.unit}, so the shorter stages must start at one of them, such as ${near.join(' or ')} ${pl.unit}.`; return; }
+        if (pl.warmMin * 60 + k * pl.stageMin * 60 >= pl.endMin * 60) { $('#plMsg').textContent = 'At that intensity the shorter stages would start after the test ended. Check the intensity and the test end.'; return; } }
       set.plan = pl; set.blocks = null; set.type = 'incremental'; set.inc.t0 = set.inc.t1 = null;
       try { localStorage.setItem('labcpet:plan', JSON.stringify({ unit: pl.unit, warmMin: pl.warmMin, warmP: pl.warmP, startP: pl.startP, inc: pl.inc, stageMin: pl.stageMin, shortMin: pl.shortMin })); } catch (e) { }
       later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); });

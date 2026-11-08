@@ -80,14 +80,17 @@
     for (let i = 1; i < use.length; i++) if (join.files[i].start < join.files[i - 1].end) return { problem: `${use[i].name} starts before ${use[i - 1].name} has ended, so the clock times look wrong.` };
     return { gas: join, note: dropped ? 'Duplicate exports of a recording were left out.' : '' };
   }
-  // The usual incremental test written as a plan: warm-up, then stages of one length, then shorter stages from a chosen time to the end.
+  // The usual incremental test written as a plan: warm-up, then stages of one length, then shorter stages to the end.
+  // The shorter stages start at a chosen intensity (switchP) and keep the same increment. Older saved plans gave a start time (switchMin) and could give their own increment (shortInc).
   function fromPlan(pl, gas) {
-    const unit = pl.unit || 'W', t = [0], p = [F(pl.warmP) && pl.warmMin > 0 ? pl.warmP : 0], warm = (pl.warmMin || 0) * 60, end = F(pl.endMin) ? pl.endMin * 60 : exerciseEnd(gas), sw = F(pl.switchMin) ? pl.switchMin * 60 : Infinity;
-    let x = warm, v = pl.startP, guard = 0;
+    const unit = pl.unit || 'W', t = [0], p = [F(pl.warmP) && pl.warmMin > 0 ? pl.warmP : 0], warm = (pl.warmMin || 0) * 60, end = F(pl.endMin) ? pl.endMin * 60 : exerciseEnd(gas);
+    const byP = F(pl.switchP), sw = !byP && F(pl.switchMin) ? pl.switchMin * 60 : Infinity, tol = Math.abs(pl.inc || 1) * 1e-6;
+    let x = warm, v = pl.startP, guard = 0, short = false;
     while (x < end - 1e-6 && guard++ < 500) {
-      const short = x >= sw - 1e-6, x1 = Math.min(x + (short ? (pl.shortMin || 1) : pl.stageMin) * 60, short ? end : Math.min(sw, end));
+      short = byP ? v >= pl.switchP - tol : x >= sw - 1e-6;
+      const x1 = Math.min(x + (short ? (pl.shortMin || 1) : pl.stageMin) * 60, short || byP ? end : Math.min(sw, end));
       if (x === 0) p[0] = v; else { t.push(x); p.push(v); }
-      x = x1; v += x >= sw - 1e-6 && F(pl.shortInc) ? pl.shortInc : pl.inc; // the step into a shorter stage uses the shorter-stage increment
+      x = x1; v += !byP && x >= sw - 1e-6 && F(pl.shortInc) ? pl.shortInc : pl.inc;
     }
     t.push(end); p.push(0); const last = Math.max(gas.t.at(-1), end) + 1; t.push(last); p.push(0);
     return { t, p, unit, label: unit === 'W' ? 'Power' : 'Speed', mode: unit === 'W' ? 'cycling' : 'treadmill', source: 'manual', plan: true, warmEnd: warm, tolerance: unit === 'W' ? 1 : 0.11, gapTol: 3 };
