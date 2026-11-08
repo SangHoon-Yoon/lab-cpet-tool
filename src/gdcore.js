@@ -277,9 +277,9 @@
   }
 
   // VT1 suggestion per test: hinge fits on V-slope and VE/VO2 vs VO2, using the last 2 min of each step.
-  function suggestVT1(S, A, proto, winSec) {
+  function suggestVT1(S, A, proto, winSec, keep) {
     return proto.tests.map((T, ti) => {
-      const ids = []; for (let i = 0; i < S.t.length; i++) if (A.test[i] === ti && inWin(A, i, winSec) && S.v.vo2[i] > 0) ids.push(i);
+      const ids = []; for (let i = 0; i < S.t.length; i++) if (A.test[i] === ti && inWin(A, i, winSec) && S.v.vo2[i] > 0 && (!keep || keep(i))) ids.push(i);
       const x = ids.map(i => S.v.vo2[i]);
       const vs = hinge(x, ids.map(i => S.v.vco2[i])), eq = hinge(x, ids.map(i => S.v.eqo2 ? S.v.eqo2[i] : NaN));
       const c = []; if (vs && vs.s2 > vs.s1) c.push(vs.bp); if (eq && eq.s2 > eq.s1) c.push(eq.bp);
