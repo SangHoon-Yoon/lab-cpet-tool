@@ -1459,7 +1459,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.10.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.11.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -1487,7 +1487,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     avg: { mode: 'bin', bin: 15, ma: 7, roll: 15 },
     view: { vars: ['vo2', 'hr', 've'] },
     inc: { t0: null, t1: null, skip: 0, stageWin: 60, peakWin: 30, x: 'vo2' },
-    st: { meas: ['eqo2', 'vco2'], win: null, regWin: 60, sel: null, selVar: 'vo2', vt2: false, cmp: ['vo2', 'hr', 'rer'] }, per: { avgMin: 1, vars: ['vo2', 'hr', 'cho', 'fat', 'econ'] }, hrOffset: 0
+    st: { meas: ['eqo2', 'vco2'], win: null, regWin: 60, sel: null, sels: {}, selVar: 'vo2', vt2: false, cmp: ['vo2', 'hr', 'rer'] }, per: { avgMin: 1, vars: ['vo2', 'hr', 'cho', 'fat', 'econ'] }, hrOffset: 0
   });
   const S = { pending: [], gas: null, lode: null, hr: null, meta: {}, set: defaults(), picks: { inc: {}, tests: {} }, I: null, proto: null, D: null, view: 'protocol', align: null, oxy: null, oxyCache: {} };
   let cmode = 'light';
@@ -1618,8 +1618,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     return D;
   }
   // Time used from the end of each stage on the step-test charts. The default is the whole stage.
-  // One selected time range, in seconds from the start of each step test, applied to every test.
-  const selAbs = T => (S.set.st.sel ? [T.t0 + S.set.st.sel[0], T.t0 + S.set.st.sel[1]] : [-Infinity, Infinity]);
+  // Each step test has its own selected time range, in seconds from that test's start (S.set.st.sels, keyed by testKey).
+  // An older saved analysis may hold one range for all tests in S.set.st.sel; it is used for tests without their own range.
+  const testSel = T => { const o = S.set.st.sels || {}, k = Math.round(T.t0); return k in o ? o[k] : S.set.st.sel; };
+  const selAbs = T => { const r = testSel(T); return r ? [T.t0 + r[0], T.t0 + r[1]] : [-Infinity, Infinity]; };
+  const anySel = () => !!S.proto && S.proto.tests.some(T => testSel(T));
   const inSelT = (T, t) => { if (!T) return true; const [a, b] = selAbs(T); return t > a && t <= b; };
   const stepLength = () => (S.proto.pattern ? S.proto.pattern.stepDur : 240);
   const isWholeStage = () => !F(S.set.st.win) || S.set.st.win >= stepLength();
@@ -2098,14 +2101,15 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const cmpVars = ['vo2', 'vo2kg', 'hr', 'rer', 've', 'eqo2', 'eqco2', 'peto2', 'petco2', 'cho', 'fat'].filter(k => k === 'cho' || k === 'fat' || av.concat(['vo2', 'vo2kg']).includes(k));
     const name = i => L.testName(pr, i), ec = S.I.mode === 'treadmill' ? 'Economy' : 'Gross efficiency';
     set.cmp = set.cmp.filter(k => cmpVars.includes(k) || k === 'econ' || k === 'rpe'); if (!set.cmp.length) set.cmp = ['vo2'];
-    const lines = set.vt2 ? ['vt1', 'vt2'] : ['vt1'], sel = set.sel, selTxt = sel ? `${fx(sel[0] / 60, 2)}–${fx(sel[1] / 60, 2)} min into each test` : 'all of each test';
+    const lines = set.vt2 ? ['vt1', 'vt2'] : ['vt1'], sel = anySel();
+    if (set.sel) { set.sels = set.sels || {}; pr.tests.forEach(T => { const k = testKey(T); if (!(k in set.sels)) set.sels[k] = set.sel.slice(); }); set.sel = null; }
     const selVars = ['vo2', 'hr', 've', 'eqo2', 'eqco2', 'rer', 'petco2'].filter(k => k === 'vo2' || av.includes(k)); if (!selVars.includes(set.selVar)) set.selVar = 'vo2';
     $('#views').innerHTML = `
-      <h2 class="row">Choose the data<span>one time range, applied to every test</span></h2>
-      <div class="panel"><div class="tools" style="padding:8px 10px 0"><span>Show:</span><select id="selVar">${selVars.map(k => `<option value="${k}" ${k === set.selVar ? 'selected' : ''}>${VARS[k].l}</option>`).join('')}</select>
-        <span class="sep"></span><span>Use from</span><input type="number" step="0.25" min="0" id="selA" value="${sel ? (sel[0] / 60).toFixed(2) : ''}" placeholder="start" style="width:5.5em"><span>to</span><input type="number" step="0.25" min="0" id="selB" value="${sel ? (sel[1] / 60).toFixed(2) : ''}" placeholder="end" style="width:5.5em"><span>min</span><button id="selAll" ${sel ? '' : 'disabled'}>Use all</button></div>
-        <div class="chartwrap" id="selWrap"><div class="chart" id="selC" style="height:260px"></div><div class="zshade" id="selShade"></div></div>
-        <p class="hint" style="padding:0 10px 8px">Drag across the chart to highlight the time you want, measured from the start of each test. Only data in the highlighted time are used for the threshold charts, the suggested lines, the stage means and the VO₂–${S.I.label.toLowerCase()} regressions. “Chart points use the last” still applies within it. Now using ${selTxt}.</p></div>
+      <h2 class="row">Choose the data<span>a separate time range for each test</span></h2>
+      <div class="tools"><span>Show:</span><select id="selVar">${selVars.map(k => `<option value="${k}" ${k === set.selVar ? 'selected' : ''}>${VARS[k].l}</option>`).join('')}</select><span class="hint">Drag across a test’s chart to highlight the time to use from that test, or type the times. Only data in each test’s highlighted time are used for its threshold charts, suggested lines, stage means and VO₂–${S.I.label.toLowerCase()} regression. “Chart points use the last” still applies within it.</span></div>
+      <div class="grid3">${pr.tests.map((T, i) => { const r = testSel(T); return `<div class="panel"><h3><span class="dot" style="background:${tcol(i)}"></span>${name(i)}<span>${r ? `using ${fx(r[0] / 60, 2)}–${fx(r[1] / 60, 2)} min` : 'using all'}</span></h3>
+        <div class="tools" style="padding:0 10px"><span>Use from</span><input type="number" step="0.25" min="0" id="selA${i}" value="${r ? (r[0] / 60).toFixed(2) : ''}" placeholder="start" style="width:5.5em"><span>to</span><input type="number" step="0.25" min="0" id="selB${i}" value="${r ? (r[1] / 60).toFixed(2) : ''}" placeholder="end" style="width:5.5em"><span>min</span><button id="selAll${i}" ${r ? '' : 'disabled'}>Use all</button></div>
+        <div class="chartwrap" id="selWrap${i}"><div class="chart" id="selC${i}" style="height:230px"></div><div class="zshade" id="selShade${i}"></div></div></div>`; }).join('')}</div>
       <h2 class="row">${set.vt2 ? 'VT1 and VT2' : 'VT1'} in each test</h2><div class="panel"><div class="tblwrap"><table id="vt1T"></table></div><div class="tools" style="padding:0 8px 8px"><button id="rstT">Reset to suggestions</button><button id="tgV2">${set.vt2 ? 'Remove VT2 lines' : 'Add VT2 lines'}</button></div></div>
       <div class="tools"><span>Plot against VO₂ (up to 4):</span>${chips(av, set.meas, 'data-sm')}</div>
       <div class="tools"><span>Chart points use the last:</span>${wins.map(w => `<button data-sw="${w}" aria-pressed="${curWin === w}">${w === dur ? mmss(w) + ' (whole stage)' : mmss(w)}</button>`).join('')}<span class="hint">Drag ${set.vt2 ? 'a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b>' : 'the <b class="vt1c">VT1</b>'} line sideways; it moves on every chart for that test.</span></div>
@@ -2115,12 +2119,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         <span class="sep"></span><span>Stage means and VO₂–${S.I.label.toLowerCase()} regressions use the last:</span>${[[30, '30 s'], [60, '60 s'], [120, '2 min']].map(([v, l]) => `<button data-rw="${v}" aria-pressed="${set.regWin === v}">${l}</button>`).join('')}</div>
       <div style="padding:2px 2px">${pr.tests.map((T, i) => `<span class="lg"><i style="background:${tcol(i)}"></i>${name(i)}</span>`).join('')}</div>
       <div class="grid3">${set.cmp.map(k => `<div class="panel"><h3>${k === 'econ' ? ec : k === 'rpe' ? 'RPE' : VARS[k].h}<span>${k === 'econ' ? (S.I.mode === 'treadmill' ? 'mL/kg/km' : '%') : k === 'rpe' ? 'COSMED markers' : VARS[k].u}</span></h3><div class="chart mid" id="cm_${k}"></div></div>`).join('')}</div>
-      <ul class="notes"><li>${S.I.label} at a threshold comes from each test’s regression of stage-end VO₂ on ${S.I.label.toLowerCase()}, over the full stages${S.set.st.sel ? ' with data in the highlighted time' : ''}.</li><li>The VT1 line starts at the mean of the two-line breakpoints from V-slope and VE/VO₂ against VO₂, using the last 2 min of each stage inside the highlighted time, because VO₂ is still rising early in a stage, especially the first. If neither shows a break, it starts at the 45th percentile of VO₂.${set.vt2 ? ' The VT2 line starts at the breakpoint where VE/VCO₂ begins to rise above VT1; if there is none, at the 90th percentile of VO₂. A 5-step test centred on VT1 often stops before VT2, so a VT2 line there may have nothing to mark.' : ''} These are starting points for the researcher’s own judgement.</li>${S.I.mode === 'treadmill' ? '<li>Economy is only meaningful in a steady state, so read stages above VT1 with care.</li>' : ''}</ul>`;
+      <ul class="notes"><li>${S.I.label} at a threshold comes from each test’s regression of stage-end VO₂ on ${S.I.label.toLowerCase()}, over the full stages${anySel() ? ' with data in each test’s highlighted time' : ''}.</li><li>The VT1 line starts at the mean of the two-line breakpoints from V-slope and VE/VO₂ against VO₂, using the last 2 min of each stage inside the highlighted time, because VO₂ is still rising early in a stage, especially the first. If neither shows a break, it starts at the 45th percentile of VO₂.${set.vt2 ? ' The VT2 line starts at the breakpoint where VE/VCO₂ begins to rise above VT1; if there is none, at the 90th percentile of VO₂. A 5-step test centred on VT1 often stops before VT2, so a VT2 line there may have nothing to mark.' : ''} These are starting points for the researcher’s own judgement.</li>${S.I.mode === 'treadmill' ? '<li>Economy is only meaningful in a steady state, so read stages above VT1 with care.</li>' : ''}</ul>`;
     multiToggle('data-sm', set.meas, 4, () => vSteps());
     multiToggle('data-cm', set.cmp, 4, () => vSteps());
     $$('[data-sw]').forEach(b => (b.onclick = () => { set.win = +b.dataset.sw; recompute(); }));
     $$('[data-rw]').forEach(b => (b.onclick = () => { set.regWin = +b.dataset.rw; recompute(); }));
-    selectionChart();
+    $('#selVar').onchange = e => { set.selVar = e.target.value; pr.tests.forEach((T, i) => selectionChart(i)); };
+    pr.tests.forEach((T, i) => selectionChart(i));
     $('#tgV2').onclick = () => { set.vt2 = !set.vt2; render(); summaries(); };
     const ctxs = pr.tests.map((T, ti) => {
       const ids = []; X.t.forEach((t, i) => { if (A.test[i] === ti && C.inWin(A, i, stWin()) && inSelT(T, t) && F(X.v.vo2[i]) && X.v.vo2[i] > .3) ids.push(i); });
@@ -2151,21 +2156,21 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
   const tcol = i => css('--t' + ((i % 6) + 1));
   // Every test drawn against time from its own start, with the highlighted range shaded.
-  function selectionChart() {
-    const pr = S.proto, X = S.D.X, A = S.D.st.A, set = S.set.st, k = set.selVar, gd = document.getElementById('selC'), name = i => L.testName(pr, i);
-    const tr = pr.tests.map((T, ti) => { const xs = [], ys = []; X.t.forEach((t, i) => { if (A.test[i] === ti && F(X.v[k][i])) { xs.push((t - T.t0) / 60); ys.push(X.v[k][i]); } }); return { x: xs, y: ys, type: 'scatter', mode: 'lines+markers', line: { color: tcol(ti), width: 1.5 }, marker: { color: tcol(ti), size: 4 }, name: name(ti), hovertemplate: `${name(ti)}, %{x:.2f} min<br>${VARS[k].l} %{y:.${VARS[k].dp}f}<extra></extra>` }; });
-    const T0 = pr.tests[0], end = Math.max(...pr.tests.map(T => T.t1 - T.t0)) / 60, shapes = [], ann = [];
-    T0.steps.forEach((st, j) => { if (j) shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: (st.t0 - T0.t0) / 60, x1: (st.t0 - T0.t0) / 60, y0: 0, y1: 1, line: { color: css('--grid'), width: 1, dash: 'dot' } }); ann.push({ xref: 'x', yref: 'paper', x: ((st.t0 + st.t1) / 2 - T0.t0) / 60, y: 1, yanchor: 'bottom', showarrow: false, text: 'Stage ' + (j + 1), font: { size: 10, color: css('--muted') } }); });
-    if (set.sel) shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: set.sel[0] / 60, x1: set.sel[1] / 60, y0: 0, y1: 1, fillcolor: css('--test'), line: { color: css('--vt1'), width: 1 }, layer: 'below' });
-    const all = tr.flatMap(t => t.y);
-    Plotly.newPlot(gd, tr, lay({ dragmode: false, showlegend: pr.tests.length > 1, legend: { orientation: 'h', y: -0.28, x: 0 }, margin: { l: 58, r: 12, t: 24, b: 70 }, xaxis: ax('Time from the start of each test (min)', { range: [0, end], fixedrange: true }), yaxis: ax(vlab(k), { range: robustRange(all), fixedrange: true }), shapes, annotations: ann }), Object.assign({}, CFG, { displayModeBar: false }));
-    $('#selVar').onchange = e => { set.selVar = e.target.value; selectionChart(); };
-    const apply = (a, b) => { a = Math.max(0, Math.min(a, b)); b = Math.max(a, b); if (b - a < 0.25) return; set.sel = a <= 0.01 && b >= end - 0.01 ? null : [Math.round(a * 60), Math.round(b * 60)]; recompute(); };
-    const readBox = () => { const a = parseFloat($('#selA').value), b = parseFloat($('#selB').value); apply(F(a) ? a : 0, F(b) ? b : end); };
-    $('#selA').onchange = () => later(readBox); $('#selB').onchange = () => later(readBox);
-    $('#selAll').onclick = () => { set.sel = null; recompute(); };
-    const shade = $('#selShade');
-    $('#selWrap').onmousedown = ev => {
+  function selectionChart(ti) {
+    const pr = S.proto, X = S.D.X, A = S.D.st.A, set = S.set.st, k = set.selVar, gd = document.getElementById('selC' + ti), T = pr.tests[ti], key = testKey(T), r = testSel(T);
+    const xs = [], ys = []; X.t.forEach((t, i) => { if (A.test[i] === ti && F(X.v[k][i])) { xs.push((t - T.t0) / 60); ys.push(X.v[k][i]); } });
+    const tr = [{ x: xs, y: ys, type: 'scatter', mode: 'lines+markers', line: { color: tcol(ti), width: 1.5 }, marker: { color: tcol(ti), size: 4 }, hovertemplate: `%{x:.2f} min<br>${VARS[k].l} %{y:.${VARS[k].dp}f}<extra></extra>` }];
+    const end = (T.t1 - T.t0) / 60, shapes = [], ann = [];
+    T.steps.forEach((st, j) => { if (j) shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: (st.t0 - T.t0) / 60, x1: (st.t0 - T.t0) / 60, y0: 0, y1: 1, line: { color: css('--grid'), width: 1, dash: 'dot' } }); ann.push({ xref: 'x', yref: 'paper', x: ((st.t0 + st.t1) / 2 - T.t0) / 60, y: 1, yanchor: 'bottom', showarrow: false, text: 'Stage ' + (j + 1), font: { size: 10, color: css('--muted') } }); });
+    if (r) shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: r[0] / 60, x1: r[1] / 60, y0: 0, y1: 1, fillcolor: css('--test'), line: { color: css('--vt1'), width: 1 }, layer: 'below' });
+    Plotly.newPlot(gd, tr, lay({ dragmode: false, showlegend: false, margin: { l: 58, r: 12, t: 24, b: 44 }, xaxis: ax('Time from the start of this test (min)', { range: [0, end], fixedrange: true }), yaxis: ax(vlab(k), { range: robustRange(ys), fixedrange: true }), shapes, annotations: ann }), Object.assign({}, CFG, { displayModeBar: false }));
+    const put = v => { set.sels = set.sels || {}; if (v) set.sels[key] = v; else delete set.sels[key]; if (set.sel) set.sels[key] = v; recompute(); };
+    const apply = (a, b) => { a = Math.max(0, Math.min(a, b)); b = Math.max(a, b); if (b - a < 0.25) return; put(a <= 0.01 && b >= end - 0.01 ? null : [Math.round(a * 60), Math.round(b * 60)]); };
+    const readBox = () => { const a = parseFloat($('#selA' + ti).value), b = parseFloat($('#selB' + ti).value); apply(F(a) ? a : 0, F(b) ? b : end); };
+    $('#selA' + ti).onchange = () => later(readBox); $('#selB' + ti).onchange = () => later(readBox);
+    $('#selAll' + ti).onclick = () => put(null);
+    const shade = $('#selShade' + ti);
+    $('#selWrap' + ti).onmousedown = ev => {
       const fl = gd._fullLayout, xa = fl.xaxis, box = gd.getBoundingClientRect(), x0 = ev.clientX - box.left, y0 = ev.clientY - box.top, top = fl.margin.t, h = fl.height - fl.margin.t - fl.margin.b;
       if (ev.button || x0 < xa._offset || x0 > xa._offset + xa._length || y0 < top || y0 > top + h) return; ev.preventDefault();
       const clamp = x => Math.max(xa._offset, Math.min(xa._offset + xa._length, x)); let x1 = x0;
@@ -2276,7 +2281,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const gas = `Gas exchange was recorded with a COSMED metabolic cart (${bxb ? 'breath-by-breath export' : g.avgWidth + '-s average export'}) and displayed as ${avgT}. ${set.outl.remove ? `Breaths more than ${set.outl.nsd} SD from their local mean were removed.` : ''}`.trim();
     const eq = I && I.mode === 'cycling' ? ' Gross efficiency was calculated as external power divided by metabolic power (Brouwer, 1957).' : I ? ' Running economy was calculated as stage-end VO₂ per kilogram per kilometre.' : '';
     if (pr.type === 'incremental') return `${gas} ${pr.max ? `Thresholds came from the longer stages. After a recovery block, VO₂max was the highest ${set.inc.peakWin}-s rolling mean during the shorter stages to failure.` : `VO₂peak was the highest ${set.inc.peakWin}-s rolling mean.`} ${I ? `Stage values were the mean of the last ${set.inc.stageWin} s of each stage. ` : ''}VT1 and VT2 were identified visually from V-slope, ventilatory equivalents and end-tidal gases, starting from two-line breakpoint suggestions.${I ? ` ${I.label} at each threshold was estimated from the linear regression of stage-end VO₂ on ${I.label.toLowerCase()}.` : ''}${skipped}${entered}${ox}${eq}${tool}`;
-    const selM = set.st.sel ? ` Only data from ${(set.st.sel[0] / 60).toFixed(2)} to ${(set.st.sel[1] / 60).toFixed(2)} min after the start of each step test were used.` : '';
+    const selList = S.proto ? S.proto.tests.map((T, i) => { const r = testSel(T); return r ? `${L.testName(S.proto, i)} ${(r[0] / 60).toFixed(2)}–${(r[1] / 60).toFixed(2)} min` : null; }).filter(Boolean) : [];
+    const selM = selList.length ? ` Only data within a chosen time from the start of each step test were used (${selList.join('; ')}; other tests used all data).` : '';
     return `${gas} Stage values were the mean of the last ${set.st.regWin} s of each stage.${selM} ${set.st.vt2 ? 'VT1 and VT2' : 'VT1'} in each step test ${set.st.vt2 ? 'were' : 'was'} identified visually from V-slope and ventilatory equivalents, plotted from ${isWholeStage() ? 'the whole' : 'the last ' + mmss(set.st.win)} of each stage, starting from a two-line breakpoint suggestion on the last 2 min of each stage, and ${I ? I.label.toLowerCase() : 'intensity'} at ${set.st.vt2 ? 'each threshold' : 'VT1'} was estimated from the linear regression of stage-end VO₂ on ${I ? I.label.toLowerCase() : 'intensity'} for that test.${joined}${F(pr.base) && S.D.per && S.D.per.length ? ` During the steady exercise, values were the mean of the last ${set.per.avgMin} min of each gas recording, and substrate oxidation was calculated from VO₂ and VCO₂ (Jeukendrup and Wallis, 2005).` : ''}${eq}${tool}`;
   }
   const REFS = [
@@ -2314,7 +2320,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function settingsRows() {
     const set = S.set, out = [['tool', 'Lab CPET tool'], ['tool_version', VERSION], ['created_by', AUTHOR], ['exported', new Date().toISOString()], ['gas_file_type', S.gas.kind === 'bxb' ? 'breath-by-breath' : S.gas.avgWidth + '-s averages'], ['cosmed_files_joined', S.gas.files ? S.gas.files.map(f => f.name + ' at ' + f.start + ' s').join('; ') : ''], ['intensity_source', S.I ? (S.I.plan ? 'steps entered by the researcher' : S.I.source) : 'none'], ['entered_steps', S.set.plan ? JSON.stringify(S.set.plan) : ''], ['lode_offset_s', set.offset], ['body_mass_kg', S.meta.mass], ['averaging', avgLabel()], ['outlier_flagging', set.outl.local ? set.outl.nsd + ' SD' : 'off'], ['flagged_removed', set.outl.remove]];
     if (S.proto.type === 'incremental') { out.push(['analysis_window_min', S.D.inc ? (S.D.inc.t0 / 60).toFixed(2) + '-' + (S.D.inc.t1 / 60).toFixed(2) : ''], ['first_stage_seconds_left_out', set.inc.skip || 0], ['vo2peak_window_s', set.inc.peakWin], ['stage_window_s', set.inc.stageWin]); }
-    else out.push(['stage_window_s', set.st.regWin], ['vt1_chart_window_s', isWholeStage() ? 'whole stage' : set.st.win], ['step_test_selection_s_from_start', set.st.sel ? set.st.sel.join('-') : 'all'], ['step_test_vt2', set.st.vt2], ['tests_excluded', set.excluded.join(' ')], ['steady_average_min', set.per.avgMin]);
+    else out.push(['stage_window_s', set.st.regWin], ['vt1_chart_window_s', isWholeStage() ? 'whole stage' : set.st.win], ['step_test_selection_s_from_start', S.proto ? S.proto.tests.map((T, i) => { const r = testSel(T); return L.testName(S.proto, i) + ': ' + (r ? r.join('-') : 'all'); }).join('; ') : 'all'], ['step_test_vt2', set.st.vt2], ['tests_excluded', set.excluded.join(' ')], ['steady_average_min', set.per.avgMin]);
     return out;
   }
   $('#bExport').onclick = async () => {
