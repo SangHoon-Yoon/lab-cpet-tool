@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.13.1', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.14.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -566,7 +566,7 @@
       <h2 class="row" id="thrH">Thresholds</h2><div class="panel"><div class="tblwrap"><table id="vtT"></table></div><div class="tools" style="padding:0 8px 8px"><button id="rst">Reset both to suggestions</button></div></div>
       <h2 class="row" id="oxH">Oxynet suggestions<span>from the open-source pyoxynet models, run on this computer</span></h2>
       <div class="tools"><span>Give Oxynet:</span>${pr.max ? `<button data-ow="max" aria-pressed="${oxyChoice() === 'max'}">VO₂max stages</button>` : ''}<button data-ow="analysis" aria-pressed="${oxyChoice() === 'analysis'}">${pr.max ? 'Threshold window' : 'Analysis window'}</button><button data-ow="whole" aria-pressed="${oxyChoice() === 'whole'}">All exercise data</button><span class="hint" id="oxS"></span></div>
-      <div class="grid3">${[['cnn', 'CNN model'], ['lstm', 'LSTM model']].map(([m, t]) => `<div class="panel"><h3>${t}<span>domain outputs over time</span></h3><div style="padding:2px 8px">${[['--t3', 'Moderate'], ['--t2', 'Heavy'], ['--t1', 'Severe']].map(([c, n]) => `<span class="lg"><i style="background:${css(c)}"></i>${n}</span>`).join('')}</div><div class="chart mid" id="ox_${m}"></div><p class="hint" id="oxm_${m}" style="padding:0 10px 6px"></p></div>`).join('')}</div>
+      <div class="grid3">${[['cnn', 'CNN model'], ['lstm', 'LSTM model']].map(([m, t]) => `<div class="panel"><h3 id="oxh_${m}">${t}<span>domain outputs over time</span><button class="fitbtn" id="oxUse_${m}" disabled title="Move the VT1 and VT2 lines to this model’s thresholds">Use these lines</button></h3><div hidden data-info="oxh_${m}">${OXINFO[m]}</div><div style="padding:2px 8px">${[['--t3', 'Moderate'], ['--t2', 'Heavy'], ['--t1', 'Severe']].map(([c, n]) => `<span class="lg"><i style="background:${css(c)}"></i>${n}</span>`).join('')}</div><div class="chart mid" id="ox_${m}"></div><p class="hint" id="oxm_${m}" style="padding:0 10px 6px"></p></div>`).join('')}</div>
       <ul class="notes" data-info="oxH"><li>Oxynet reads 40-s windows and places each threshold at the start of the window in which its outputs cross, so each output is drawn at the start of its window and the dashed lines pass through the crossings. VT1 is the first crossing of moderate and heavy, and VT2 is the last crossing of heavy and severe. The outputs are smoothed network outputs, not calibrated probabilities. The LSTM outputs sum to 1, so they usually cross near 0.5; the CNN outputs do not, so they can cross higher. These are suggestions for the researcher, who places the final lines.</li><li>The result can shift noticeably with the data given, because Oxynet scales each signal over that data. Try each option${pr.max ? '' : ', and move the analysis window if a warm-up is included'}.</li><li>Oxynet: Zignoli et al. (2022), <i>Eur J Sport Sci</i>, <a href="https://doi.org/10.1080/17461391.2020.1866081">doi:10.1080/17461391.2020.1866081</a>; Keir et al. (2026), <i>Sports Med</i>, <a href="https://doi.org/10.1007/s40279-026-02403-w">doi:10.1007/s40279-026-02403-w</a>. Full credits are in the Summary tab.</li></ul>
       <div class="row2"><div class="panel" style="flex:1 1 380px"><h3>How each method placed them<span>VO₂ in L/min; “Use” moves the line there</span></h3><div class="tblwrap"><table id="mT"></table></div></div>
       <div class="panel" style="flex:1 1 380px"><h3>Was it maximal?</h3><div class="tblwrap"><table id="eT"></table></div></div></div>
@@ -581,6 +581,15 @@
     $$('[data-pk]').forEach(b => (b.onclick = () => { set.peakWin = +b.dataset.pk; recompute(); }));
     $$('[data-sw]').forEach(b => (b.onclick = () => { set.stageWin = +b.dataset.sw; recompute(); }));
     $$('[data-x]').forEach(b => (b.onclick = () => { set.x = b.dataset.x; vIncremental(); }));
+    // Move both lines to one Oxynet model's thresholds. A threshold beyond the threshold stages (two-phase tests) is left where it is.
+    S.useOx = m => {
+      const r = S.oxy && S.oxy.res && S.oxy.res[m]; if (!r || r.problem) return '';
+      const nm = 'Oxynet ' + m.toUpperCase(), moved = [], kept = [];
+      ['vt1', 'vt2'].forEach(q => { const o = r[q]; if (!o || !F(o.vo2)) return; if (pr.max && o.vo2 > M.hi + 0.01) { kept.push(vtName(q)); return; } S.picks.inc[q] = +o.vo2.toFixed(3); S.picks.incSrc = S.picks.incSrc || {}; S.picks.incSrc[q] = nm; moved.push(`${vtName(q)} ${fx(o.vo2, 2)} L/min`); });
+      moveLines(ctx); incResults(); summaries();
+      return (moved.length ? `Lines moved to the ${m.toUpperCase()} thresholds: ${moved.join(', ')}.` : '') + (kept.length ? ` ${kept.join(' and ')} not moved: above the threshold stages.` : '');
+    };
+    S.useOx.can = m => { const r = S.oxy && S.oxy.res && S.oxy.res[m]; return !!(r && !r.problem && !r.error && ['vt1', 'vt2'].some(q => r[q] && F(r[q].vo2) && !(pr.max && r[q].vo2 > M.hi + 0.01))); };
     $('#rst').onclick = () => { S.picks.inc = {}; S.picks.incSrc = {}; moveLines(ctx); incResults(); summaries(); };
     $('#addV2').onclick = () => { S.picks.inc.vt2 = Math.round(((F(incVT('vt1')) ? incVT('vt1') : M.lo) + (pr.max ? M.hi : D.peak.vo2.value)) / 2 * 1000) / 1000; moveLines(ctx); incResults(); };
     const specs = [
@@ -674,6 +683,10 @@
     })();
   }
   const oxyStatus = () => 'Using ' + oxyName();
+  const OXINFO = {
+    cnn: 'The CNN (convolutional neural network) looks for patterns within each 40-s window of the test, a bit like sliding a set of templates along the signals. It reads five signals, VO₂, VCO₂, VE, PETO₂ and PETCO₂, each rescaled from 0 to 1 over the data it is given, and outputs a score for each intensity domain: moderate, heavy and severe. The scores are smoothed over time. VT1 is placed where heavy first rises above moderate, and VT2 where severe last rises above heavy. CNN scores do not add up to 1, so they can cross well above 0.5. “Use these lines” moves VT1 and VT2 to this model’s values.',
+    lstm: 'The LSTM (long short-term memory) network reads each 40-s window one second at a time, keeping a memory of what came before, so it follows how the signals change through the window. It uses the same five signals as the CNN, VO₂, VCO₂, VE, PETO₂ and PETCO₂, rescaled from 0 to 1 over the data it is given, and outputs a score for moderate, heavy and severe. The scores are smoothed over time. VT1 is placed where heavy first rises above moderate, and VT2 where severe last rises above heavy. LSTM scores add up to 1, so they usually cross near 0.5. “Use these lines” moves VT1 and VT2 to this model’s values.'
+  };
   function drawOxynet() {
     ['cnn', 'lstm'].forEach(m => {
       const r = S.oxy.res[m], el = document.getElementById('ox_' + m), note = $('#oxm_' + m); if (!r || !el) return;
@@ -683,6 +696,7 @@
       if (!r.problem) ['vt1', 'vt2'].forEach(q => { const o = r[q]; if (!o) return; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: o.time / 60, x1: o.time / 60, y0: 0, y1: 1, line: { color: vtColor(q), width: 2, dash: 'dash' } }); ann.push({ xref: 'x', yref: 'paper', x: o.time / 60, y: 1, yanchor: 'bottom', showarrow: false, text: `<b>${vtName(q)}</b>`, font: { size: 11, color: vtColor(q) } }); });
       Plotly.newPlot(el, tr, lay({ margin: { l: 52, r: 12, t: 22, b: 44 }, xaxis: ax('Start of the 40-s window (min)'), yaxis: ax('Model output'), shapes, annotations: ann }), FIGCFG);
       if (note) note.textContent = r.problem ? r.problem + ' No suggestion from this model.' : `VT1 ${fx(r.vt1.vo2, 2)} L/min at ${mmss(r.vt1.time)}; VT2 ${fx(r.vt2.vo2, 2)} L/min at ${mmss(r.vt2.time)}.`;
+      const ub = $('#oxUse_' + m); if (ub) { const can = S.useOx && S.useOx.can(m); ub.disabled = !can; ub.title = can ? 'Move the VT1 and VT2 lines to this model’s thresholds' : r.problem ? 'This model gave no threshold here' : 'Its thresholds are above the threshold stages, so they cannot be used here'; ub.onclick = () => { const msg = S.useOx(m); if (note && msg) note.textContent = msg; }; }
     });
   }
 
