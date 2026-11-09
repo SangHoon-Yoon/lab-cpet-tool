@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.13.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.13.1', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -324,7 +324,7 @@
   }
 
   /* ---------------- Tabs ---------------- */
-  function tabs() { return [['protocol', 'Protocol'], ...(S.proto.type === 'incremental' ? [['incremental', 'Incremental test']] : [['steps', 'Step tests'], ...(F(S.proto.base) ? [['prolonged', 'Prolonged exercise']] : [])]), ['summary', 'Summary']]; }
+  function tabs() { return [['protocol', 'Protocol'], ...(S.proto.type === 'incremental' ? [['incremental', S.proto.max ? 'Thresholds and VO₂max' : 'Thresholds and VO₂peak']] : [['steps', 'Step tests'], ...(F(S.proto.base) ? [['prolonged', 'Prolonged exercise']] : [])]), ['summary', 'Summary']]; }
   function buildTabs() {
     const T = tabs(); if (!T.some(t => t[0] === S.view)) S.view = 'protocol';
     $('#tabs').innerHTML = T.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.view}">${l}</button>`).join('');
