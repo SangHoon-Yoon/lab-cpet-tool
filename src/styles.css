@@ -144,3 +144,13 @@ details.fold{margin-top:12px}details.fold .foldbody{padding:8px 0 4px}details.fo
 .filelist .rm{margin-left:auto;align-self:center;border:none;background:transparent;color:var(--muted);font-size:1.1rem;line-height:1;padding:0 4px;cursor:pointer;border-radius:4px}.filelist .rm:hover{color:var(--accent);background:var(--accent-soft)}
 .psz{position:absolute;right:22px;z-index:3;display:flex;gap:2px;opacity:.55;transition:opacity .15s}.psz:hover,#cwrap:hover .psz{opacity:1}.psz button{width:22px;height:20px;padding:0;line-height:1;font-size:.9rem}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--fg);color:var(--bg);padding:6px 14px;border-radius:6px;font-size:.85rem;opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:60}#toast.on{opacity:1;transform:translateX(-50%)}
+/* guided steps */
+.tabs .gtog{margin-left:auto;font-size:.8rem;border:1px solid var(--line);border-radius:6px;padding:3px 10px;align-self:center}
+.tabs .gtog[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
+#guide{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:8px 0 12px}
+#guide .gsteps{display:flex;flex-wrap:wrap;gap:4px;list-style:none;margin:0 0 6px;padding:0}
+#guide .gsteps button{border:none;background:transparent;color:var(--muted);font-size:.8rem;padding:3px 8px;border-radius:12px;cursor:pointer}
+#guide .gsteps button b{display:inline-flex;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center;border:1px solid currentColor;font-size:.7rem;margin-right:2px}
+#guide .gsteps button.done{color:var(--fg)}#guide .gsteps button.done b{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+#guide .gsteps button[aria-current=step]{color:var(--accent);background:var(--accent-soft)}#guide .gsteps button[aria-current=step] b{border-color:var(--accent)}
+#guide .gnow p{margin:2px 0 6px;font-size:.88rem;line-height:1.45}

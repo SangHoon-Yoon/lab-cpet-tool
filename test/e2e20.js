@@ -1,0 +1,24 @@
+// Guided steps: shown by default, Next/Back move through tabs, can be hidden and stays hidden.
+const {chromium}=require('playwright'),fs=require('fs'),path=require('path');
+const d='/home/claude/samples/',f=re=>d+fs.readdirSync(d).find(x=>re.test(x));const url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html'),out=path.resolve(__dirname,'shots')+'/';
+const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
+(async()=>{const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});const ctx=await b.newContext({viewport:{width:1400,height:1000}});const errs=[];
+ const pg=await ctx.newPage();pg.on('pageerror',x=>errs.push(x.message));await pg.goto(url);
+ const load=async files=>{await pg.setInputFiles('#fileIn',files);await pg.waitForFunction(()=>!document.querySelector('#bGo').disabled,{timeout:60000});await pg.waitForTimeout(300);await pg.click('#bGo');await pg.waitForSelector('#pv .main-svg');await pg.waitForTimeout(500);};
+ await load([f(/TREAD_CHAR/)]);
+ ok(await pg.$eval('#guide',e=>!e.hidden&&/Step 1 of 5: Check the test details/.test(e.innerText)),'guided steps shown, step 1');
+ ok(await pg.$eval('#dBox',e=>!e.open),'Test details still start closed');
+ await pg.screenshot({path:out+'guide.png',clip:{x:0,y:0,width:1400,height:330}});
+ const view=()=>pg.evaluate(()=>LabApp.S.view);
+ await pg.click('#gNext');await pg.waitForTimeout(300);ok((await view())==='protocol'&&/Step 2 of 5/.test(await pg.$eval('#guide',e=>e.innerText)),'Next: step 2 on the Protocol tab');
+ await pg.click('#gNext');await pg.waitForTimeout(1500);ok((await view())==='incremental','Next: thresholds tab');
+ await pg.click('#gNext');await pg.waitForTimeout(500);ok((await view())==='lactate','Next: lactate tab');
+ await pg.click('#gBack');await pg.waitForTimeout(1500);ok((await view())==='incremental','Back works');
+ await pg.click('[data-tab=summary]');await pg.waitForTimeout(500);ok(/Step 5 of 5: Save, export and report/.test(await pg.$eval('#guide',e=>e.innerText)),'clicking a tab moves the guide to that step');
+ await pg.click('[data-gs="0"]');await pg.waitForTimeout(600);ok(await pg.$eval('#dBox',e=>e.open),'step 1 opens Test details');
+ await pg.click('#gOff');await pg.waitForTimeout(200);ok(await pg.$eval('#guide',e=>e.hidden),'hidden');
+ await pg.reload();await load([f(/TREAD_CHAR/)]);ok(await pg.$eval('#guide',e=>e.hidden),'stays hidden after reload');
+ await pg.click('#gTog');await pg.waitForTimeout(200);ok(await pg.$eval('#guide',e=>!e.hidden),'Guided steps button turns it back on');
+ await pg.click('#bLoad');await load(fs.readdirSync(d).filter(x=>/MORNING/.test(x)).map(x=>d+x));
+ const t=await pg.$eval('#guide',e=>e.innerText);ok(/Place VT1 in each step test/.test(t)&&/prolonged/.test(t),'step-test session has its own steps');
+ console.log(' errors:',errs.length?errs:'none');await b.close()})().catch(e=>{console.error(e);process.exit(1)});

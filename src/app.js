@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.18.1', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.19.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -37,7 +37,7 @@
   /* ---------------- Files ---------------- */
   const fileIn = $('#fileIn');
   $('#bPick').onclick = () => { fileIn.accept = '.xlsx,.xls,.csv,.tcx,.gpx,.json'; fileIn.click(); };
-  $('#bLoad').onclick = () => { S.pending = []; listFiles(); $('#app').hidden = true; $('#start').hidden = false; };
+  $('#bLoad').onclick = () => { S.pending = []; listFiles(); $('#app').hidden = true; $('#start').hidden = false; fillStartPresets(); };
   $('#bOpen').onclick = () => { fileIn.accept = '.json'; fileIn.click(); };
   fileIn.onchange = () => { addFiles([...fileIn.files]); fileIn.value = ''; };
   const drop = $('#drop');
@@ -84,7 +84,9 @@
     const lo = ok.find(i => i.kind === 'lode'); S.lode = lo ? lo.obj : null;
     const h = ok.find(i => i.kind === 'hr'); S.hr = h ? h.obj : null;
     S.set = defaults(); S.picks = { inc: {}, tests: {} }; S.oxy = null; S.oxyCache = {}; S.meta = {}; S.view = 'protocol';
+    const pre = presetList().find(x => x.name === $('#sPreset').value); if (pre) { applyPresetTo(pre); try { localStorage.setItem('labcpet.lastPreset', pre.name); } catch (e) { /* private window */ } }
     start();
+    if (pre) toast(`Preset “${pre.name}” applied`);
   };
 
   function start() {
@@ -103,7 +105,7 @@
     $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = !S.I;
     ['#bSave', '#bExport', '#bCsv'].forEach(b => ($(b).disabled = false));
     buildDetails(); buildProc(); buildTabs(); recompute();
-    H.steps = []; H.at = -1; H.saved = null; checkpoint();
+    H.steps = []; H.at = -1; H.saved = null; checkpoint(); S.gStep = 0; renderGuide();
   }
   // Intensity channel and protocol, from the current settings.
   function rebuild() {
@@ -216,7 +218,13 @@
           <div class="tblwrap"><table class="blocks" id="bT"></table></div>
           <div class="tools"><button id="bAdd">Add block</button><button id="bApply" class="primary">Apply</button><button id="bClear" ${set.blocks ? '' : 'disabled'}>Back to detected stages</button></div>
         </div></details>
-      <div class="step"><h4>Data checks</h4><ul class="checks" id="chk"></ul></div>`;
+      <div class="step"><h4>Data checks</h4><ul class="checks" id="chk"></ul></div>
+      <div class="step"><h4>Lab presets <span id="preInfo"></span></h4>
+        <p class="hint" data-info="preInfo">A preset keeps the settings of a protocol so the next test starts with them: test type, entered steps (used only when a file has no power or speed), averaging and outliers, the analysis windows, the step-test options, the lactate settings and the report heading and protocol text. Thresholds, lactate values and participant details are never saved in a preset. Presets are kept in this browser; use Export and Import to share them with the lab.</p>
+        <div class="tools"><select id="pSel">${presetList().map(x => `<option>${esc(x.name)}</option>`).join('') || '<option value="">No presets yet</option>'}</select><button id="pApply" ${presetList().length ? '' : 'disabled'}>Apply</button><button id="pDel" ${presetList().length ? '' : 'disabled'}>Delete</button>
+          <span class="sep"></span><input id="pName" placeholder="Name, e.g. Clinic run" style="width:14em"><button id="pSave">Save these settings as a preset</button>
+          <span class="sep"></span><button id="pExp" ${presetList().length ? '' : 'disabled'}>Export presets</button><button id="pImp">Import presets</button><span class="hint" id="pMsg"></span></div></div>`;
+    bindPresets();
     bindPlan();
     $('#mSex').value = m.sex || ''; if (av.length) $('#mSrc').value = set.source; $('#mType').value = pr.max ? 'two' : pr.type;
     const on = (id, fn) => { const el = $(id); if (el) el.onchange = e => later(() => fn(e)); };
@@ -332,8 +340,9 @@
   function tabs() { return [['protocol', 'Protocol'], ...(S.proto.type === 'incremental' ? [['incremental', S.proto.max ? 'Thresholds and VO₂max' : 'Thresholds and VO₂peak']] : [['steps', 'Step tests'], ...(F(S.proto.base) ? [['prolonged', 'Prolonged exercise']] : [])]), ['lactate', 'Lactate'], ['summary', 'Summary']]; }
   function buildTabs() {
     const T = tabs(); if (!T.some(t => t[0] === S.view)) S.view = 'protocol';
-    $('#tabs').innerHTML = T.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.view}">${l}</button>`).join('');
+    $('#tabs').innerHTML = T.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.view}">${l}</button>`).join('') + `<button class="gtog" id="gTog" aria-pressed="${guideOn()}" title="Step-by-step guidance through the analysis">Guided steps</button>`;
     $$('[data-tab]').forEach(b => (b.onclick = () => { S.view = b.dataset.tab; $$('[data-tab]').forEach(x => x.setAttribute('aria-selected', x === b)); render(); }));
+    $('#gTog').onclick = () => { setGuide(!guideOn()); $('#gTog').setAttribute('aria-pressed', guideOn()); renderGuide(); };
   }
   // Instructions and notes live in pop-ups behind an (i) button, so each tab stays uncluttered.
   // Mark any element with data-info="<id of the element that gets the button>"; it is moved into a pop-up after each render.
@@ -361,7 +370,42 @@
   const openFolds = new Set();
   const fold = (id, title, sub, body) => `<details class="box fold" data-fold="${id}" ${openFolds.has(id) ? 'open' : ''}><summary>${title}<span>${sub}</span></summary><div class="foldbody">${body}</div></details>`;
   document.addEventListener('toggle', e => { const d = e.target; if (d.dataset && d.dataset.fold) (d.open ? openFolds.add(d.dataset.fold) : openFolds.delete(d.dataset.fold)); }, true);
+  /* ---------------- Guided steps ----------------
+     A bar under the tabs that walks through the analysis in order. Each step opens the right tab or section. On by default; switched off with the Guided steps button, remembered in this browser. */
+  const guideOn = () => { try { return localStorage.getItem('labcpet.guided') !== 'off'; } catch (e) { return true; } };
+  const setGuide = on => { try { localStorage.setItem('labcpet.guided', on ? 'on' : 'off'); } catch (e) { /* private window */ } };
+  function guideSteps() {
+    const pr = S.proto, inc = pr.type === 'incremental', openBox = id => () => { const b = $(id); if (b) { b.open = true; b.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
+    const st = [
+      { tab: 'protocol', title: 'Check the test details', text: 'Open Test details. Check the name, body mass and test type, and that the detected stages match your protocol. Anything marked ! under Data checks needs a look.', act: openBox('#dBox') },
+      { tab: 'protocol', title: 'Look over the whole test', text: 'Look for mask leaks, gaps or odd values on the Protocol chart. To clean or smooth the data, open Data processing.' }
+    ];
+    if (inc) st.push({ tab: 'incremental', title: 'Place the thresholds', text: `Check the highlighted analysis window, then drag the VT1 and VT2 lines on the charts, or click Use next to a suggestion. Check ${pr.max ? 'VO₂max' : 'VO₂peak'} and whether the test was maximal.` });
+    else {
+      st.push({ tab: 'steps', title: 'Place VT1 in each step test', text: 'Highlight the data to use in each test if needed, then drag the VT1 line on each test’s charts. Compare the tests stage by stage below.' });
+      if (F(pr.base)) st.push({ tab: 'prolonged', title: 'Check the prolonged exercise', text: 'Read the summary and the values for each recording.' });
+    }
+    st.push({ tab: 'lactate', title: 'Lactate, if taken', text: 'Type or paste the lactate values and check LT1 and LT2. Skip this step if no lactate was taken.' });
+    st.push({ tab: 'summary', title: 'Save, export and report', text: 'Check the thresholds table, then Save analysis, Export Excel, or make a Word report under Reports.', act: () => { const d = document.querySelector('details[data-fold=rep]'); if (d) { d.open = true; openFolds.add('rep'); } } });
+    return st;
+  }
+  function renderGuide() {
+    const el = $('#guide'); if (!el) return;
+    if (!guideOn() || !S.proto) { el.innerHTML = ''; el.hidden = true; return; }
+    const st = guideSteps(); S.gStep = Math.max(0, Math.min(st.length - 1, S.gStep || 0));
+    // follow the tab the person is on, if it is a different step's tab
+    if (st[S.gStep].tab !== S.view) { const j = st.findIndex(x => x.tab === S.view); if (j >= 0) S.gStep = j; }
+    const i = S.gStep, cur = st[i]; el.hidden = false;
+    el.innerHTML = `<ol class="gsteps">${st.map((x, j) => `<li><button data-gs="${j}" aria-current="${j === i ? 'step' : 'false'}" class="${j < i ? 'done' : ''}"><b>${j + 1}</b> ${x.title}</button></li>`).join('')}</ol>
+      <div class="gnow"><p><b>Step ${i + 1} of ${st.length}: ${cur.title}.</b> ${cur.text}</p><div class="tools"><button id="gBack" ${i ? '' : 'disabled'}>Back</button><button class="primary" id="gNext">${i === st.length - 1 ? 'Finish' : 'Next'}</button><button id="gOff">Hide guided steps</button></div></div>`;
+    const go = j => { S.gStep = j; const s2 = st[j]; if (S.view !== s2.tab) { S.view = s2.tab; $$('[data-tab]').forEach(x => x.setAttribute('aria-selected', x.dataset.tab === S.view)); render(); } else renderGuide(); if (s2.act) setTimeout(s2.act, 0); };
+    $$('[data-gs]').forEach(b => (b.onclick = () => go(+b.dataset.gs)));
+    $('#gBack').onclick = () => go(i - 1);
+    $('#gNext').onclick = () => (i === st.length - 1 ? (setGuide(false), $('#gTog') && $('#gTog').setAttribute('aria-pressed', 'false'), renderGuide(), toast('Guided steps hidden. Turn them on again with Guided steps.')) : go(i + 1));
+    $('#gOff').onclick = () => { setGuide(false); if ($('#gTog')) $('#gTog').setAttribute('aria-pressed', 'false'); renderGuide(); };
+  }
   function render() {
+    renderGuide();
     $$('#views .js-plotly-plot').forEach(el => Plotly.purge(el));
     ({ protocol: vProtocol, incremental: vIncremental, steps: vSteps, prolonged: vProlonged, lactate: vLactate, summary: vSummary })[S.view]();
   }
@@ -873,7 +917,7 @@
         <span>Log-log uses the first</span><input type="number" id="lRes" min="0.25" max="1" step="0.05" value="${ls.restrain}" style="width:4.5em"><span>of the data</span><span id="lacInfo"></span></div>
       <div class="tools"><span>Starting LT1:</span>${sel('lD1', LT_METHODS.map(m => [m, m]), ls.lt1)}<span>Starting LT2:</span>${sel('lD2', LT_METHODS.map(m => [m, m]), ls.lt2)}
         <label class="chk"><input type="checkbox" id="lShow" ${ls.show ? 'checked' : ''}>Show every method on the charts</label></div>
-      <ul class="notes" data-info="lacInfo"><li>Type the blood lactate (mmol/L) taken at the end of each stage, and the resting value as the baseline. Leave a stage empty if no sample was taken. Intensity and heart rate are filled in from the test, and you can change them. An unfinished last stage gets a pro-rated intensity, as in Exphyslab.</li>
+      <ul class="notes" data-info="lacInfo"><li>Type the blood lactate (mmol/L) taken at the end of each stage, and the resting value as the baseline. Leave a stage empty if no sample was taken. To paste from Excel, copy the lactate column (or the lactate, heart-rate and RPE columns together), click the first box to fill, and paste: the values fill down the table. Intensity and heart rate are filled in from the test, and you can change them. An unfinished last stage gets a pro-rated intensity, as in Exphyslab.</li>
         <li>The thresholds use the methods of the open-source lactater R package by Felipe Mattioni Maturana, which Exphyslab also uses: Log-log, OBLA (fixed 2.0–4.0 mmol/L), baseline plus 0.5–1.5 mmol/L, the Dmax family, lactate turn points (LTP1 and LTP2) and LTratio. Dmax methods always use a 3rd degree polynomial or exponential fit without the baseline, as in lactater.</li>
         <li>The LT1 and LT2 lines start at the methods you choose above. Drag them, type a value, or click <b>LT1</b> or <b>LT2</b> next to any method. LT lines are kept apart from the VT lines; use the copy buttons to move one pair onto the other through the VO₂–${u === 'km/h' ? 'speed' : 'power'} regression.</li>
         <li>Check the values against your usual method (for example Exphyslab) before relying on them.</li></ul>
@@ -903,6 +947,21 @@
       setTimeout(() => { lacPanel(se, si, dp); summaries(); }, 0); // after the box has lost focus; the box being typed in keeps focus
     }));
     if (focusK) { const el = tb.querySelector(`[data-lk="${focusK}"]`); if (el) el.focus(); }
+    // Paste a column (or several columns) copied from Excel: values fill down from the box pasted into, and to the right.
+    const rowIds = ['b', ...rows.map(r => String(r.i))], colIds = ['p', 'la', 'hr', 'rpe'];
+    tb.onpaste = ev => {
+      const el = ev.target.closest('[data-lk]'), txt = (ev.clipboardData || window.clipboardData).getData('text'); if (!el || !/[\t\n]/.test(txt.trim())) return;
+      ev.preventDefault();
+      const [k0, id0] = el.dataset.lk.split(':'), grid = txt.replace(/\r/g, '').replace(/\n+$/, '').split('\n').map(l => l.split('\t').map(x => parseFloat(x.replace(',', '.').trim())));
+      let n = 0; const r0 = rowIds.indexOf(id0), c0 = colIds.indexOf(k0);
+      grid.forEach((line, dr) => line.forEach((v, dc) => {
+        const rid = rowIds[r0 + dr], k = colIds[c0 + dc]; if (rid === undefined || k === undefined) return;
+        if (rid === 'b') { if (k === 'la' || k === 'hr') { sv.base = Object.assign({}, sv.base, { [k]: F(v) ? v : undefined }); n++; } return; }
+        if (rid[0] === 'x') { const j = +rid.slice(1); sv.extra[j] = Object.assign({}, sv.extra[j], { [k]: F(v) ? v : undefined }); n++; return; }
+        sv.rows = sv.rows || {}; const o = sv.rows[rid] = Object.assign({}, sv.rows[rid]); if (F(v)) o[k] = v; else delete o[k]; n++;
+      }));
+      lacPanel(se, si, dp); summaries(); const m = $('#lmsg' + si); if (m) m.textContent = `Pasted ${n} value${n === 1 ? '' : 's'}. Check them against your sheet.`;
+    };
     $(`[data-ladd="${si}"]`).onclick = () => { sv.extra = (sv.extra || []).concat([{}]); lacPanel(se, si, dp); };
     $$(`.lacT[data-si="${si}"] [data-lrm]`).forEach(b => (b.onclick = () => { sv.extra.splice(+b.dataset.lrm, 1); lacPanel(se, si, dp); summaries(); }));
     $('#lmsg' + si).textContent = res.n ? res.problems.join(' ') + (res.hasBase ? '' : ' No baseline entered, so the baseline-plus methods are left out.') : 'Type the lactate values to see the curve and thresholds.';
@@ -1314,6 +1373,58 @@
     if (restoreStep(H.at + (redo ? 1 : -1))) toast(redo ? 'Redone' : 'Undone'); else toast(redo ? 'Nothing to redo' : 'Nothing to undo');
   });
   window.addEventListener('beforeunload', e => { if (!S.gas) return; clearTimeout(H.timer); checkpoint(); if (H.at >= 0 && H.steps[H.at].k !== H.saved) { e.preventDefault(); e.returnValue = ''; } });
+  /* ---------------- Lab presets ----------------
+     A preset holds a protocol's settings (never data or thresholds). Kept in this browser's storage; exported and imported as a JSON file. */
+  const presetList = () => { try { return JSON.parse(localStorage.getItem('labcpet.presets') || '[]'); } catch (e) { return []; } };
+  const presetSave = list => { try { localStorage.setItem('labcpet.presets', JSON.stringify(list)); return true; } catch (e) { return false; } };
+  function presetFromCurrent(name) {
+    const s = S.set, pick = (o, ks) => Object.fromEntries(ks.filter(k => o && o[k] !== undefined).map(k => [k, structuredClone(o[k])])), rep = S.meta.rep || {};
+    return { name, made: new Date().toISOString().slice(0, 10), version: VERSION, set: { type: s.type, plan: s.plan ? structuredClone(s.plan) : null, oxyWin: s.oxyWin, avg: structuredClone(s.avg), outl: pick(s.outl, ['local', 'nsd', 'remove', 'show']), inc: pick(s.inc, ['stageWin', 'peakWin', 'skip', 'x']), st: pick(s.st, ['meas', 'win', 'regWin', 'vt2', 'cmp']), per: structuredClone(s.per), lac: s.lac ? pick(s.lac, ['fit', 'baseline', 'restrain', 'lt1', 'lt2', 'show']) : undefined }, report: pick(rep, ['title', 'protocol', 'src']) };
+  }
+  // Put a preset into S.set and S.meta. Entered steps are used only when the files have no power or speed.
+  function applyPresetTo(pre) {
+    const p = pre.set || {}, s = S.set, noI = !L.availableIntensity(S.gas, S.lode).length;
+    if (p.type !== undefined) s.type = p.type; if (p.plan && noI) s.plan = structuredClone(p.plan); if (p.oxyWin) s.oxyWin = p.oxyWin;
+    ['avg', 'outl', 'inc', 'st', 'per'].forEach(k => { if (p[k]) s[k] = Object.assign({}, s[k], structuredClone(p[k])); });
+    if (p.lac) s.lac = Object.assign({}, s.lac || {}, structuredClone(p.lac), { series: (s.lac && s.lac.series) || {} });
+    if (pre.report) S.meta.rep = Object.assign({}, S.meta.rep || {}, pre.report);
+    return { planUsed: !!(p.plan && noI), planSkipped: !!(p.plan && !noI) };
+  }
+  function bindPresets() {
+    const msg = t => ($('#pMsg').textContent = t), sel = $('#pSel');
+    try { const last = localStorage.getItem('labcpet.lastPreset'); if (last && presetList().some(x => x.name === last)) sel.value = last; } catch (e) { /* private window */ }
+    $('#pSave').onclick = () => {
+      const name = $('#pName').value.trim(); if (!name) return msg('Give the preset a name first.');
+      const list = presetList().filter(x => x.name !== name); list.push(presetFromCurrent(name)); list.sort((a, b) => a.name.localeCompare(b.name));
+      if (!presetSave(list)) return msg('This browser would not save it (private window?). Use Export instead.');
+      buildDetails(); $('#pMsg').textContent = `Saved “${name}”.`;
+    };
+    $('#pApply').onclick = () => {
+      const pre = presetList().find(x => x.name === sel.value); if (!pre) return;
+      const r = applyPresetTo(pre); try { localStorage.setItem('labcpet.lastPreset', pre.name); } catch (e) { /* private window */ }
+      rebuild(); S.align = L.alignment(S.gas, S.I); buildDetails(); buildProc(); buildTabs(); recompute();
+      $('#pMsg').textContent = `Applied “${pre.name}”.` + (r.planSkipped ? ' Its entered steps were not used, because this file has its own power or speed.' : '');
+    };
+    $('#pDel').onclick = () => { const n = sel.value; if (!n) return; presetSave(presetList().filter(x => x.name !== n)); buildDetails(); $('#pMsg').textContent = `Deleted “${n}”.`; };
+    $('#pExp').onclick = () => download(new Blob([JSON.stringify({ app: 'lab-cpet-tool', kind: 'presets', version: VERSION, presets: presetList() }, null, 1)], { type: 'application/json' }), 'lab-cpet-presets.json');
+    $('#pImp').onclick = () => {
+      const fi = document.createElement('input'); fi.type = 'file'; fi.accept = '.json,application/json';
+      fi.onchange = async () => {
+        try {
+          const o = JSON.parse(await fi.files[0].text()); if (o.app !== 'lab-cpet-tool' || o.kind !== 'presets' || !Array.isArray(o.presets)) throw new Error('This is not a Lab CPET tool presets file.');
+          const names = new Set(o.presets.map(x => x.name)), list = presetList().filter(x => !names.has(x.name)).concat(o.presets).sort((a, b) => a.name.localeCompare(b.name));
+          presetSave(list); buildDetails(); fillStartPresets(); $('#pMsg').textContent = `Imported ${o.presets.length} preset${o.presets.length === 1 ? '' : 's'}.`;
+        } catch (e) { $('#pMsg').textContent = e.message; }
+      };
+      fi.click();
+    };
+  }
+  function fillStartPresets() {
+    const sel = $('#sPreset'); if (!sel) return; const list = presetList(); let last = ''; try { last = localStorage.getItem('labcpet.lastPreset') || ''; } catch (e) { /* private window */ }
+    sel.innerHTML = '<option value="">None</option>' + list.map(x => `<option ${x.name === last ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+    sel.closest('.tools').hidden = !list.length;
+  }
+  fillStartPresets();
   setupInfo();
   window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse }, _rep: { clientReport, researchReport } };
 })();

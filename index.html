@@ -25,6 +25,7 @@
       <button class="primary" id="bPick">Choose files</button>
       <ul class="filelist" id="flist"></ul>
       <p class="msg" id="fmsg"></p>
+      <div class="tools" style="justify-content:center"><label class="f" style="min-width:16em"><span>Lab preset (optional)</span><select id="sPreset"><option value="">None</option></select></label></div>
       <button class="primary" id="bGo" disabled>Continue</button>
       <p class="hint">Everything runs in this browser and works offline. No data leave this computer.</p>
     </div>
@@ -34,6 +35,7 @@
     <details class="box" id="dBox" open><summary>Test details<span id="dSum"></span></summary><div id="dForm"></div></details>
     <details class="box" id="qBox"><summary>Data processing<span id="qSum"></span></summary><div id="qForm"></div></details>
     <nav class="tabs" role="tablist" id="tabs"></nav>
+    <div id="guide" aria-live="polite"></div>
     <div id="views"></div>
   </section>
 </main>
