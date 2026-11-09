@@ -1471,7 +1471,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.12.3', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.13.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -1498,7 +1498,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     outl: { local: true, nsd: 4, half: 5, vars: ['vo2', 'vco2', 've'], limits: true, rfMin: 5, rfMax: 100, vtMin: 0.3, remove: false, show: false },
     avg: { mode: 'bin', bin: 15, ma: 7, roll: 15 },
     view: { vars: ['vo2', 'hr', 've'] },
-    inc: { t0: null, t1: null, skip: 0, stageWin: 60, peakWin: 30, x: 'vo2' },
+    inc: { t0: null, t1: null, skip: 0, selVar: 'vo2', stageWin: 60, peakWin: 30, x: 'vo2' },
     st: { meas: ['eqo2', 'vco2'], win: null, regWin: 60, sel: null, sels: {}, selVar: 'vo2', vt2: false, cmp: ['vo2', 'hr', 'rer'] }, per: { avgMin: 1, vars: ['vo2', 'hr', 'cho', 'fat', 'econ'] }, hrOffset: 0
   });
   const S = { pending: [], gas: null, lode: null, hr: null, meta: {}, set: defaults(), picks: { inc: {}, tests: {} }, I: null, proto: null, D: null, view: 'protocol', align: null, oxy: null, oxyCache: {} };
@@ -1987,6 +1987,24 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function moveLines(ctx) { ctx.charts.forEach(c => drawOverlay(ctx, c)); }
 
   /* ---------------- Incremental test ---------------- */
+  // Time chart of the whole recording with the analysis window highlighted; drag to change the window.
+  function incSelChart() {
+    const D = S.D.inc, set = S.set.inc, pr = S.proto, X = S.D.X, k = set.selVar, gd = document.getElementById('iSelC'); if (!gd) return;
+    const xs = [], ys = []; X.t.forEach((t, i) => { if (F(X.v[k][i])) { xs.push(t / 60); ys.push(X.v[k][i]); } });
+    const end = Math.max(X.t.at(-1), S.gas.t.at(-1)) / 60, shapes = [], ann = [];
+    const dot = x => ({ type: 'line', xref: 'x', yref: 'paper', x0: x, x1: x, y0: 0, y1: 1, line: { color: css('--grid'), width: 1, dash: 'dot' } });
+    pr.inc.stages.forEach(st => shapes.push(dot(st.t0 / 60))); shapes.push(dot(pr.inc.t1 / 60));
+    if (pr.max) { pr.max.stages.forEach(st => shapes.push(dot(st.t0 / 60))); shapes.push(dot(pr.max.t1 / 60)); ann.push({ xref: 'x', yref: 'paper', x: (pr.max.t0 + pr.max.t1) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: 'VO₂max stages', font: { size: 10, color: css('--muted') } }); ann.push({ xref: 'x', yref: 'paper', x: (pr.inc.t0 + pr.inc.t1) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: 'Threshold stages', font: { size: 10, color: css('--muted') } }); }
+    gd._baseShapes = shapes.slice(); shapes.push(...selShapes(D.t0 / 60, D.t1 / 60));
+    Plotly.newPlot(gd, [{ x: xs, y: ys, type: 'scatter', mode: 'lines+markers', line: { color: css('--vt1'), width: 1.5 }, marker: { color: css('--vt1'), size: 3 }, hovertemplate: `%{x:.2f} min<br>${VARS[k].l} %{y:.${VARS[k].dp}f}<extra></extra>` }],
+      lay({ dragmode: false, showlegend: false, margin: { l: 58, r: 12, t: 24, b: 44 }, xaxis: ax('Time from the start of the recording (min)', { range: [0, end], fixedrange: true }), yaxis: ax(vlab(k), { range: robustRange(ys), fixedrange: true }), shapes, annotations: ann }), Object.assign({}, CFG, { displayModeBar: false }));
+    rangeSelect(gd, $('#iSelWrap'), $('#iSelShade'), () => [D.t0 / 60, D.t1 / 60], v => {
+      if (!v) { set.t0 = set.t1 = null; return recompute(); }
+      if (Math.abs(v[0] * 60 - D.t0) < 1 && Math.abs(v[1] * 60 - D.t1) < 1) return incSelChart();
+      const a = Math.max(0, v[0]), b = Math.min(end, v[1]); if (b - a < 1) return incSelChart();
+      set.t0 = Math.round(a * 60); set.t1 = Math.round(b * 60); recompute();
+    });
+  }
   function vIncremental() {
     const D = S.D.inc, set = S.set.inc, pr = S.proto;
     const I = S.I || { label: 'Intensity', unit: '', mode: '' };
@@ -2007,7 +2025,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         <span id="winInfo"></span><span class="sep"></span><span>${pr.max ? 'VO₂max' : 'VO₂peak'} over:</span>${pkW.map(([v, l]) => `<button data-pk="${v}" aria-pressed="${set.peakWin === v}">${l}</button>`).join('')}
         <span class="sep"></span><span>Stage means and the VO₂–${I.label.toLowerCase()} regression use the last:</span>${stW.map(([v, l]) => `<button data-sw="${v}" aria-pressed="${set.stageWin === v}">${l}</button>`).join('')}
       </div>
-      <p class="hint" data-info="winInfo">${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : pr.max ? 'Thresholds and the regression use the threshold stages, and by default the window covers all of them. VO₂max and the peak values come from the VO₂max stages.' : 'By default the window covers all the incremental stages.'}${pr.inc.none ? '' : ' If the gas data look off when the first stage starts, leave out those seconds: this affects the threshold charts, the suggestions and any Oxynet run on this window, but not the stage means, regression or peak values.'}</p></div>
+      <div class="tools" style="margin-top:8px"><span>Show:</span><select id="iSelVar">${(() => { const av = availVars(), vs = ['vo2', 'hr', 've', 'eqo2', 'eqco2', 'rer', 'petco2'].filter(k => k === 'vo2' || av.includes(k)); if (!vs.includes(set.selVar)) set.selVar = 'vo2'; return vs.map(k => `<option value="${k}" ${k === set.selVar ? 'selected' : ''}>${VARS[k].l}</option>`).join(''); })()}</select><span class="hint">Highlighted: the ${pr.max ? 'threshold' : 'analysis'} window, ${mmss(D.t0)}–${mmss(D.t1)}</span></div>
+      <div class="chartwrap" id="iSelWrap"><div class="chart" id="iSelC" style="height:240px"></div><div class="zshade" id="iSelShade"></div></div>
+      <p class="hint" data-info="winInfo">Drag across the chart to highlight the data to analyse, or type the times. Drag either side of the highlight to make it longer or shorter, or click elsewhere on the chart to go back to the default window. ${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : pr.max ? 'Thresholds and the regression use the threshold stages, and by default the window covers all of them. VO₂max and the peak values come from the VO₂max stages.' : 'By default the window covers all the incremental stages.'}${pr.inc.none ? '' : ' If the gas data look off when the first stage starts, leave out those seconds: this affects the threshold charts, the suggestions and any Oxynet run on this window, but not the stage means, regression or peak values.'}</p></div>
       <div class="tools"><span>Plot thresholds against:</span><button data-x="vo2" aria-pressed="${xk === 'vo2'}">VO<sub>2</sub></button><button data-x="t" aria-pressed="${xk === 't'}">Time</button><button id="addV2" hidden>Add a VT2 line</button><span id="plotInfo"></span>
         <span class="hint" data-info="plotInfo">Drag a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b> line sideways on any chart (the cursor changes over it); it moves on all of them.</span></div>
       <div class="grid3">
@@ -2026,6 +2046,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     on('#cS', e => { const first = pr.inc.stages.find(q => !q.warm), lim = first ? Math.max(0, first.dur - 30) : 0, v = parseFloat(e.target.value); set.skip = F(v) ? Math.max(0, Math.min(lim, v)) : 0; set.t0 = null; recompute(); });
     on('#cA', e => { set.t0 = parseFloat(e.target.value) * 60; recompute(); }); on('#cB', e => { set.t1 = parseFloat(e.target.value) * 60; recompute(); });
     $('#cR').onclick = () => { set.t0 = set.t1 = null; set.skip = 0; recompute(); };
+    $('#iSelVar').onchange = e => { set.selVar = e.target.value; incSelChart(); };
+    incSelChart();
     $$('[data-pk]').forEach(b => (b.onclick = () => { set.peakWin = +b.dataset.pk; recompute(); }));
     $$('[data-sw]').forEach(b => (b.onclick = () => { set.stageWin = +b.dataset.sw; recompute(); }));
     $$('[data-x]').forEach(b => (b.onclick = () => { set.x = b.dataset.x; vIncremental(); }));
