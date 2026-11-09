@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.16.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.17.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -329,7 +329,7 @@
   }
 
   /* ---------------- Tabs ---------------- */
-  function tabs() { return [['protocol', 'Protocol'], ...(S.proto.type === 'incremental' ? [['incremental', S.proto.max ? 'Thresholds and VO₂max' : 'Thresholds and VO₂peak']] : [['steps', 'Step tests'], ...(F(S.proto.base) ? [['prolonged', 'Prolonged exercise']] : [])]), ['summary', 'Summary']]; }
+  function tabs() { return [['protocol', 'Protocol'], ...(S.proto.type === 'incremental' ? [['incremental', S.proto.max ? 'Thresholds and VO₂max' : 'Thresholds and VO₂peak']] : [['steps', 'Step tests'], ...(F(S.proto.base) ? [['prolonged', 'Prolonged exercise']] : [])]), ['lactate', 'Lactate'], ['summary', 'Summary']]; }
   function buildTabs() {
     const T = tabs(); if (!T.some(t => t[0] === S.view)) S.view = 'protocol';
     $('#tabs').innerHTML = T.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.view}">${l}</button>`).join('');
@@ -363,7 +363,7 @@
   document.addEventListener('toggle', e => { const d = e.target; if (d.dataset && d.dataset.fold) (d.open ? openFolds.add(d.dataset.fold) : openFolds.delete(d.dataset.fold)); }, true);
   function render() {
     $$('#views .js-plotly-plot').forEach(el => Plotly.purge(el));
-    ({ protocol: vProtocol, incremental: vIncremental, steps: vSteps, prolonged: vProlonged, summary: vSummary })[S.view]();
+    ({ protocol: vProtocol, incremental: vIncremental, steps: vSteps, prolonged: vProlonged, lactate: vLactate, summary: vSummary })[S.view]();
   }
 
   /* ---------------- Plot helpers ---------------- */
@@ -473,7 +473,7 @@
 
   /* ---------------- Threshold charts ---------------- */
   // ctx: { lines: ['vt1','vt2'], get(q) -> VO2, set(q, VO2), toX(VO2, key), fromX(x, key), pts: {t, v}, live(), done(), charts: [] }
-  const vtColor = q => css(q === 'vt1' ? '--vt1' : '--vt2');
+  const vtColor = q => css(q.endsWith('1') ? '--vt1' : '--vt2');
   const vtName = q => q.toUpperCase();
   const seriesColors = () => [css('--ma'), css('--t2')];
   function vtChart(id, ctx, spec) {
@@ -819,6 +819,125 @@
       window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
     };
   }
+  /* ---------------- Lactate ----------------
+     Blood lactate typed per stage; thresholds from the lactater methods (src/lactate.js). LT lines are kept separately from VT lines,
+     but either pair can be copied to the other through the VO₂–intensity regression. */
+  const LM = window.LabLactate;
+  const LT_METHODS = ['Log-log', 'OBLA 2.0', 'OBLA 2.5', 'OBLA 3.0', 'OBLA 3.5', 'OBLA 4.0', 'Bsln + 0.5', 'Bsln + 1.0', 'Bsln + 1.5', 'Dmax', 'ModDmax', 'Exp-Dmax', 'Log-Poly-ModDmax', 'Log-Exp-ModDmax', 'LTP1', 'LTP2', 'LTratio'];
+  const lacSet = () => (S.set.lac = Object.assign({ fit: 'poly3', baseline: false, restrain: 0.75, lt1: 'Log-log', lt2: 'ModDmax', show: true, series: {} }, S.set.lac || {}));
+  // One series per lactate curve: the incremental test, or each step test. fit maps VO₂ (L/min) to intensity.
+  function lacSeries() {
+    const pr = S.proto, D = S.D, out = [];
+    if (pr.type === 'incremental') {
+      const st = pr.inc && !pr.inc.none ? pr.inc.stages : [], vals = D.inc ? D.inc.values : [];
+      out.push({ key: 'inc', name: pr.max ? 'Threshold stages' : 'Incremental test', stages: st.map((q, i) => ({ p: q.p, dur: q.dur, hr: vals[i] ? vals[i].m.hr : NaN })), fit: D.inc ? D.inc.fit : null,
+        vt: q => incVT(q), setVT: (q, v, src) => { S.picks.inc[q] = +v.toFixed(3); S.picks.incSrc = S.picks.incSrc || {}; S.picks.incSrc[q] = src; }, vtLines: ['vt1', 'vt2'] });
+    } else if (D.st) pr.tests.forEach((T, i) => out.push({ key: 't' + testKey(T), name: L.testName(pr, i), stages: T.steps.map((q, j) => ({ p: q.p, dur: q.dur, hr: D.st.SM[i][j] ? D.st.SM[i][j].m.hr : NaN })), fit: D.st.fits[i],
+      vt: q => testVT(q, i), setVT: (q, v) => { if (q === 'vt2') S.set.st.vt2 = true; setTestVT(T, q, +v.toFixed(3)); }, vtLines: S.set.st.vt2 ? ['vt1', 'vt2'] : ['vt1'] }));
+    return out;
+  }
+  // The rows of a series: the resting baseline, each stage (an unfinished last stage gets a pro-rated intensity, as in Exphyslab) and any added rows.
+  function lacRows(se) {
+    const ls = lacSet(), sv = ls.series[se.key] || {}, ent = sv.rows || {}, rows = [];
+    se.stages.forEach((q, i) => {
+      const prev = se.stages[i - 1], last = i === se.stages.length - 1, part = last && prev && q.dur < 0.9 * prev.dur;
+      const auto = part ? +(prev.p + (q.p - prev.p) * q.dur / prev.dur).toFixed(2) : q.p, e = ent[i] || {};
+      rows.push({ i, label: 'Stage ' + (i + 1) + (part ? ' (part)' : ''), autoP: auto, p: F(e.p) ? e.p : auto, autoHr: F(q.hr) ? Math.round(q.hr) : NaN, hr: F(e.hr) ? e.hr : F(q.hr) ? Math.round(q.hr) : NaN, la: e.la });
+    });
+    (sv.extra || []).forEach((e, j) => rows.push({ i: 'x' + j, label: 'Added', p: e.p, hr: e.hr, la: e.la, extra: j }));
+    return { base: sv.base || {}, rows };
+  }
+  function lacAnalyse(se) {
+    const ls = lacSet(), { base, rows } = lacRows(se), use = rows.filter(r => F(r.p) && F(r.la)).sort((a, b) => a.p - b.p);
+    const input = (F(base.la) ? [{ p: 0, la: base.la, hr: base.hr }] : []).concat(use.map(r => ({ p: r.p, la: r.la, hr: r.hr })));
+    const res = use.length ? LM.analyse(input, { fit: ls.fit, baseline: ls.baseline, restrain: ls.restrain, sport: S.I && S.I.unit !== 'W' ? 'running' : 'cycling' }) : { methods: [], problems: [] };
+    res.n = use.length; res.hasBase = F(base.la); return res;
+  }
+  const ltPick = (key, q) => ((S.picks.lt || {})[key] || {})[q];
+  function ltVal(se, res, q) {
+    const p = ltPick(se.key, q); if (F(p)) return p;
+    const m = res.methods.find(x => x.name === lacSet()[q]); return m && F(m.p) ? m.p : NaN;
+  }
+  function ltSource(se, res, q) { const p = ltPick(se.key, q); if (F(p)) return ((S.picks.ltSrc || {})[se.key] || {})[q] || 'placed by user'; return F(ltVal(se, res, q)) ? lacSet()[q] + ' (default)' : ''; }
+  function setLT(key, q, v, src) { S.picks.lt = S.picks.lt || {}; S.picks.ltSrc = S.picks.ltSrc || {}; const o = S.picks.lt[key] = S.picks.lt[key] || {}, s = S.picks.ltSrc[key] = S.picks.ltSrc[key] || {}; if (F(v)) { o[q] = v; if (src) s[q] = src; else delete s[q]; } else { delete o[q]; delete s[q]; } }
+  // lactate and heart rate at any intensity: from the fitted curve, and from a straight line through the stage heart rates
+  const ltAt = (res, p) => { if (!res.fit || !F(p)) return {}; const la = res.fit.model.predict(p), hr = res.fit.data.slice(res.hasBase ? 1 : 0).filter(r => F(r.hr)); let h = NaN; if (hr.length >= 2) { const r = C.linreg(hr.map(q => q.p), hr.map(q => q.hr)); h = r.m * p + r.b; } return { la, hr: h }; };
+  const lacUsed = () => lacSeries().some(se => lacAnalyse(se).n > 0);
+
+  function vLactate() {
+    const ls = lacSet(), I = S.I, u = I ? I.unit : '', dp = u === 'W' ? 0 : 1, series = lacSeries();
+    const sel = (id, opts, v) => `<select id="${id}">${opts.map(([k, l]) => `<option value="${k}" ${String(k) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+    $('#views').innerHTML = `
+      <div class="tools"><span>Curve fit:</span>${sel('lFit', [['poly3', '3rd degree polynomial'], ['poly4', '4th degree polynomial'], ['bspline', 'B-spline']], ls.fit)}
+        <span>Baseline in the fit:</span>${sel('lBase', [[0, 'No'], [1, 'Yes']], ls.baseline ? 1 : 0)}
+        <span>Log-log uses the first</span><input type="number" id="lRes" min="0.25" max="1" step="0.05" value="${ls.restrain}" style="width:4.5em"><span>of the data</span><span id="lacInfo"></span></div>
+      <div class="tools"><span>Starting LT1:</span>${sel('lD1', LT_METHODS.map(m => [m, m]), ls.lt1)}<span>Starting LT2:</span>${sel('lD2', LT_METHODS.map(m => [m, m]), ls.lt2)}
+        <label class="chk"><input type="checkbox" id="lShow" ${ls.show ? 'checked' : ''}>Show every method on the charts</label></div>
+      <ul class="notes" data-info="lacInfo"><li>Type the blood lactate (mmol/L) taken at the end of each stage, and the resting value as the baseline. Leave a stage empty if no sample was taken. Intensity and heart rate are filled in from the test, and you can change them. An unfinished last stage gets a pro-rated intensity, as in Exphyslab.</li>
+        <li>The thresholds use the methods of the open-source lactater R package by Felipe Mattioni Maturana, which Exphyslab also uses: Log-log, OBLA (fixed 2.0–4.0 mmol/L), baseline plus 0.5–1.5 mmol/L, the Dmax family, lactate turn points (LTP1 and LTP2) and LTratio. Dmax methods always use a 3rd degree polynomial or exponential fit without the baseline, as in lactater.</li>
+        <li>The LT1 and LT2 lines start at the methods you choose above. Drag them, type a value, or click <b>LT1</b> or <b>LT2</b> next to any method. LT lines are kept apart from the VT lines; use the copy buttons to move one pair onto the other through the VO₂–${u === 'km/h' ? 'speed' : 'power'} regression.</li>
+        <li>Check the values against your usual method (for example Exphyslab) before relying on them.</li></ul>
+      ${series.length ? series.map((se, si) => `<h2 class="row">${esc(se.name)}<span>lactate curve</span></h2>
+        <div class="grid3"><div class="panel"><div class="tblwrap"><table class="lacT" data-si="${si}"><thead><tr><th>Stage</th><th>${I ? I.label : 'Intensity'} (${u})</th><th>Lactate (mmol/L)</th><th>Heart rate</th><th></th></tr></thead><tbody></tbody></table></div>
+          <div class="tools" style="padding:0 10px 8px"><button data-ladd="${si}">Add a row</button><span class="hint" id="lmsg${si}"></span></div></div>
+          <div class="panel"><h3>Lactate against ${I ? I.label.toLowerCase() : 'intensity'}</h3><div class="chart mid" id="lc${si}"></div></div></div>
+        <div class="stats" id="lt${si}"></div>
+        <div class="tools" id="lcp${si}"></div>
+        <details class="box fold" data-fold="lm${si}" ${openFolds.has('lm' + si) ? 'open' : ''}><summary>Every method<span>intensity, lactate and heart rate</span></summary><div class="foldbody"><div class="tblwrap"><table id="lmT${si}"></table></div></div></details>`).join('') : '<p class="msg">No stages were found. Check Test details.</p>'}`;
+    const re = () => { vLactate(); summaries(); };
+    $('#lFit').onchange = e => { ls.fit = e.target.value; re(); }; $('#lBase').onchange = e => { ls.baseline = e.target.value === '1'; re(); };
+    $('#lRes').onchange = e => { const v = parseFloat(e.target.value); ls.restrain = F(v) ? Math.min(1, Math.max(0.25, v)) : 0.75; re(); };
+    $('#lD1').onchange = e => { ls.lt1 = e.target.value; re(); }; $('#lD2').onchange = e => { ls.lt2 = e.target.value; re(); }; $('#lShow').onchange = e => { ls.show = e.target.checked; re(); };
+    series.forEach((se, si) => lacPanel(se, si, dp));
+  }
+  function lacPanel(se, si, dp) {
+    const ls = lacSet(), I = S.I, u = I ? I.unit : '', sv = ls.series[se.key] = ls.series[se.key] || {}, { base, rows } = lacRows(se), res = lacAnalyse(se);
+    const num = (v, d) => (F(v) ? (+v).toFixed(d) : ''), inp = (k, v, ph, w) => `<input type="number" step="any" data-lk="${k}" value="${num(v, k.startsWith('la') ? 2 : k.startsWith('hr') ? 0 : 2).replace(/\.?0+$/, '') || ''}" placeholder="${ph}" style="width:${w || 5.5}em">`;
+    const tb = $(`.lacT[data-si="${si}"] tbody`), focusK = document.activeElement && tb.contains(document.activeElement) ? document.activeElement.dataset.lk : null;
+    tb.innerHTML = `<tr><td>Rest (baseline)</td><td>–</td><td>${inp('la:b', base.la, '')}</td><td>${inp('hr:b', base.hr, '', 4.5)}</td><td></td></tr>` +
+      rows.map(r => `<tr><td>${r.label}</td><td>${inp('p:' + r.i, r.p, r.autoP ?? '')}</td><td>${inp('la:' + r.i, r.la, '')}</td><td>${inp('hr:' + r.i, r.hr, r.autoHr ?? '', 4.5)}</td><td>${r.extra !== undefined ? `<button class="rm" data-lrm="${r.extra}" title="Remove this row" aria-label="Remove this row">×</button>` : ''}</td></tr>`).join('');
+    $$(`.lacT[data-si="${si}"] input`).forEach(el => (el.onchange = () => {
+      const [k, id] = el.dataset.lk.split(':'), v = parseFloat(el.value);
+      if (id === 'b') { sv.base = Object.assign({}, sv.base, { [k]: F(v) ? v : undefined }); }
+      else if (id[0] === 'x') { const j = +id.slice(1); sv.extra[j] = Object.assign({}, sv.extra[j], { [k]: F(v) ? v : undefined }); }
+      else { sv.rows = sv.rows || {}; const o = sv.rows[id] = Object.assign({}, sv.rows[id]); if (F(v)) o[k] = v; else delete o[k]; }
+      setTimeout(() => { lacPanel(se, si, dp); summaries(); }, 0); // after the box has lost focus; the box being typed in keeps focus
+    }));
+    if (focusK) { const el = tb.querySelector(`[data-lk="${focusK}"]`); if (el) el.focus(); }
+    $(`[data-ladd="${si}"]`).onclick = () => { sv.extra = (sv.extra || []).concat([{}]); lacPanel(se, si, dp); };
+    $$(`.lacT[data-si="${si}"] [data-lrm]`).forEach(b => (b.onclick = () => { sv.extra.splice(+b.dataset.lrm, 1); lacPanel(se, si, dp); summaries(); }));
+    $('#lmsg' + si).textContent = res.n ? res.problems.join(' ') + (res.hasBase ? '' : ' No baseline entered, so the baseline-plus methods are left out.') : 'Type the lactate values to see the curve and thresholds.';
+    // chart
+    const gd = document.getElementById('lc' + si); Plotly.purge(gd); gd.innerHTML = '';
+    const pts = res.fit ? res.fit.data : [], tr = [];
+    if (res.fit) {
+      tr.push({ x: res.fit.x, y: res.fit.y, mode: 'lines', type: 'scatter', line: { color: css('--ma'), width: 2 }, name: 'Fitted curve', hoverinfo: 'skip' });
+      tr.push({ x: pts.map(r => r.p), y: pts.map(r => r.la), mode: 'markers', type: 'scatter', marker: { color: css('--bg'), size: 9, line: { color: css('--fg'), width: 1.5 } }, name: 'Samples', hovertemplate: `%{x:.${dp}f} ${u}<br>%{y:.2f} mmol/L<extra></extra>` });
+      if (lacSet().show) { const ms = res.methods.filter(m => F(m.p) && F(m.la)); tr.push({ x: ms.map(m => m.p), y: ms.map(m => m.la), text: ms.map(m => m.name), mode: 'markers', type: 'scatter', marker: { size: 8, color: ms.map((m, i) => css(['--t1', '--t2', '--t3', '--vt1', '--vt2', '--power'][i % 6])), line: { color: css('--bg'), width: 1 } }, name: 'Methods', hovertemplate: `%{text}<br>%{x:.${dp}f} ${u}, %{y:.1f} mmol/L<extra></extra>` }); }
+    }
+    const xs = pts.map(r => r.p), xr = xs.length ? [Math.min(...xs) - (Math.max(...xs) - Math.min(...xs)) * .05, Math.max(...xs) * 1.03] : [0, 1], ys = pts.map(r => r.la);
+    const shapes = [], ann = [];
+    if (se.fit) se.vtLines.forEach(q => { const v = se.vt(q), x = F(v) ? se.fit.m * v + se.fit.b : NaN; if (!F(x)) return; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: x, x1: x, y0: 0, y1: 1, line: { color: vtColor(q), width: 1.5, dash: 'dot' } }); ann.push({ xref: 'x', yref: 'paper', x, y: 0.02, xanchor: 'left', showarrow: false, text: q.toUpperCase() + ' (gas)', font: { size: 10, color: vtColor(q) } }); });
+    Plotly.newPlot(gd, tr, lay({ showlegend: false, margin: { l: 52, r: 12, t: 22, b: 44 }, xaxis: ax(`${I ? I.label : 'Intensity'} (${u})`, { range: xr }), yaxis: ax('Lactate (mmol/L)', { range: [0, Math.max(2, ...ys) * 1.1] }), shapes, annotations: ann }), FIGCFG);
+    const ctx = { lines: res.fit ? ['lt1', 'lt2'] : [], charts: [], pts: { v: {} }, get: q => ltVal(se, res, q), set: (q, v) => setLT(se.key, q, Math.round(v * 100) / 100), toX: v => v, fromX: x => x, live: () => tiles(), done: () => { tiles(); summaries(); } };
+    attachVT(gd, ctx, { x: 'p', y: [] });
+    const tiles = () => {
+      const t = q => { const p = ltVal(se, res, q), a = ltAt(res, p), src = ltSource(se, res, q); return `<div class="stat ${q === 'lt1' ? 'vt1b' : 'vt2b'}"><b>${F(p) ? fx(p, dp + 1) + ' ' + u : '–'}</b><span>${q.toUpperCase()}${src ? ' · ' + esc(src) : ''}</span><small>${F(p) ? `${fx(a.la, 1)} mmol/L${F(a.hr) ? ', ' + Math.round(a.hr) + ' bpm' : ''}${u === 'km/h' ? ', ' + pace(p) + ' min/km' : ''}` : 'enter lactate values'}</small></div>`; };
+      $('#lt' + si).innerHTML = t('lt1') + t('lt2');
+    };
+    tiles();
+    // copy between lactate and gas thresholds
+    $('#lcp' + si).innerHTML = se.fit ? `<button id="lcpTo${si}" ${res.fit ? '' : 'disabled'}>Copy LT1 and LT2 to the gas charts</button><button id="lcpFrom${si}">Copy ${se.vtLines.map(q => q.toUpperCase()).join(' and ')} here</button><span class="hint" id="lcpM${si}">Copies through this test’s VO₂–${u === 'km/h' ? 'speed' : 'power'} regression.</span>` : '<span class="hint">Copying between lactate and gas thresholds needs a VO₂–intensity regression from at least three stages.</span>';
+    if (se.fit) {
+      $('#lcpTo' + si).onclick = () => { const done = []; ['lt1', 'lt2'].forEach(q => { const p = ltVal(se, res, q); if (!F(p)) return; se.setVT(q.replace('lt', 'vt'), (p - se.fit.b) / se.fit.m, 'Lactate ' + q.toUpperCase()); done.push(q.toUpperCase()); }); $('#lcpM' + si).textContent = done.length ? `${done.join(' and ')} copied to the gas charts as ${done.map(x => x.replace('L', 'V')).join(' and ')}.` : 'Nothing to copy yet.'; summaries(); vLactate(); };
+      $('#lcpFrom' + si).onclick = () => { const done = []; se.vtLines.forEach(q => { const v = se.vt(q); if (!F(v)) return; setLT(se.key, q.replace('vt', 'lt'), Math.round((se.fit.m * v + se.fit.b) * 100) / 100, 'Gas ' + q.toUpperCase()); done.push(q.toUpperCase()); }); summaries(); vLactate(); const m = $('#lcpM' + si); if (m) m.textContent = done.length ? `${done.join(' and ')} copied here.` : 'Nothing to copy yet.'; };
+    }
+    // every method
+    $('#lmT' + si).innerHTML = res.methods.length ? `<thead><tr><th>Method</th><th>Fit</th><th>${u}</th><th>Lactate</th><th>Heart rate</th><th>Use as</th></tr></thead><tbody>${res.methods.map(m => `<tr><td>${m.name}</td><td class="hint">${m.fitting}</td><td>${F(m.p) ? fx(m.p, dp + 1) : '<span class="hint">not found</span>'}</td><td>${F(m.la) ? fx(m.la, m.cat === 'Bsln+' ? 2 : 1) : ''}</td><td>${F(m.hr) ? m.hr : ''}</td><td>${F(m.p) ? `<button data-luse="lt1:${m.p}:${m.name}">LT1</button> <button data-luse="lt2:${m.p}:${m.name}">LT2</button>` : ''}</td></tr>`).join('')}</tbody>` : '<tbody><tr><td class="hint">No methods yet.</td></tr></tbody>';
+    $$(`#lmT${si} [data-luse]`).forEach(b => (b.onclick = () => { const [q, v, ...nm] = b.dataset.luse.split(':'); setLT(se.key, q, +v, nm.join(':')); moveLines(ctx); tiles(); summaries(); }));
+  }
+  const pace = kmh => { if (!(kmh > 0)) return '–'; const s = Math.round(3600 / kmh); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
   /* ---------------- Prolonged exercise ---------------- */
   function periodRows() {
     const pr = S.proto, X = S.D.X, isT = S.I.mode === 'treadmill', mass = S.meta.mass, blocks = L.steadyTotals(pr, S.I.unit).blocks;
@@ -901,15 +1020,33 @@
         D.st.SM[i].forEach((q, j) => stageRow(nm, j + 1, q, D.st.rpe[i][j]));
       });
     }
+    // lactate thresholds and every lactate method
+    const lactate = [];
+    if (pr.type === 'incremental' || D.st) lacSeries().forEach(se => {
+      const res = lacAnalyse(se); if (!res.n) return; const nm = se.key === 'inc' ? (pr.max ? 'threshold_stages' : 'incremental') : 'test_' + (lacSeries().indexOf(se) + 1);
+      ['lt1', 'lt2'].forEach(q => {
+        const p = ltVal(se, res, q); if (!F(p)) return; const a = ltAt(res, p), vo2 = se.fit ? (p - se.fit.b) / se.fit.m : NaN;
+        thr.push(Object.assign({}, idcols, { test: nm, threshold: q.toUpperCase(), source: ltSource(se, res, q), vo2_L_min: rd(vo2, 3), vo2_mL_kg_min: rd(F(m.mass) ? vo2 * 1000 / m.mass : NaN, 2), intensity_regression: '', intensity_stage: rd(p, 2), intensity_unit: unit, hr_bpm: rd(a.hr, 1), lactate_mmol_L: rd(a.la, 2) }));
+        [['intensity', unit, p], ['lactate', 'mmol/L', a.la], ['hr', 'bpm', a.hr]].forEach(([k, u, val]) => push(nm, '', NaN, q + '_' + k, val, u));
+      });
+      res.methods.forEach(x => lactate.push(Object.assign({}, idcols, { test: nm, category: x.cat, method: x.name, fitting: x.fitting, intensity: rd(x.p, 2), intensity_unit: unit, lactate_mmol_L: rd(x.la, 2), hr_bpm: F(x.hr) ? x.hr : '' })));
+      res.fit.data.forEach((r, i) => lactate.push(Object.assign({}, idcols, { test: nm, category: 'sample', method: i === 0 && res.hasBase ? 'baseline' : 'stage', fitting: '', intensity: i === 0 && res.hasBase ? 0 : rd(r.p, 2), intensity_unit: unit, lactate_mmol_L: rd(r.la, 2), hr_bpm: F(r.hr) ? r.hr : '' })));
+    });
     const periods = [];
     if (pr.type !== 'incremental' && F(pr.base) && I && D.per) periodRows().forEach((r, i) => {
       periods.push(Object.assign({}, idcols, { recording: i + 1, block: r.block || '', intensity: pr.base, intensity_unit: unit, avg_start_s: Math.round(r.p.avgWin[0]), avg_end_s: Math.round(r.p.avgWin[1]), min_into_block: rd(r.into, 1), vo2_L_min: rd(r.vo2[0], 3), vo2_mL_kg_min: rd(r.vo2kg[0], 2), vco2_L_min: rd(r.vco2[0], 3), rer: rd(r.rer[0], 3), ve_L_min: rd(r.ve[0], 2), hr_bpm: rd(r.hr[0], 1), cho_g_min: rd(r.cho[0], 3), fat_g_min: rd(r.fat[0], 3), cho_kJ_min: rd(r.energy.cho, 2), fat_kJ_min: rd(r.energy.fat, 2), pct_energy_cho: rd(r.energy.pctCho, 1), expenditure_kJ_min: rd(r.energy.total, 2), gross_efficiency_pct: I.mode === 'cycling' ? rd(r.econ[0], 2) : '', economy_mL_kg_km: I.mode === 'treadmill' ? rd(r.econ[0], 1) : '', rpe: F(r.rpe) ? r.rpe : '' }));
       [['vo2', 'L/min', r.vo2[0]], ['hr', 'bpm', r.hr[0]], ['rer', '', r.rer[0]], ['ve', 'L/min', r.ve[0]], ['cho', 'g/min', r.cho[0]], ['fat', 'g/min', r.fat[0]], [I.mode === 'cycling' ? 'gross_efficiency' : 'economy', I.mode === 'cycling' ? '%' : 'mL/kg/km', r.econ[0]], ['rpe', 'Borg', r.rpe]].forEach(([k, u, v]) => push('prolonged', 'recording_' + (i + 1), pr.base, k, v, u));
     });
-    return { rows, thr, stages, periods };
+    return { rows, thr, stages, periods, lactate };
   }
   const rd = (v, d) => (F(v) ? +v.toFixed(d) : '');
-  function methodsText() {
+  function lactateText() {
+    if (!lacUsed()) return ''; const ls = lacSet(), fit = LM.FITS[ls.fit].toLowerCase(), used = [];
+    lacSeries().forEach(se => { const res = lacAnalyse(se); if (!res.n) return; ['lt1', 'lt2'].forEach(q => { const s = ltSource(se, res, q); if (s) used.push(`${q.toUpperCase()} ${s.replace(' (default)', '')}`); }); });
+    return ` Blood lactate thresholds were determined with the methods of the lactater R package (Mattioni Maturana; the methods used by Exphyslab), ported to JavaScript in the tool. Lactate was fitted against ${S.I && S.I.unit !== 'W' ? 'speed' : 'power'} with a ${fit}${ls.baseline ? ' including' : ' excluding'} the resting baseline${ls.lt1 === 'Log-log' || ls.lt2 === 'Log-log' ? `, and the Log-log method used the first ${Math.round(ls.restrain * 100)}% of the data` : ''}. Thresholds used: ${[...new Set(used)].join('; ')}.`;
+  }
+  function methodsText() { return methodsCore() + lactateText(); }
+  function methodsCore() {
     const pr = S.proto, I = S.I, set = S.set, g = S.gas, bxb = g.kind === 'bxb';
     const avgT = avgLabel().replace('breath-by-breath', 'breath-by-breath data');
     const joined = g.files ? ` The ${g.files.length} recordings of the session were aligned by their clock times.` : '';
@@ -929,12 +1066,13 @@
     ['Zignoli A, Fornasiero A, Rota P, et al. Oxynet: a collective intelligence that detects ventilatory thresholds in cardiopulmonary exercise tests. <i>European Journal of Sport Science</i>. 2022;22(3):425-435.', '10.1080/17461391.2020.1866081'],
     ['Keir DA, Zignoli A, Iannetta D, Mattioni Maturana F, Murias JM. AI-driven analysis of cardiopulmonary exercise tests to identify gas exchange and ventilatory thresholds. <i>Sports Medicine</i>. 2026;56(7):1833-1843.', '10.1007/s40279-026-02403-w'],
     ['Zignoli A, et al. Expert-level classification of ventilatory thresholds from cardiopulmonary exercising test data with recurrent neural networks. <i>European Journal of Sport Science</i>. 2019;19(9):1221-1229.', '10.1080/17461391.2019.1587523'],
+    ['Mattioni Maturana F. lactater: tools for analyzing lactate thresholds. R package version 0.3.0. https://github.com/fmmattioni/lactater (MIT licence).', ''],
     ['Zignoli A. Machine learning models for the automatic detection of exercise thresholds in cardiopulmonary exercising tests: from regression to generation to explanation. <i>Sensors</i>. 2023;23(2):826.', '10.3390/s23020826']
   ];
   function creditsHTML() {
     return `<div class="methods"><p style="margin:0 0 8px"><b>Lab CPET tool</b>, version ${VERSION}, was created by <b>${AUTHOR}</b>.</p>
       <p style="margin:0 0 8px"><b>Oxynet.</b> The Oxynet suggestions use the frozen CNN and LSTM models from <a href="https://pypi.org/project/pyoxynet/">pyoxynet</a> 1.0.2 by Andrea Zignoli and the Oxynet team (MIT licence). They run on this computer through this tool’s own JavaScript runner, and no data are sent to Oxynet. This tool is not made or endorsed by the Oxynet team. Please cite:</p>
-      <ol class="refs">${REFS.map(([t, d]) => `<li>${t} <a href="https://doi.org/${d}">doi:${d}</a></li>`).join('')}</ol>
+      <ol class="refs">${REFS.map(([t, d]) => `<li>${t}${d ? ` <a href="https://doi.org/${d}">doi:${d}</a>` : ''}</li>`).join('')}</ol>
       <p style="margin:8px 0 0"><b>Other software.</b> Plotly.js (MIT licence) and SheetJS (Apache 2.0 licence). <b>Equations.</b> Substrate oxidation: Jeukendrup and Wallis (2005). Metabolic power: Brouwer (1957). V-slope: Beaver et al. (1986).</p></div>`;
   }
   $('#credit').innerHTML = `Lab CPET tool ${VERSION}. Created by ${AUTHOR}. Threshold suggestions on incremental tests include the open-source Oxynet models (Zignoli et al., 2022; Keir et al., 2026; pyoxynet, MIT licence).`;
@@ -966,11 +1104,11 @@
   $('#bExport').onclick = async () => {
     if (S.oxy && !S.oxy.done) await S.oxy.promise;
     const R = results(), wb = XLSX.utils.book_new(), add = (name, rows) => XLSX.utils.book_append_sheet(wb, rows.length ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([['No data']]), name);
-    add('Long format', R.rows); add('Stages', R.stages); add('Thresholds', R.thr);
+    add('Long format', R.rows); add('Stages', R.stages); add('Thresholds', R.thr); if (R.lactate.length) add('Lactate', R.lactate);
     const ox = S.oxy && S.oxy.done && S.proto.type === 'incremental' ? ['cnn', 'lstm'].flatMap(m => { const r = S.oxy.res[m]; return ['vt1', 'vt2'].map(q => ({ model: 'Oxynet ' + m.toUpperCase(), threshold: q.toUpperCase(), vo2_L_min: r && r[q] && !r.problem ? rd(r[q].vo2, 3) : '', time_s: r && r[q] && !r.problem ? r[q].time : '', note: r ? (r.problem || r.error || '') : '', data_used: oxyName() })); }) : [];
     if (ox.length) add('Oxynet suggestions', ox);
     if (R.periods.length) add('Prolonged exercise', R.periods);
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Lab CPET tool ' + VERSION + ', created by ' + AUTHOR], [''], ['Please cite when Oxynet suggestions are used:'], ...REFS.map(([t, d]) => [t.replace(/<[^>]+>/g, '') + ' doi:' + d]), ['pyoxynet 1.0.2, Andrea Zignoli and the Oxynet team, MIT licence.']]), 'Credits');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Lab CPET tool ' + VERSION + ', created by ' + AUTHOR], [''], ['References: cite the Oxynet papers when Oxynet suggestions are used, and lactater when lactate thresholds are used.'], ...REFS.map(([t, d]) => [t.replace(/<[^>]+>/g, '') + (d ? ' doi:' + d : '')]), ['pyoxynet 1.0.2, Andrea Zignoli and the Oxynet team, MIT licence.']]), 'Credits');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Check', 'Message'], ...S.checks.map(c => [c.level, c.text])]), 'Data checks');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Setting', 'Value'], ...settingsRows()]), 'Settings');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Methods paragraph'], [methodsText()]]), 'Methods');
@@ -1023,5 +1161,5 @@
   });
   window.addEventListener('beforeunload', e => { if (!S.gas) return; clearTimeout(H.timer); checkpoint(); if (H.at >= 0 && H.steps[H.at].k !== H.saved) { e.preventDefault(); e.returnValue = ''; } });
   setupInfo();
-  window.LabApp = { S, recompute, results, methodsText, H };
+  window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse } };
 })();
