@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.15.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.16.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -103,6 +103,7 @@
     $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = !S.I;
     ['#bSave', '#bExport', '#bCsv'].forEach(b => ($(b).disabled = false));
     buildDetails(); buildProc(); buildTabs(); recompute();
+    H.steps = []; H.at = -1; H.saved = null; checkpoint();
   }
   // Intensity channel and protocol, from the current settings.
   function rebuild() {
@@ -980,6 +981,7 @@
     const blocks = S.set.blocks ? { list: [...S.set.blocks], unit: S.set.blocks.unit } : null, set = clone(S.set); set.blocks = blocks;
     const o = { app: 'lab-cpet-tool', version: VERSION, gas: S.gas, lode: S.lode, hr: S.hr, meta: S.meta, set, picks: S.picks };
     download(new Blob([JSON.stringify(o)], { type: 'application/json' }), stem() + '_analysis.json');
+    checkpoint(); H.saved = H.at >= 0 ? H.steps[H.at].k : null; toast('Saved');
   };
   function openAnalysis(o) {
     if (o.app !== 'lab-cpet-tool') throw new Error('This is not a Lab CPET tool analysis file.');
@@ -990,6 +992,36 @@
     S.gas = o.gas; S.lode = o.lode; S.hr = o.hr; S.meta = o.meta; S.set = Object.assign(defaults(), o.set); S.picks = o.picks; S.oxy = null; S.oxyCache = {}; S.view = 'protocol';
     start();
   }
+  /* ---------------- Undo, redo and unsaved work ----------------
+     After each click, drag, typed change or key press, the settings and threshold lines are compared with the last saved step.
+     If they changed, a new step is kept (up to 100). Ctrl+Z (⌘Z on a Mac) goes back a step; Ctrl+Shift+Z or Ctrl+Y goes forward. */
+  const H = { steps: [], at: -1, saved: null, timer: 0 };
+  const snapOf = () => { const b = S.set.blocks; return { set: structuredClone(Object.assign({}, S.set, { blocks: b ? { list: [...b], unit: b.unit } : null })), picks: structuredClone(S.picks) }; };
+  const keyOf = sn => JSON.stringify(sn);
+  function checkpoint() {
+    if (!S.gas || !S.D) return; const sn = snapOf(), k = keyOf(sn);
+    if (H.at >= 0 && H.steps[H.at].k === k) return;
+    H.steps = H.steps.slice(0, H.at + 1); H.steps.push({ sn, k }); if (H.steps.length > 100) H.steps.shift(); H.at = H.steps.length - 1;
+    if (H.saved === null) H.saved = k;
+  }
+  const soon = () => { clearTimeout(H.timer); H.timer = setTimeout(checkpoint, 400); };
+  ['pointerup', 'change', 'click', 'keyup'].forEach(ev => document.addEventListener(ev, soon, true));
+  function restoreStep(i) {
+    if (i < 0 || i >= H.steps.length) return false; H.at = i;
+    const set = structuredClone(H.steps[i].sn.set); if (set.blocks) { const l = set.blocks.list; l.unit = set.blocks.unit; set.blocks = l; }
+    S.set = set; S.picks = structuredClone(H.steps[i].sn.picks); S._pvX = null;
+    rebuild(); buildDetails(); buildProc(); buildTabs(); recompute(); return true;
+  }
+  const toast = msg => { let t = $('#toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); } t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 1600); };
+  document.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey) || !S.gas || $('#app').hidden) return;
+    const k = e.key.toLowerCase(), el = document.activeElement; if (k !== 'z' && k !== 'y') return;
+    if (el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes(el.type)))) return; // typing boxes keep their own undo
+    e.preventDefault(); clearTimeout(H.timer); checkpoint();
+    const redo = k === 'y' || e.shiftKey;
+    if (restoreStep(H.at + (redo ? 1 : -1))) toast(redo ? 'Redone' : 'Undone'); else toast(redo ? 'Nothing to redo' : 'Nothing to undo');
+  });
+  window.addEventListener('beforeunload', e => { if (!S.gas) return; clearTimeout(H.timer); checkpoint(); if (H.at >= 0 && H.steps[H.at].k !== H.saved) { e.preventDefault(); e.returnValue = ''; } });
   setupInfo();
-  window.LabApp = { S, recompute, results, methodsText };
+  window.LabApp = { S, recompute, results, methodsText, H };
 })();

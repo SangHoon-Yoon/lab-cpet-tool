@@ -143,3 +143,4 @@ main{grid-template-columns:minmax(0,1fr)}
 details.fold{margin-top:12px}details.fold .foldbody{padding:8px 0 4px}details.fold .methods{margin:0}
 .filelist .rm{margin-left:auto;align-self:center;border:none;background:transparent;color:var(--muted);font-size:1.1rem;line-height:1;padding:0 4px;cursor:pointer;border-radius:4px}.filelist .rm:hover{color:var(--accent);background:var(--accent-soft)}
 .psz{position:absolute;right:22px;z-index:3;display:flex;gap:2px;opacity:.55;transition:opacity .15s}.psz:hover,#cwrap:hover .psz{opacity:1}.psz button{width:22px;height:20px;padding:0;line-height:1;font-size:.9rem}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--fg);color:var(--bg);padding:6px 14px;border-radius:6px;font-size:.85rem;opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:60}#toast.on{opacity:1;transform:translateX(-50%)}
