@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.14.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.15.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -27,7 +27,7 @@
     source: null, offset: 0, type: null, blocks: null, plan: null, excluded: [], oxyWin: 'analysis', fits: {},
     outl: { local: true, nsd: 4, half: 5, vars: ['vo2', 'vco2', 've'], limits: true, rfMin: 5, rfMax: 100, vtMin: 0.3, remove: false, show: false },
     avg: { mode: 'bin', bin: 15, ma: 7, roll: 15 },
-    view: { vars: ['vo2', 'hr', 've'] },
+    view: { vars: ['vo2', 'hr', 've'], h: {} },
     inc: { t0: null, t1: null, skip: 0, selVar: 'vo2', stageWin: 60, peakWin: 30, x: 'vo2' },
     st: { meas: ['eqo2', 'vco2'], win: null, regWin: 60, sel: null, sels: {}, selVar: 'vo2', vt2: false, cmp: ['vo2', 'hr', 'rer'] }, per: { avgMin: 1, vars: ['vo2', 'hr', 'cho', 'fat', 'econ'] }, hrOffset: 0
   });
@@ -261,7 +261,8 @@
         <label class="f"><span>Unit</span><select id="plU"><option value="W">W (cycling)</option><option value="km/h">km/h (treadmill)</option></select></label>
         ${fld('plWm', 'Warm-up length (min)', q.warmMin)}${fld('plWp', `Warm-up intensity (${uu}, optional)`, q.warmP)}
         ${fld('plS', `Starting intensity (${uu})`, q.startP)}${fld('plI', `Increment (${uu})`, q.inc)}${fld('plD', 'Stage length (min)', q.stageMin)}
-        ${fld('plSw', `Shorter stages started at (${uu}, optional)`, q.switchP)}${fld('plSd', 'Shorter stage length (min)', q.shortMin)}
+        <label class="f"><span>Shorter stages at the end</span><select id="plHasSh"><option value="0">No</option><option value="1" ${F(q.switchP) || F(q.switchMin) ? 'selected' : ''}>Yes</option></select></label>
+        ${fld('plSw', `Shorter stages started at (${uu})`, q.switchP)}${fld('plSd', 'Shorter stage length (min)', q.shortMin)}
         ${fld('plE', 'Test ended at (min)', q.endMin)}
       </div>
       <div class="tools"><button class="primary" id="plGo">Apply steps</button><button id="plOff" ${set.plan ? '' : 'disabled'}>Remove entered steps</button><span class="msg" id="plMsg"></span></div>
@@ -270,8 +271,11 @@
   function bindPlan() {
     const set = S.set, g = id => parseFloat($(id).value), u = $('#plU'), q = set.plan || planDefaults(); u.value = q.unit === 'W' ? 'W' : 'km/h';
     const lode = $('#bAddLode'); if (lode) lode.onclick = ev => { ev.preventDefault(); S.addLode = true; fileIn.accept = '.xlsx,.xls'; fileIn.click(); };
+    // The shorter-stage boxes only show when the test has shorter stages at the end.
+    const hasSh = $('#plHasSh'), showSh = () => ['#plSw', '#plSd'].forEach(id => ($(id).closest('label').hidden = hasSh.value !== '1')); hasSh.onchange = showSh; showSh();
     $('#plGo').onclick = () => {
-      const pl = { unit: u.value, warmMin: g('#plWm') || 0, warmP: g('#plWp'), startP: g('#plS'), inc: g('#plI'), stageMin: g('#plD'), switchP: g('#plSw'), shortMin: g('#plSd') || 1, endMin: g('#plE') };
+      const sh = hasSh.value === '1', pl = { unit: u.value, warmMin: g('#plWm') || 0, warmP: g('#plWp'), startP: g('#plS'), inc: g('#plI'), stageMin: g('#plD'), switchP: sh ? g('#plSw') : NaN, shortMin: g('#plSd') || 1, endMin: g('#plE') };
+      if (sh && !F(pl.switchP)) { $('#plMsg').textContent = `Enter the ${pl.unit === 'W' ? 'power' : 'speed'} the shorter stages started at, or choose No under Shorter stages at the end.`; return; }
       if (!F(pl.startP) || !F(pl.inc) || !(pl.stageMin > 0) || !(pl.endMin > pl.warmMin)) { $('#plMsg').textContent = 'Enter the starting intensity, increment, stage length and test end.'; return; }
       if (F(pl.switchP)) { const k = (pl.switchP - pl.startP) / pl.inc, near = [Math.floor(k), Math.ceil(k)].map(j => +(pl.startP + Math.max(1, j) * pl.inc).toFixed(2)).filter((x, i, a) => a.indexOf(x) === i);
         if (!(k >= 1 - 1e-6)) { $('#plMsg').textContent = `The shorter stages must start above the starting intensity, at ${+(pl.startP + pl.inc).toFixed(2)} ${pl.unit} or later.`; return; }
@@ -304,8 +308,8 @@
         <div class="tools"><label class="chk"><input type="checkbox" id="oLocal" ${o.local ? 'checked' : ''}>Flag outliers</label>
         <select id="oNsd" ${o.local ? '' : 'disabled'}><option value="3">Strict (3 SD)</option><option value="4">Standard (4 SD)</option><option value="5">Lenient (5 SD)</option></select>
         <label class="chk"><input type="checkbox" id="oRem" ${o.remove ? 'checked' : ''} ${o.local ? '' : 'disabled'}>Remove flagged ${unit}</label>
-        <label class="chk"><input type="checkbox" id="oShow" ${o.show && !o.remove && o.local ? 'checked' : ''} ${o.remove || !o.local ? 'disabled' : ''}>Show them on the Protocol chart</label></div>
-        <p class="hint">${o.local ? `A ${bxb ? 'breath' : 'sample'} is flagged if VO₂, VCO₂ or VE is more than ${o.nsd} SD from the mean of the 5 ${unit} on each side${bxb ? `, breathing frequency is outside ${o.rfMin}–${o.rfMax} breaths/min, or tidal volume is under ${o.vtMin} L` : ''}. Flagged ${unit} stay in every calculation unless you remove them; removed ${unit} also leave the charts.` : 'Flagging is off, so every recorded ' + (bxb ? 'breath' : 'sample') + ' is used.'} ${unit[0].toUpperCase() + unit.slice(1)} with no VO₂ are always left out.</p></div>`;
+        <label class="chk"><input type="checkbox" id="oShow" ${o.show && !o.remove && o.local ? 'checked' : ''} ${o.remove || !o.local ? 'disabled' : ''}>Show them on the Protocol chart</label><span id="outlInfo"></span></div>
+        <p class="hint" data-info="outlInfo">${o.local ? `A ${bxb ? 'breath' : 'sample'} is flagged if VO₂, VCO₂ or VE is more than ${o.nsd} SD from the mean of the 5 ${unit} on each side${bxb ? `, breathing frequency is outside ${o.rfMin}–${o.rfMax} breaths/min, or tidal volume is under ${o.vtMin} L` : ''}. Flagged ${unit} stay in every calculation unless you remove them; removed ${unit} also leave the charts.` : 'Flagging is off, so every recorded ' + (bxb ? 'breath' : 'sample') + ' is used.'} ${unit[0].toUpperCase() + unit.slice(1)} with no VO₂ are always left out.</p></div>`;
     $('#oNsd').value = String(o.nsd);
     $$('[data-am]').forEach(b => (b.onclick = () => { av.mode = b.dataset.am; if (S.gas.kind === 'avg' && av.mode === 'bin' && av.bin < S.gas.avgWidth) av.bin = S.gas.avgWidth; buildProc(); recompute(); }));
     on('#aPar', e => { const v = Math.max(1, parseFloat(e.target.value) || 1); if (av.mode === 'bin') av.bin = Math.max(v, S.gas.kind === 'avg' ? S.gas.avgWidth : 1); else if (av.mode === 'ma') av.ma = Math.round(v); else av.roll = v; buildProc(); recompute(); });
@@ -380,13 +384,17 @@
     else if (pr.type === 'incremental' && pr.inc) jumps.push(['inc', 'Incremental', [pr.inc.t0 / 60 - .5, pr.inc.t1 / 60 + .5]]);
     pr.tests.forEach((T, i) => { if (pr.type !== 'incremental') jumps.push(['t' + i, L.testName(pr, i), [T.t0 / 60 - 1, T.t1 / 60 + 1]]); });
     if (pr.maot) jumps.push(['m', 'All-out', [pr.maot.t0 / 60 - 3, pr.maot.t1 / 60 + 2]]);
-    const vars = set.view.vars, n = vars.length, panelPx = 132, iPx = I ? 112 : 0, gapPx = 12, sliderPx = 46, topPx = 44, H = topPx + n * (panelPx + gapPx) + iPx + sliderPx + 30;
+    // Each panel has its own height (set.view.h, by variable; '_int' for the intensity panel), changed with its + and − buttons.
+    set.view.h = set.view.h || {}; const ph = k => set.view.h[k] || 132;
+    const vars = set.view.vars, n = vars.length, iPx = I ? (set.view.h._int || 112) : 0, gapPx = 12, sliderPx = 46, topPx = 44, H = topPx + vars.reduce((a, k) => a + ph(k) + gapPx, 0) + iPx + sliderPx + 30;
+    const pTops = []; { let yy = topPx; vars.forEach(k => { pTops.push([k, yy]); yy += ph(k) + gapPx; }); if (I) pTops.push(['_int', yy]); }
+    const szBtns = pTops.map(([k, top]) => `<div class="psz" style="top:${top + 2}px"><button data-psz="${k}:-1" title="Make this panel shorter" aria-label="Make the ${k === '_int' ? iLab() : vlab(k)} panel shorter">−</button><button data-psz="${k}:1" title="Make this panel taller" aria-label="Make the ${k === '_int' ? iLab() : vlab(k)} panel taller">+</button></div>`).join('');
     $('#views').innerHTML = `
       <div class="tools"><span>Show (up to 6):</span>${chips(av, vars, 'data-sv')}</div>
       <div class="tools"><span>Averaging:</span><select id="vAvg">${[['raw', S.gas.kind === 'bxb' ? 'Breath by breath' : 'As in file'], ['bin:15', '15-s bins'], ['bin:30', '30-s bins'], ['bin:60', '60-s bins'], ['roll:30', '30-s rolling'], ['custom', 'Custom (under Data processing)']].map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')}</select>
         <span class="sep"></span><span>Go to:</span>${jumps.map(j => `<button data-j="${j[0]}">${j[1]}</button>`).join('')}<span id="pvInfo"></span></div>
       <div class="panel"><div class="readout big" id="cur">Move over the chart to read every variable at one moment.</div>
-        <div class="chartwrap" id="cwrap"><div class="chart" id="pv" style="height:${H}px"></div><div class="cursor" id="cline"></div><div class="zshade" id="zshade"></div></div>
+        <div class="chartwrap" id="cwrap"><div class="chart" id="pv" style="height:${H}px"></div><div class="cursor" id="cline"></div><div class="zshade" id="zshade"></div>${szBtns}</div>
         <div class="readout" id="ro"></div></div>
       <ul class="notes" data-info="pvInfo"><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
       ${I ? `<li>Shaded: test stages (blue)${pr.maot ? ', all-out test (red)' : ''}. The ${I.label.toLowerCase()} panel gives each stage’s ${I.label.toLowerCase()}, with RPE and any other COSMED markers above it.</li>` : ''}</ul>`;
@@ -401,7 +409,7 @@
     const showRaw = set.avg.mode !== 'raw', rawSize = g.kind === 'bxb' ? 3 : 5, rawOp = g.kind === 'bxb' ? .22 : .45;
     let y = layH;
     vars.forEach((k, j) => {
-      const yax = 'y' + (j ? j + 1 : ''), dom = [(y - panelPx) / layH, y / layH]; y -= panelPx + gapPx;
+      const panelPx = ph(k), yax = 'y' + (j ? j + 1 : ''), dom = [(y - panelPx) / layH, y / layH]; y -= panelPx + gapPx;
       const Xp = [], Yp = []; Xs.t.forEach((t, i) => { if (i && t - Xs.t[i - 1] > gapX) { Xp.push(null); Yp.push(null); } Xp.push(t / 60); Yp.push(Xs.v[k][i]); });
       series[j] = { k, x: Xp, y: Yp };
       if (showRaw && S.D.R0.v[k]) { const R = S.D.R0; tr.push({ x: R.t.map(t => t / 60), y: R.v[k], xaxis: 'x', yaxis: yax, type: 'scattergl', mode: 'markers', marker: { color: css('--rf'), size: rawSize, opacity: rawOp }, hoverinfo: 'skip' }); }
@@ -436,6 +444,9 @@
     const showMode = () => { gd.classList.remove('m-pan', 'm-zoom'); gd.classList.add(gd._fullLayout.dragmode === 'zoom' ? 'm-zoom' : 'm-pan'); }; showMode();
     gd.on('plotly_relayout', e => { showMode(); if (busy) return; let a = e['xaxis.range[0]'], b = e['xaxis.range[1]']; if (e['xaxis.range']) [a, b] = e['xaxis.range']; if (e['xaxis.autorange']) { a = 0; b = end; } if (a === undefined) return; X0 = [+a, +b]; busy = true; Plotly.relayout(gd, fit(+a, +b)).then(() => setTimeout(() => (busy = false), 0)); readout(+a, +b); });
     $$('[data-j]').forEach(b => (b.onclick = () => setX(jumps.find(j => j[0] === b.dataset.j)[2])));
+    const SZ = [80, 132, 200, 300, 450];
+    $$('[data-psz]').forEach(b => (b.onclick = () => { const [k, d] = b.dataset.psz.split(':'), cur = set.view.h[k] || (k === '_int' ? 112 : 132), i = SZ.findIndex(v => v >= cur - 1), j = Math.max(0, Math.min(SZ.length - 1, (i < 0 ? SZ.length - 1 : i) + +d)); set.view.h[k] = SZ[j]; S._pvX = gd._fullLayout.xaxis.range.slice(); vProtocol(); }));
+    if (S._pvX) { const r = S._pvX; S._pvX = null; setX(r); }
     // Zoom tool: a light shade over the period being selected.
     const shade = $('#zshade');
     $('#cwrap').addEventListener('mousedown', ev => {
