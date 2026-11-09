@@ -14,7 +14,7 @@ const cases={tread:[f(/TREAD_CHAR/)],cyc5:[f(/CPET_BxB/),f(/Admin/)],cycinc:[sim
   // interactions: zoom button, cursor
   const rng=await pg.evaluate(()=>document.getElementById('pv')._fullLayout.xaxis.range);console.log(' zoom range',rng.map(x=>+x.toFixed(1)));
   const box=await (await pg.$('#pv')).boundingBox();await pg.mouse.move(box.x+500,box.y+200);await pg.waitForTimeout(150);console.log(' cursor:',await pg.$eval('#cur',e=>e.innerText));
-  const tabs=await pg.$$eval('#tabs button',a=>a.map(x=>x.dataset.tab));
+  const tabs=await pg.$$eval('#tabs button[data-tab]',a=>a.map(x=>x.dataset.tab));
   await pg.click('#dBox>summary');
   for(const t of tabs.slice(1)){await pg.click(`[data-tab=${t}]`);await pg.waitForTimeout(1200);await pg.screenshot({path:out+name+'_'+t+'.png',fullPage:true});}
   await pg.click('[data-tab='+tabs[1]+']');await pg.waitForTimeout(600);
