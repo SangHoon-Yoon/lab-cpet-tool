@@ -1738,7 +1738,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.18.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.18.1', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -2617,9 +2617,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       ${series.length ? series.map((se, si) => `<h2 class="row">${esc(se.name)}<span>lactate curve</span></h2>
         <div class="grid3"><div class="panel"><div class="tblwrap"><table class="lacT" data-si="${si}"><thead><tr><th>Stage</th><th>${I ? I.label : 'Intensity'} (${u})</th><th>Lactate (mmol/L)</th><th>Heart rate</th><th>RPE</th><th></th></tr></thead><tbody></tbody></table></div>
           <div class="tools" style="padding:0 10px 8px"><button data-ladd="${si}">Add a row</button><span class="hint" id="lmsg${si}"></span></div></div>
-          <div class="panel"><h3>Lactate against ${I ? I.label.toLowerCase() : 'intensity'}</h3><div class="chart mid" id="lc${si}"></div></div></div>
-        <div class="stats" id="lt${si}"></div>
-        <div class="tools" id="lcp${si}"></div>
+          <div class="panel"><h3>Lactate against ${I ? I.label.toLowerCase() : 'intensity'}</h3><div class="chart mid" id="lc${si}"></div>
+            <div class="stats" id="lt${si}" style="padding:4px 10px 0"></div><div class="tools" id="lcp${si}" style="padding:0 10px 10px"></div></div></div>
         <details class="box fold" data-fold="lm${si}" ${openFolds.has('lm' + si) ? 'open' : ''}><summary>Every method<span>intensity, lactate and heart rate</span></summary><div class="foldbody"><div class="tblwrap"><table id="lmT${si}"></table></div></div></details>`).join('') : '<p class="msg">No stages were found. Check Test details.</p>'}`;
     const re = () => { vLactate(); summaries(); };
     $('#lFit').onchange = e => { ls.fit = e.target.value; re(); }; $('#lBase').onchange = e => { ls.baseline = e.target.value === '1'; re(); };
