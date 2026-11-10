@@ -75,5 +75,18 @@
   const testKey = T => Math.round(T.t0);
   const testVT = (q, i) => { const T = S.proto.tests[i], p = (S.picks.tests[testKey(T)] || {})[q]; return F(p) ? p : S.D.st && S.D.st.sugg[i] ? S.D.st.sugg[i][q] : NaN; };
   const testVT1 = i => testVT('vt1', i);
+  // Threshold status: a line is "suggested, not checked" until someone moves it, types it, picks a method for it, or confirms it.
+  const statusBadge = (checked, conf) => checked ? '<span class="tstat ok" title="Placed or confirmed by you">✓ checked</span>' : `<span class="tstat sug" title="Still the tool's suggestion">suggested, not checked</span>${conf ? `<button class="tconf" data-conf="${conf}">Confirm</button>` : ''}`;
+  const SUGGESTED = /classical suggestion$|\(default\)$/;
+  const statusOf = source => (SUGGESTED.test(source || '') ? 'suggested, not checked' : 'checked');
+  // Confirm a suggested line: keep its value, now as the researcher's choice. conf = 'inc:vt1' | 'test:<i>:vt1' | 'lt:<series key>:lt1'
+  function confirmThreshold(conf) {
+    const [kind, a, b] = conf.split(':');
+    if (kind === 'inc') { const v = incVT(a); if (!F(v)) return; S.picks.inc[a] = +v.toFixed(3); S.picks.incSrc = S.picks.incSrc || {}; S.picks.incSrc[a] = 'suggestion, confirmed'; }
+    else if (kind === 'test') { const i = +a, v = testVT(b, i); if (!F(v)) return; setTestVT(S.proto.tests[i], b, +v.toFixed(3)); S.picks.testSrc = S.picks.testSrc || {}; (S.picks.testSrc[testKey(S.proto.tests[i])] = S.picks.testSrc[testKey(S.proto.tests[i])] || {})[b] = 'suggestion, confirmed'; }
+    else if (kind === 'lt') { const se = lacSeries().find(x => x.key === a); if (!se) return; const res = lacAnalyse(se), v = ltVal(se, res, b); if (!F(v)) return; setLT(se.key, b, v, lacSet()[b] + ', confirmed'); }
+    summaries(); render();
+  }
+  document.addEventListener('click', e => { const b = e.target.closest('[data-conf]'); if (b) { e.preventDefault(); confirmThreshold(b.dataset.conf); } });
   const setTestVT = (T, q, v) => { const k = testKey(T), o = Object.assign({}, S.picks.tests[k]); if (F(v)) o[q] = v; else delete o[q]; if (Object.keys(o).length) S.picks.tests[k] = o; else delete S.picks.tests[k]; };
 

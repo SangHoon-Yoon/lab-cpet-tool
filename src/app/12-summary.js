@@ -22,9 +22,9 @@
     if (pr.type !== 'incremental' && D.st) {
       pr.tests.forEach((T, i) => {
         const nm = 'test_' + (i + 1), x = testVT1(i), f = D.st.fits[i], iv = f && F(x) ? f.m * x + f.b : NaN;
-        thr.push(Object.assign({}, idcols, { test: nm, threshold: 'VT1', source: F((S.picks.tests[testKey(T)] || {}).vt1) ? 'placed by user' : 'classical suggestion', vo2_L_min: rd(x, 3), vo2_mL_kg_min: rd(F(m.mass) ? x * 1000 / m.mass : NaN, 2), pct_vo2peak: '', intensity_regression: rd(iv, 2), intensity_stage: '', intensity_unit: unit, hr_bpm: '', time_s: '' }));
+        thr.push(Object.assign({}, idcols, { test: nm, threshold: 'VT1', source: F((S.picks.tests[testKey(T)] || {}).vt1) ? (((S.picks.testSrc || {})[testKey(T)] || {}).vt1 || 'placed by user') : 'classical suggestion', vo2_L_min: rd(x, 3), vo2_mL_kg_min: rd(F(m.mass) ? x * 1000 / m.mass : NaN, 2), pct_vo2peak: '', intensity_regression: rd(iv, 2), intensity_stage: '', intensity_unit: unit, hr_bpm: '', time_s: '' }));
         push(nm, '', NaN, 'vt1_vo2', x, 'L/min'); push(nm, '', NaN, 'vt1_intensity', iv, unit);
-        if (S.set.st.vt2) { const x2 = testVT('vt2', i), iv2 = f && F(x2) ? f.m * x2 + f.b : NaN; thr.push(Object.assign({}, idcols, { test: nm, threshold: 'VT2', source: F((S.picks.tests[testKey(T)] || {}).vt2) ? 'placed by user' : 'classical suggestion', vo2_L_min: rd(x2, 3), vo2_mL_kg_min: rd(F(m.mass) ? x2 * 1000 / m.mass : NaN, 2), pct_vo2peak: '', intensity_regression: rd(iv2, 2), intensity_stage: '', intensity_unit: unit, hr_bpm: '', time_s: '' })); push(nm, '', NaN, 'vt2_vo2', x2, 'L/min'); push(nm, '', NaN, 'vt2_intensity', iv2, unit); }
+        if (S.set.st.vt2) { const x2 = testVT('vt2', i), iv2 = f && F(x2) ? f.m * x2 + f.b : NaN; thr.push(Object.assign({}, idcols, { test: nm, threshold: 'VT2', source: F((S.picks.tests[testKey(T)] || {}).vt2) ? (((S.picks.testSrc || {})[testKey(T)] || {}).vt2 || 'placed by user') : 'classical suggestion', vo2_L_min: rd(x2, 3), vo2_mL_kg_min: rd(F(m.mass) ? x2 * 1000 / m.mass : NaN, 2), pct_vo2peak: '', intensity_regression: rd(iv2, 2), intensity_stage: '', intensity_unit: unit, hr_bpm: '', time_s: '' })); push(nm, '', NaN, 'vt2_vo2', x2, 'L/min'); push(nm, '', NaN, 'vt2_intensity', iv2, unit); }
         D.st.SM[i].forEach((q, j) => stageRow(nm, j + 1, q, D.st.rpe[i][j]));
       });
     }
@@ -45,6 +45,7 @@
       periods.push(Object.assign({}, idcols, { recording: i + 1, block: r.block || '', intensity: pr.base, intensity_unit: unit, avg_start_s: Math.round(r.p.avgWin[0]), avg_end_s: Math.round(r.p.avgWin[1]), min_into_block: rd(r.into, 1), vo2_L_min: rd(r.vo2[0], 3), vo2_mL_kg_min: rd(r.vo2kg[0], 2), vco2_L_min: rd(r.vco2[0], 3), rer: rd(r.rer[0], 3), ve_L_min: rd(r.ve[0], 2), hr_bpm: rd(r.hr[0], 1), cho_g_min: rd(r.cho[0], 3), fat_g_min: rd(r.fat[0], 3), cho_kJ_min: rd(r.energy.cho, 2), fat_kJ_min: rd(r.energy.fat, 2), pct_energy_cho: rd(r.energy.pctCho, 1), expenditure_kJ_min: rd(r.energy.total, 2), gross_efficiency_pct: I.mode === 'cycling' ? rd(r.econ[0], 2) : '', economy_mL_kg_km: I.mode === 'treadmill' ? rd(r.econ[0], 1) : '', rpe: F(r.rpe) ? r.rpe : '' }));
       [['vo2', 'L/min', r.vo2[0]], ['hr', 'bpm', r.hr[0]], ['rer', '', r.rer[0]], ['ve', 'L/min', r.ve[0]], ['cho', 'g/min', r.cho[0]], ['fat', 'g/min', r.fat[0]], [I.mode === 'cycling' ? 'gross_efficiency' : 'economy', I.mode === 'cycling' ? '%' : 'mL/kg/km', r.econ[0]], ['rpe', 'Borg', r.rpe]].forEach(([k, u, v]) => push('prolonged', 'recording_' + (i + 1), pr.base, k, v, u));
     });
+    thr.forEach(r => { r.status = statusOf(r.source); });
     return { rows, thr, stages, periods, lactate };
   }
   const rd = (v, d) => (F(v) ? +v.toFixed(d) : '');
@@ -86,10 +87,10 @@
   $('#credit').innerHTML = `Lab CPET tool ${VERSION}. Created by ${AUTHOR}. Threshold suggestions on incremental tests include the open-source Oxynet models (Zignoli et al., 2022; Keir et al., 2026; pyoxynet, MIT licence).`;
   function vSummary() {
     const R = results(), I = S.I;
-    const cols = ['test', 'threshold', 'source', 'vo2_L_min', 'vo2_mL_kg_min', 'pct_vo2peak', 'intensity_regression', 'hr_bpm'], names = ['Test', 'Threshold', 'Placed', 'VO₂ (L/min)', 'VO₂ (mL/kg/min)', '% VO₂peak', I ? I.label + ' (' + I.unit + ')' : 'Intensity', 'Heart rate (bpm)'];
+    const cols = ['test', 'threshold', 'status', 'source', 'vo2_L_min', 'vo2_mL_kg_min', 'pct_vo2peak', 'intensity_regression', 'hr_bpm'], names = ['Test', 'Threshold', 'Status', 'Placed', 'VO₂ (L/min)', 'VO₂ (mL/kg/min)', '% VO₂peak', I ? I.label + ' (' + I.unit + ')' : 'Intensity', 'Heart rate (bpm)'];
     $('#views').innerHTML = `
       ${S.proto.type === 'incremental' && S.D.inc && S.D.inc.peak.vo2 ? `<div class="stats"><div class="stat key"><b>${fx(S.D.inc.peak.vo2.value, 2)} L/min</b><span>${S.proto.max ? 'VO₂max' : 'VO₂peak'}</span><small>${S.D.inc.peak.vo2kg ? fx(S.D.inc.peak.vo2kg.value, 1) + ' mL/kg/min' : ''}</small></div></div>` : ''}
-      <h2 class="row">Thresholds</h2><div class="panel"><div class="tblwrap"><table><tr>${names.map(n => `<th>${n}</th>`).join('')}</tr>${R.thr.map(r => `<tr>${cols.map(c => `<td>${esc(r[c] === '' ? '–' : r[c])}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length}">None yet.</td></tr>`}</table></div></div>
+      <h2 class="row">Thresholds</h2>${(() => { const u = R.thr.filter(r => r.status !== 'checked'); return u.length ? `<p class="warnline">${u.length} threshold${u.length > 1 ? 's are' : ' is'} still the tool’s suggestion: ${u.map(r => r.threshold + ' (' + r.test.replace(/_/g, ' ') + ')').join(', ')}. Check ${u.length > 1 ? 'them' : 'it'} on ${u.length > 1 ? 'their tabs' : 'its tab'}, then move or confirm ${u.length > 1 ? 'them' : 'it'}.</p>` : ''; })()}<div class="panel"><div class="tblwrap"><table><tr>${names.map(n => `<th>${n}</th>`).join('')}</tr>${R.thr.map(r => `<tr>${cols.map(c => `<td>${c === 'status' ? statusBadge(r.status === 'checked') : esc(r[c] === '' ? '–' : r[c])}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length}">None yet.</td></tr>`}</table></div></div>
       ${fold('rep', 'Reports', 'Word files for a client or for research', reportsHTML())}
       ${fold('chk', 'Data checks', (() => { const w = (S.checks || []).filter(c => c.level === 'warn').length; return w ? `${w} to look at` : 'nothing to look at'; })(), '<ul class="checks" id="chk2"></ul>')}
       ${fold('meth', 'Methods paragraph', 'to copy into a paper', '<div class="methods" id="meth"></div><div class="tools"><button id="cpM">Copy</button><span class="hint" id="cpS"></span></div>')}

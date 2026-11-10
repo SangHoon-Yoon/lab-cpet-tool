@@ -178,6 +178,12 @@ details.sub{border-top:1px solid var(--line);padding:8px 0 4px;margin-top:8px}
 details.sub>summary{cursor:pointer;font-weight:600;font-size:.92rem;display:flex;gap:8px;align-items:center}
 details.sub>summary .hint{font-weight:400}
 details.sub[open]>summary{margin-bottom:6px}
+/* threshold status */
+.tstat{display:inline-block;font-size:.72rem;font-weight:600;padding:1px 7px;border-radius:10px;vertical-align:middle;white-space:nowrap}
+.tstat.sug{color:var(--warn);border:1px solid var(--warn)}
+.tstat.ok{color:#2f7d32;border:1px solid #2f7d32}
+.tconf{font-size:.72rem;padding:1px 8px;margin-left:4px;vertical-align:middle}
+.warnline{border-left:4px solid var(--warn);padding:6px 10px;background:var(--panel);margin:6px 0}
 
 </style>
 </head>
@@ -1768,7 +1774,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.20.2', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.21.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -1961,6 +1967,19 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   const testKey = T => Math.round(T.t0);
   const testVT = (q, i) => { const T = S.proto.tests[i], p = (S.picks.tests[testKey(T)] || {})[q]; return F(p) ? p : S.D.st && S.D.st.sugg[i] ? S.D.st.sugg[i][q] : NaN; };
   const testVT1 = i => testVT('vt1', i);
+  // Threshold status: a line is "suggested, not checked" until someone moves it, types it, picks a method for it, or confirms it.
+  const statusBadge = (checked, conf) => checked ? '<span class="tstat ok" title="Placed or confirmed by you">✓ checked</span>' : `<span class="tstat sug" title="Still the tool's suggestion">suggested, not checked</span>${conf ? `<button class="tconf" data-conf="${conf}">Confirm</button>` : ''}`;
+  const SUGGESTED = /classical suggestion$|\(default\)$/;
+  const statusOf = source => (SUGGESTED.test(source || '') ? 'suggested, not checked' : 'checked');
+  // Confirm a suggested line: keep its value, now as the researcher's choice. conf = 'inc:vt1' | 'test:<i>:vt1' | 'lt:<series key>:lt1'
+  function confirmThreshold(conf) {
+    const [kind, a, b] = conf.split(':');
+    if (kind === 'inc') { const v = incVT(a); if (!F(v)) return; S.picks.inc[a] = +v.toFixed(3); S.picks.incSrc = S.picks.incSrc || {}; S.picks.incSrc[a] = 'suggestion, confirmed'; }
+    else if (kind === 'test') { const i = +a, v = testVT(b, i); if (!F(v)) return; setTestVT(S.proto.tests[i], b, +v.toFixed(3)); S.picks.testSrc = S.picks.testSrc || {}; (S.picks.testSrc[testKey(S.proto.tests[i])] = S.picks.testSrc[testKey(S.proto.tests[i])] || {})[b] = 'suggestion, confirmed'; }
+    else if (kind === 'lt') { const se = lacSeries().find(x => x.key === a); if (!se) return; const res = lacAnalyse(se), v = ltVal(se, res, b); if (!F(v)) return; setLT(se.key, b, v, lacSet()[b] + ', confirmed'); }
+    summaries(); render();
+  }
+  document.addEventListener('click', e => { const b = e.target.closest('[data-conf]'); if (b) { e.preventDefault(); confirmThreshold(b.dataset.conf); } });
   const setTestVT = (T, q, v) => { const k = testKey(T), o = Object.assign({}, S.picks.tests[k]); if (F(v)) o[q] = v; else delete o[q]; if (Object.keys(o).length) S.picks.tests[k] = o; else delete S.picks.tests[k]; };
 
   /* ---------------- Test details ---------------- */
@@ -2506,8 +2525,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       const tile = (cls, big, lab, sub) => `<div class="stat ${cls}"><b>${big}</b><span>${lab}</span>${sub ? `<small>${sub}</small>` : ''}</div>`;
       $('#tiles').innerHTML =
         tile('key', pk.vo2 ? fx(pk.vo2.value, 2) + ' L/min' : '–', (pr.max ? 'VO₂max (' : 'VO₂peak (') + set.peakWin + '-s mean)', pk.vo2kg ? fx(pk.vo2kg.value, 1) + ' mL/kg/min, at ' + mmss(pk.vo2.t1) : '') +
-        tile('vt1b', F(v1) ? fx(v1, 2) + ' L/min' : 'Not set', 'VT1', F(v1) ? `${fx(a1.pct, 0)}% of peak · ${iVal(a1.iv)} · ${fx(a1.hr, 0)} bpm` : '') +
-        tile('vt2b', F(v2) ? fx(v2, 2) + ' L/min' : 'Not set', 'VT2', F(v2) ? `${fx(a2.pct, 0)}% of peak · ${iVal(a2.iv)} · ${fx(a2.hr, 0)} bpm` : 'No clear break found; place it by eye') +
+        tile('vt1b', F(v1) ? fx(v1, 2) + ' L/min' : 'Not set', 'VT1' + (F(v1) ? ' ' + statusBadge(F(S.picks.inc.vt1), 'inc:vt1') : ''), F(v1) ? `${fx(a1.pct, 0)}% of peak · ${iVal(a1.iv)} · ${fx(a1.hr, 0)} bpm` : '') +
+        tile('vt2b', F(v2) ? fx(v2, 2) + ' L/min' : 'Not set', 'VT2' + (F(v2) ? ' ' + statusBadge(F(S.picks.inc.vt2), 'inc:vt2') : ''), F(v2) ? `${fx(a2.pct, 0)}% of peak · ${iVal(a2.iv)} · ${fx(a2.hr, 0)} bpm` : 'No clear break found; place it by eye') +
         tile('', pk.hr ? fx(pk.hr.value, 0) + ' bpm' : '–', 'Peak heart rate', '') + tile('', pk.rer ? fx(pk.rer.value, 2) : '–', 'Peak RER', '') + tile('', pk.ve ? fx(pk.ve.value, 0) + ' L/min' : '–', 'Peak VE', '') + tile('', iVal(pr.max ? pr.max.peak : pr.inc.peak), 'Peak ' + (I.label).toLowerCase(), pr.max && pr.max.stages.at(-1).full === false ? 'Reached for ' + Math.round(pr.max.stages.at(-1).dur) + ' s; last full stage ' + iVal(pr.max.stages.at(-2).p) : '');
       const un = D.sugg.unsure, msgs = [];
       if (!F(S.picks.inc.vt1) && D.sugg.startEdge) msgs.push('The VT1 breakpoints sit at the very start of the data they were searched in, so VT1 may be at or below the first stage used. Check it by eye.');
@@ -2635,7 +2654,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     $('#rstT').onclick = () => { S.picks.tests = {}; ctxs.forEach(c => moveLines(c)); vtTable(); summaries(); };
     function vtTable() {
       const base = testVT1(0), bI = D.fits[0] ? D.fits[0].m * base + D.fits[0].b : NaN, at = (f, v) => (f && F(v) ? f.m * v + f.b : NaN);
-      const tag = (T, q) => (F((S.picks.tests[testKey(T)] || {})[q]) ? '' : ' <span class="hint">suggested</span>');
+      const tag = (T, q) => { const i = pr.tests.indexOf(T), v = testVT(q, i); return F(v) ? ' ' + statusBadge(F((S.picks.tests[testKey(T)] || {})[q]), `test:${i}:${q}`) : ''; };
       $('#vt1T').innerHTML = `<tr><th>Test</th><th>${iLab()} steps</th><th>VT1 VO₂ (L/min)</th><th>VT1 ${S.I.label.toLowerCase()} (${S.I.unit})</th>${set.vt2 ? `<th>VT2 VO₂ (L/min)</th><th>VT2 ${S.I.label.toLowerCase()} (${S.I.unit})</th>` : ''}<th>Regression R²</th><th>Heart rate at VT1</th><th>VT1 VO₂ change from test 1</th><th>VT1 ${S.I.label.toLowerCase()} change from test 1</th></tr>` + pr.tests.map((T, i) => {
         const v = testVT1(i), f = D.fits[i], iv = at(f, v), sv = D.SM[i].filter(q => F(q.m.vo2) && F(q.m.hr)), hr = sv.length >= 2 ? (() => { const r = C.linreg(sv.map(q => q.m.vo2), sv.map(q => q.m.hr)); return r.m * v + r.b; })() : NaN, v2 = testVT('vt2', i);
         return `<tr><td><span class="dot" style="background:${tcol(i)}"></span>${name(i)}</td><td>${T.steps.map(s => +s.p.toFixed(1)).join(', ')}</td><td><input type="number" step="0.01" class="vtinput" data-tv="vt1:${i}" value="${F(v) ? v.toFixed(2) : ''}">${tag(T, 'vt1')}</td><td>${fx(iv, iDp())}</td>${set.vt2 ? `<td><input type="number" step="0.01" class="vtinput" data-tv="vt2:${i}" value="${F(v2) ? v2.toFixed(2) : ''}">${tag(T, 'vt2')}</td><td>${fx(at(f, v2), iDp())}</td>` : ''}<td>${f ? f.r2.toFixed(3) : '–'}</td><td>${fx(hr, 0)}</td><td>${i ? (v - base >= 0 ? '+' : '') + fx(v - base, 2) : ''}</td><td>${i && F(iv) && F(bI) ? (iv - bI >= 0 ? '+' : '') + fx(iv - bI, iDp()) : ''}</td></tr>`;
@@ -2814,7 +2833,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     const ctx = { lines: res.fit ? ['lt1', 'lt2'] : [], charts: [], pts: { v: {} }, get: q => ltVal(se, res, q), set: (q, v) => setLT(se.key, q, Math.round(v * 100) / 100), toX: v => v, fromX: x => x, live: () => tiles(), done: () => { tiles(); summaries(); } };
     attachVT(gd, ctx, { x: 'p', y: [] });
     const tiles = () => {
-      const t = q => { const p = ltVal(se, res, q), a = ltAt(res, p), src = ltSource(se, res, q); return `<div class="stat ${q === 'lt1' ? 'vt1b' : 'vt2b'}"><b>${F(p) ? fx(p, dp + 1) + ' ' + u : '–'}</b><span>${q.toUpperCase()}${src ? ' · ' + esc(src) : ''}</span><small>${F(p) ? `${fx(a.la, 1)} mmol/L${F(a.hr) ? ', ' + Math.round(a.hr) + ' bpm' : ''}${u === 'km/h' ? ', ' + pace(p) + ' min/km' : ''}` : 'enter lactate values'}</small></div>`; };
+      const t = q => { const p = ltVal(se, res, q), a = ltAt(res, p), src = ltSource(se, res, q); return `<div class="stat ${q === 'lt1' ? 'vt1b' : 'vt2b'}"><b>${F(p) ? fx(p, dp + 1) + ' ' + u : '–'}</b><span>${q.toUpperCase()}${src ? ' · ' + esc(src) : ''}${F(p) ? ' ' + statusBadge(F(ltPick(se.key, q)), `lt:${se.key}:${q}`) : ''}</span><small>${F(p) ? `${fx(a.la, 1)} mmol/L${F(a.hr) ? ', ' + Math.round(a.hr) + ' bpm' : ''}${u === 'km/h' ? ', ' + pace(p) + ' min/km' : ''}` : 'enter lactate values'}</small></div>`; };
       $('#lt' + si).innerHTML = t('lt1') + t('lt2');
     };
     tiles();
@@ -2907,9 +2926,9 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     if (pr.type !== 'incremental' && D.st) {
       pr.tests.forEach((T, i) => {
         const nm = 'test_' + (i + 1), x = testVT1(i), f = D.st.fits[i], iv = f && F(x) ? f.m * x + f.b : NaN;
-        thr.push(Object.assign({}, idcols, { test: nm, threshold: 'VT1', source: F((S.picks.tests[testKey(T)] || {}).vt1) ? 'placed by user' : 'classical suggestion', vo2_L_min: rd(x, 3), vo2_mL_kg_min: rd(F(m.mass) ? x * 1000 / m.mass : NaN, 2), pct_vo2peak: '', intensity_regression: rd(iv, 2), intensity_stage: '', intensity_unit: unit, hr_bpm: '', time_s: '' }));
+        thr.push(Object.assign({}, idcols, { test: nm, threshold: 'VT1', source: F((S.picks.tests[testKey(T)] || {}).vt1) ? (((S.picks.testSrc || {})[testKey(T)] || {}).vt1 || 'placed by user') : 'classical suggestion', vo2_L_min: rd(x, 3), vo2_mL_kg_min: rd(F(m.mass) ? x * 1000 / m.mass : NaN, 2), pct_vo2peak: '', intensity_regression: rd(iv, 2), intensity_stage: '', intensity_unit: unit, hr_bpm: '', time_s: '' }));
         push(nm, '', NaN, 'vt1_vo2', x, 'L/min'); push(nm, '', NaN, 'vt1_intensity', iv, unit);
-        if (S.set.st.vt2) { const x2 = testVT('vt2', i), iv2 = f && F(x2) ? f.m * x2 + f.b : NaN; thr.push(Object.assign({}, idcols, { test: nm, threshold: 'VT2', source: F((S.picks.tests[testKey(T)] || {}).vt2) ? 'placed by user' : 'classical suggestion', vo2_L_min: rd(x2, 3), vo2_mL_kg_min: rd(F(m.mass) ? x2 * 1000 / m.mass : NaN, 2), pct_vo2peak: '', intensity_regression: rd(iv2, 2), intensity_stage: '', intensity_unit: unit, hr_bpm: '', time_s: '' })); push(nm, '', NaN, 'vt2_vo2', x2, 'L/min'); push(nm, '', NaN, 'vt2_intensity', iv2, unit); }
+        if (S.set.st.vt2) { const x2 = testVT('vt2', i), iv2 = f && F(x2) ? f.m * x2 + f.b : NaN; thr.push(Object.assign({}, idcols, { test: nm, threshold: 'VT2', source: F((S.picks.tests[testKey(T)] || {}).vt2) ? (((S.picks.testSrc || {})[testKey(T)] || {}).vt2 || 'placed by user') : 'classical suggestion', vo2_L_min: rd(x2, 3), vo2_mL_kg_min: rd(F(m.mass) ? x2 * 1000 / m.mass : NaN, 2), pct_vo2peak: '', intensity_regression: rd(iv2, 2), intensity_stage: '', intensity_unit: unit, hr_bpm: '', time_s: '' })); push(nm, '', NaN, 'vt2_vo2', x2, 'L/min'); push(nm, '', NaN, 'vt2_intensity', iv2, unit); }
         D.st.SM[i].forEach((q, j) => stageRow(nm, j + 1, q, D.st.rpe[i][j]));
       });
     }
@@ -2930,6 +2949,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       periods.push(Object.assign({}, idcols, { recording: i + 1, block: r.block || '', intensity: pr.base, intensity_unit: unit, avg_start_s: Math.round(r.p.avgWin[0]), avg_end_s: Math.round(r.p.avgWin[1]), min_into_block: rd(r.into, 1), vo2_L_min: rd(r.vo2[0], 3), vo2_mL_kg_min: rd(r.vo2kg[0], 2), vco2_L_min: rd(r.vco2[0], 3), rer: rd(r.rer[0], 3), ve_L_min: rd(r.ve[0], 2), hr_bpm: rd(r.hr[0], 1), cho_g_min: rd(r.cho[0], 3), fat_g_min: rd(r.fat[0], 3), cho_kJ_min: rd(r.energy.cho, 2), fat_kJ_min: rd(r.energy.fat, 2), pct_energy_cho: rd(r.energy.pctCho, 1), expenditure_kJ_min: rd(r.energy.total, 2), gross_efficiency_pct: I.mode === 'cycling' ? rd(r.econ[0], 2) : '', economy_mL_kg_km: I.mode === 'treadmill' ? rd(r.econ[0], 1) : '', rpe: F(r.rpe) ? r.rpe : '' }));
       [['vo2', 'L/min', r.vo2[0]], ['hr', 'bpm', r.hr[0]], ['rer', '', r.rer[0]], ['ve', 'L/min', r.ve[0]], ['cho', 'g/min', r.cho[0]], ['fat', 'g/min', r.fat[0]], [I.mode === 'cycling' ? 'gross_efficiency' : 'economy', I.mode === 'cycling' ? '%' : 'mL/kg/km', r.econ[0]], ['rpe', 'Borg', r.rpe]].forEach(([k, u, v]) => push('prolonged', 'recording_' + (i + 1), pr.base, k, v, u));
     });
+    thr.forEach(r => { r.status = statusOf(r.source); });
     return { rows, thr, stages, periods, lactate };
   }
   const rd = (v, d) => (F(v) ? +v.toFixed(d) : '');
@@ -2971,10 +2991,10 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   $('#credit').innerHTML = `Lab CPET tool ${VERSION}. Created by ${AUTHOR}. Threshold suggestions on incremental tests include the open-source Oxynet models (Zignoli et al., 2022; Keir et al., 2026; pyoxynet, MIT licence).`;
   function vSummary() {
     const R = results(), I = S.I;
-    const cols = ['test', 'threshold', 'source', 'vo2_L_min', 'vo2_mL_kg_min', 'pct_vo2peak', 'intensity_regression', 'hr_bpm'], names = ['Test', 'Threshold', 'Placed', 'VO₂ (L/min)', 'VO₂ (mL/kg/min)', '% VO₂peak', I ? I.label + ' (' + I.unit + ')' : 'Intensity', 'Heart rate (bpm)'];
+    const cols = ['test', 'threshold', 'status', 'source', 'vo2_L_min', 'vo2_mL_kg_min', 'pct_vo2peak', 'intensity_regression', 'hr_bpm'], names = ['Test', 'Threshold', 'Status', 'Placed', 'VO₂ (L/min)', 'VO₂ (mL/kg/min)', '% VO₂peak', I ? I.label + ' (' + I.unit + ')' : 'Intensity', 'Heart rate (bpm)'];
     $('#views').innerHTML = `
       ${S.proto.type === 'incremental' && S.D.inc && S.D.inc.peak.vo2 ? `<div class="stats"><div class="stat key"><b>${fx(S.D.inc.peak.vo2.value, 2)} L/min</b><span>${S.proto.max ? 'VO₂max' : 'VO₂peak'}</span><small>${S.D.inc.peak.vo2kg ? fx(S.D.inc.peak.vo2kg.value, 1) + ' mL/kg/min' : ''}</small></div></div>` : ''}
-      <h2 class="row">Thresholds</h2><div class="panel"><div class="tblwrap"><table><tr>${names.map(n => `<th>${n}</th>`).join('')}</tr>${R.thr.map(r => `<tr>${cols.map(c => `<td>${esc(r[c] === '' ? '–' : r[c])}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length}">None yet.</td></tr>`}</table></div></div>
+      <h2 class="row">Thresholds</h2>${(() => { const u = R.thr.filter(r => r.status !== 'checked'); return u.length ? `<p class="warnline">${u.length} threshold${u.length > 1 ? 's are' : ' is'} still the tool’s suggestion: ${u.map(r => r.threshold + ' (' + r.test.replace(/_/g, ' ') + ')').join(', ')}. Check ${u.length > 1 ? 'them' : 'it'} on ${u.length > 1 ? 'their tabs' : 'its tab'}, then move or confirm ${u.length > 1 ? 'them' : 'it'}.</p>` : ''; })()}<div class="panel"><div class="tblwrap"><table><tr>${names.map(n => `<th>${n}</th>`).join('')}</tr>${R.thr.map(r => `<tr>${cols.map(c => `<td>${c === 'status' ? statusBadge(r.status === 'checked') : esc(r[c] === '' ? '–' : r[c])}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length}">None yet.</td></tr>`}</table></div></div>
       ${fold('rep', 'Reports', 'Word files for a client or for research', reportsHTML())}
       ${fold('chk', 'Data checks', (() => { const w = (S.checks || []).filter(c => c.level === 'warn').length; return w ? `${w} to look at` : 'nothing to look at'; })(), '<ul class="checks" id="chk2"></ul>')}
       ${fold('meth', 'Methods paragraph', 'to copy into a paper', '<div class="methods" id="meth"></div><div class="tools"><button id="cpM">Copy</button><span class="hint" id="cpS"></span></div>')}
@@ -3102,7 +3122,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     }
     B.push(DX.para('', { after: 0 }), DX.heading('Thresholds'));
     const tr = [{ ...H, cells: ['Test', 'Threshold', 'Source', 'VO₂ (L/min)', 'VO₂ (mL/kg/min)', `${I ? I.label : 'Intensity'} (${u})`, 'HR (bpm)', 'Lactate (mmol/L)'].map(t => ({ text: t, sz: 9 })) }];
-    R.thr.forEach((r, i) => tr.push({ fill: alt(i), cells: [r.test.replace(/_/g, ' '), r.threshold, r.source, v(r.vo2_L_min, 2), v(r.vo2_mL_kg_min, 1), v(r.intensity_regression !== '' ? r.intensity_regression : r.intensity_stage, u === 'W' ? 0 : 1), v(r.hr_bpm, 0), v(r.lactate_mmol_L, 1)].map(t => ({ text: t, sz: 9 })) }));
+    R.thr.forEach((r, i) => tr.push({ fill: alt(i), cells: [r.test.replace(/_/g, ' '), r.threshold, r.source + (r.status === 'checked' ? '' : ' (not checked)'), v(r.vo2_L_min, 2), v(r.vo2_mL_kg_min, 1), v(r.intensity_regression !== '' ? r.intensity_regression : r.intensity_stage, u === 'W' ? 0 : 1), v(r.hr_bpm, 0), v(r.lactate_mmol_L, 1)].map(t => ({ text: t, sz: 9 })) }));
     B.push(DX.table(tr, [1250, 1100, 1750, 900, 1050, 1100, 850, 1000], { lastLine: true }));
     B.push(DX.para(DX.rich('Intensity of VT is from the VO₂–intensity regression; intensity of LT is where the lactate threshold was placed.', { i: true, sz: 9 })));
     // stages, with lactate where entered
@@ -3134,7 +3154,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   function bindReports() {
     const rep = repInfo(), on = (id, k, store) => { const el = $(id); if (el) el.onchange = () => { rep[k] = el.value; if (store) try { localStorage.setItem(store, el.value); } catch (e) { /* private window */ } }; };
     on('#rTitle', 'title'); on('#rTester', 'tester', 'labcpet.tester'); on('#rDob', 'dob'); on('#rHt', 'height'); on('#rProt', 'protocol'); on('#rSrc', 'src');
-    const go = async (fn, name) => { const msg = $('#rMsg'); msg.textContent = 'Making the report…'; try { if (S.oxy && !S.oxy.done) await S.oxy.promise; const blob = await fn(); download(blob, stem() + name); msg.textContent = 'Report saved. Open it in Word to check and edit the wording.'; } catch (e) { console.error(e); msg.textContent = 'Could not make the report: ' + e.message; } };
+    const go = async (fn, name) => { const msg = $('#rMsg'), un = results().thr.filter(r => r.status !== 'checked'); msg.textContent = 'Making the report…'; try { if (S.oxy && !S.oxy.done) await S.oxy.promise; const blob = await fn(); download(blob, stem() + name); msg.textContent = 'Report saved. Open it in Word to check and edit the wording.' + (un.length ? ` Note: ${un.map(r => r.threshold).join(', ')} ${un.length > 1 ? 'are' : 'is'} still the tool’s suggestion, not checked.` : ''); } catch (e) { console.error(e); msg.textContent = 'Could not make the report: ' + e.message; } };
     if ($('#rClient')) $('#rClient').onclick = () => go(clientReport, '_client_report.docx');
     $('#rResearch').onclick = () => go(researchReport, '_research_report.docx');
   }

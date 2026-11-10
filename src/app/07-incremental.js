@@ -102,8 +102,8 @@
       const tile = (cls, big, lab, sub) => `<div class="stat ${cls}"><b>${big}</b><span>${lab}</span>${sub ? `<small>${sub}</small>` : ''}</div>`;
       $('#tiles').innerHTML =
         tile('key', pk.vo2 ? fx(pk.vo2.value, 2) + ' L/min' : '–', (pr.max ? 'VO₂max (' : 'VO₂peak (') + set.peakWin + '-s mean)', pk.vo2kg ? fx(pk.vo2kg.value, 1) + ' mL/kg/min, at ' + mmss(pk.vo2.t1) : '') +
-        tile('vt1b', F(v1) ? fx(v1, 2) + ' L/min' : 'Not set', 'VT1', F(v1) ? `${fx(a1.pct, 0)}% of peak · ${iVal(a1.iv)} · ${fx(a1.hr, 0)} bpm` : '') +
-        tile('vt2b', F(v2) ? fx(v2, 2) + ' L/min' : 'Not set', 'VT2', F(v2) ? `${fx(a2.pct, 0)}% of peak · ${iVal(a2.iv)} · ${fx(a2.hr, 0)} bpm` : 'No clear break found; place it by eye') +
+        tile('vt1b', F(v1) ? fx(v1, 2) + ' L/min' : 'Not set', 'VT1' + (F(v1) ? ' ' + statusBadge(F(S.picks.inc.vt1), 'inc:vt1') : ''), F(v1) ? `${fx(a1.pct, 0)}% of peak · ${iVal(a1.iv)} · ${fx(a1.hr, 0)} bpm` : '') +
+        tile('vt2b', F(v2) ? fx(v2, 2) + ' L/min' : 'Not set', 'VT2' + (F(v2) ? ' ' + statusBadge(F(S.picks.inc.vt2), 'inc:vt2') : ''), F(v2) ? `${fx(a2.pct, 0)}% of peak · ${iVal(a2.iv)} · ${fx(a2.hr, 0)} bpm` : 'No clear break found; place it by eye') +
         tile('', pk.hr ? fx(pk.hr.value, 0) + ' bpm' : '–', 'Peak heart rate', '') + tile('', pk.rer ? fx(pk.rer.value, 2) : '–', 'Peak RER', '') + tile('', pk.ve ? fx(pk.ve.value, 0) + ' L/min' : '–', 'Peak VE', '') + tile('', iVal(pr.max ? pr.max.peak : pr.inc.peak), 'Peak ' + (I.label).toLowerCase(), pr.max && pr.max.stages.at(-1).full === false ? 'Reached for ' + Math.round(pr.max.stages.at(-1).dur) + ' s; last full stage ' + iVal(pr.max.stages.at(-2).p) : '');
       const un = D.sugg.unsure, msgs = [];
       if (!F(S.picks.inc.vt1) && D.sugg.startEdge) msgs.push('The VT1 breakpoints sit at the very start of the data they were searched in, so VT1 may be at or below the first stage used. Check it by eye.');

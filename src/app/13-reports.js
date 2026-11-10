@@ -114,7 +114,7 @@
     }
     B.push(DX.para('', { after: 0 }), DX.heading('Thresholds'));
     const tr = [{ ...H, cells: ['Test', 'Threshold', 'Source', 'VO₂ (L/min)', 'VO₂ (mL/kg/min)', `${I ? I.label : 'Intensity'} (${u})`, 'HR (bpm)', 'Lactate (mmol/L)'].map(t => ({ text: t, sz: 9 })) }];
-    R.thr.forEach((r, i) => tr.push({ fill: alt(i), cells: [r.test.replace(/_/g, ' '), r.threshold, r.source, v(r.vo2_L_min, 2), v(r.vo2_mL_kg_min, 1), v(r.intensity_regression !== '' ? r.intensity_regression : r.intensity_stage, u === 'W' ? 0 : 1), v(r.hr_bpm, 0), v(r.lactate_mmol_L, 1)].map(t => ({ text: t, sz: 9 })) }));
+    R.thr.forEach((r, i) => tr.push({ fill: alt(i), cells: [r.test.replace(/_/g, ' '), r.threshold, r.source + (r.status === 'checked' ? '' : ' (not checked)'), v(r.vo2_L_min, 2), v(r.vo2_mL_kg_min, 1), v(r.intensity_regression !== '' ? r.intensity_regression : r.intensity_stage, u === 'W' ? 0 : 1), v(r.hr_bpm, 0), v(r.lactate_mmol_L, 1)].map(t => ({ text: t, sz: 9 })) }));
     B.push(DX.table(tr, [1250, 1100, 1750, 900, 1050, 1100, 850, 1000], { lastLine: true }));
     B.push(DX.para(DX.rich('Intensity of VT is from the VO₂–intensity regression; intensity of LT is where the lactate threshold was placed.', { i: true, sz: 9 })));
     // stages, with lactate where entered
@@ -146,7 +146,7 @@
   function bindReports() {
     const rep = repInfo(), on = (id, k, store) => { const el = $(id); if (el) el.onchange = () => { rep[k] = el.value; if (store) try { localStorage.setItem(store, el.value); } catch (e) { /* private window */ } }; };
     on('#rTitle', 'title'); on('#rTester', 'tester', 'labcpet.tester'); on('#rDob', 'dob'); on('#rHt', 'height'); on('#rProt', 'protocol'); on('#rSrc', 'src');
-    const go = async (fn, name) => { const msg = $('#rMsg'); msg.textContent = 'Making the report…'; try { if (S.oxy && !S.oxy.done) await S.oxy.promise; const blob = await fn(); download(blob, stem() + name); msg.textContent = 'Report saved. Open it in Word to check and edit the wording.'; } catch (e) { console.error(e); msg.textContent = 'Could not make the report: ' + e.message; } };
+    const go = async (fn, name) => { const msg = $('#rMsg'), un = results().thr.filter(r => r.status !== 'checked'); msg.textContent = 'Making the report…'; try { if (S.oxy && !S.oxy.done) await S.oxy.promise; const blob = await fn(); download(blob, stem() + name); msg.textContent = 'Report saved. Open it in Word to check and edit the wording.' + (un.length ? ` Note: ${un.map(r => r.threshold).join(', ')} ${un.length > 1 ? 'are' : 'is'} still the tool’s suggestion, not checked.` : ''); } catch (e) { console.error(e); msg.textContent = 'Could not make the report: ' + e.message; } };
     if ($('#rClient')) $('#rClient').onclick = () => go(clientReport, '_client_report.docx');
     $('#rResearch').onclick = () => go(researchReport, '_research_report.docx');
   }

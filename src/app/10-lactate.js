@@ -115,7 +115,7 @@
     const ctx = { lines: res.fit ? ['lt1', 'lt2'] : [], charts: [], pts: { v: {} }, get: q => ltVal(se, res, q), set: (q, v) => setLT(se.key, q, Math.round(v * 100) / 100), toX: v => v, fromX: x => x, live: () => tiles(), done: () => { tiles(); summaries(); } };
     attachVT(gd, ctx, { x: 'p', y: [] });
     const tiles = () => {
-      const t = q => { const p = ltVal(se, res, q), a = ltAt(res, p), src = ltSource(se, res, q); return `<div class="stat ${q === 'lt1' ? 'vt1b' : 'vt2b'}"><b>${F(p) ? fx(p, dp + 1) + ' ' + u : '–'}</b><span>${q.toUpperCase()}${src ? ' · ' + esc(src) : ''}</span><small>${F(p) ? `${fx(a.la, 1)} mmol/L${F(a.hr) ? ', ' + Math.round(a.hr) + ' bpm' : ''}${u === 'km/h' ? ', ' + pace(p) + ' min/km' : ''}` : 'enter lactate values'}</small></div>`; };
+      const t = q => { const p = ltVal(se, res, q), a = ltAt(res, p), src = ltSource(se, res, q); return `<div class="stat ${q === 'lt1' ? 'vt1b' : 'vt2b'}"><b>${F(p) ? fx(p, dp + 1) + ' ' + u : '–'}</b><span>${q.toUpperCase()}${src ? ' · ' + esc(src) : ''}${F(p) ? ' ' + statusBadge(F(ltPick(se.key, q)), `lt:${se.key}:${q}`) : ''}</span><small>${F(p) ? `${fx(a.la, 1)} mmol/L${F(a.hr) ? ', ' + Math.round(a.hr) + ' bpm' : ''}${u === 'km/h' ? ', ' + pace(p) + ' min/km' : ''}` : 'enter lactate values'}</small></div>`; };
       $('#lt' + si).innerHTML = t('lt1') + t('lt2');
     };
     tiles();
