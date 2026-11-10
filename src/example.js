@@ -24,6 +24,9 @@
     return { vo2, vco2: vo2 * rer, eqco2, hr: P > 0 ? Math.min(188, 70 + 0.38 * P) : 62, rf: P > 0 ? 16 + 0.07 * P + 0.12 * Math.max(0, P - VT2P) : 13 };
   }
 
+  // PETO₂ (mmHg): falls in a straight line to its lowest point at VT1, then follows VE/VO₂.
+  const PO2_VT1 = (() => { const g = target(VT1P, 0); return 78 + 1.3 * g.eqco2 * g.vco2 / g.vo2; })();
+  const petO2 = (P, eqo2) => (P > 0 && P < VT1P ? PO2_VT1 + 0.045 * (VT1P - P) : 78 + 1.3 * eqo2);
   function rows() {
     const r = rng(20261111), out = [];
     let t = 2, s = { vo2: 0.35, vco2: 0.29, hr: 62, eqco2: 33, rf: 13 }, n = 0;
@@ -38,7 +41,7 @@
       let ve = vco2 * s.eqco2 * (1 + 0.02 * gauss(r));
       n++; if (n === 140 || n === 610) { vo2 *= 2.1; vco2 *= 2.0; ve *= 2.2; } // two sighs, for the outlier check
       const rf = s.rf * (1 + 0.06 * gauss(r)), eqo2 = ve / vo2, eqco2 = ve / vco2;
-      const peto2 = 78 + 1.3 * eqo2 + 0.8 * gauss(r), petco2 = 61 - 0.78 * eqco2 + 0.6 * gauss(r);
+      const peto2 = petO2(P, eqo2) + 0.8 * gauss(r), petco2 = 61 - 0.78 * eqco2 + 0.6 * gauss(r);
       out.push({ t, P, rf, vt: ve / rf, ve, vo2, vco2, rer: vco2 / vo2, eqo2, eqco2, peto2, petco2, hr: Math.round(s.hr + gauss(r)) });
       t += 60 / rf;
     }
@@ -80,7 +83,7 @@
     const out = [];
     for (let P = 100; P <= 320; P += 2) { // stops below the VO₂ ceiling, where the lines would turn vertical
       const g = target(P, 0), ve = g.vco2 * g.eqco2, eqo2 = ve / g.vo2;
-      out.push({ P, vo2: g.vo2, vco2: g.vco2, ve, eqo2, eqco2: g.eqco2, peto2: 78 + 1.3 * eqo2, petco2: 61 - 0.78 * g.eqco2, rer: g.vco2 / g.vo2, la: laOf(P) });
+      out.push({ P, vo2: g.vo2, vco2: g.vco2, ve, eqo2, eqco2: g.eqco2, peto2: petO2(P, eqo2), petco2: 61 - 0.78 * g.eqco2, rer: g.vco2 / g.vo2, la: laOf(P) });
     }
     return out;
   }

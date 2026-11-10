@@ -14,11 +14,11 @@
     dlg.showModal();
     const E = window.LabExample, C = E.curves(), at = P => C.find(q => q.P === P).vo2, v1 = at(E.truth.vt1), v2 = at(E.truth.vt2);
     const c1 = css('--vt1'), c2 = css('--vt2'), fg = css('--fg'), x = C.map(q => q.vo2);
-    const ax = t => ({ title: { text: t, font: { size: 11 } }, showline: true, linecolor: fg, linewidth: 1, ticks: 'outside', tickcolor: fg, showgrid: false, zeroline: false });
+    const pad = [x[0] - 0.07 * (x.at(-1) - x[0]), x.at(-1) + 0.03 * (x.at(-1) - x[0])], ax = (t, r) => ({ range: r, title: { text: t, font: { size: 11 } }, showline: true, linecolor: fg, linewidth: 1, ticks: 'outside', tickcolor: fg, showgrid: false, zeroline: false });
     LOOK.forEach(([k, yl]) => {
       const vl = (v, c) => ({ type: 'line', xref: 'x', yref: 'paper', x0: v, x1: v, y0: 0, y1: 1, line: { color: c, width: 1.5, dash: 'dot' } });
       Plotly.newPlot('look_' + k, [{ x, y: C.map(q => q[k]), mode: 'lines', type: 'scatter', line: { color: fg, width: 2 }, hoverinfo: 'skip' }],
-        lay({ margin: { l: 56, r: 10, t: 20, b: 40 }, showlegend: false, dragmode: false, hovermode: false, xaxis: ax('VO₂ (L/min)'), yaxis: ax(yl),
+        lay({ margin: { l: 56, r: 10, t: 20, b: 40 }, showlegend: false, dragmode: false, hovermode: false, xaxis: ax('VO₂ (L/min)', pad), yaxis: ax(yl),
           shapes: [vl(v1, c1), vl(v2, c2)],
           annotations: [['VT1', v1, c1], ['VT2', v2, c2]].map(([t, v, c]) => ({ x: v, y: 1, xref: 'x', yref: 'paper', yanchor: 'bottom', text: t, showarrow: false, font: { color: c, size: 11 } })) }), { staticPlot: true, responsive: true });
     });

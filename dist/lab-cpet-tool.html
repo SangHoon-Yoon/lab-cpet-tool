@@ -1708,6 +1708,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     return { vo2, vco2: vo2 * rer, eqco2, hr: P > 0 ? Math.min(188, 70 + 0.38 * P) : 62, rf: P > 0 ? 16 + 0.07 * P + 0.12 * Math.max(0, P - VT2P) : 13 };
   }
 
+  // PETO₂ (mmHg): falls in a straight line to its lowest point at VT1, then follows VE/VO₂.
+  const PO2_VT1 = (() => { const g = target(VT1P, 0); return 78 + 1.3 * g.eqco2 * g.vco2 / g.vo2; })();
+  const petO2 = (P, eqo2) => (P > 0 && P < VT1P ? PO2_VT1 + 0.045 * (VT1P - P) : 78 + 1.3 * eqo2);
   function rows() {
     const r = rng(20261111), out = [];
     let t = 2, s = { vo2: 0.35, vco2: 0.29, hr: 62, eqco2: 33, rf: 13 }, n = 0;
@@ -1722,7 +1725,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       let ve = vco2 * s.eqco2 * (1 + 0.02 * gauss(r));
       n++; if (n === 140 || n === 610) { vo2 *= 2.1; vco2 *= 2.0; ve *= 2.2; } // two sighs, for the outlier check
       const rf = s.rf * (1 + 0.06 * gauss(r)), eqo2 = ve / vo2, eqco2 = ve / vco2;
-      const peto2 = 78 + 1.3 * eqo2 + 0.8 * gauss(r), petco2 = 61 - 0.78 * eqco2 + 0.6 * gauss(r);
+      const peto2 = petO2(P, eqo2) + 0.8 * gauss(r), petco2 = 61 - 0.78 * eqco2 + 0.6 * gauss(r);
       out.push({ t, P, rf, vt: ve / rf, ve, vo2, vco2, rer: vco2 / vo2, eqo2, eqco2, peto2, petco2, hr: Math.round(s.hr + gauss(r)) });
       t += 60 / rf;
     }
@@ -1764,7 +1767,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const out = [];
     for (let P = 100; P <= 320; P += 2) { // stops below the VO₂ ceiling, where the lines would turn vertical
       const g = target(P, 0), ve = g.vco2 * g.eqco2, eqo2 = ve / g.vo2;
-      out.push({ P, vo2: g.vo2, vco2: g.vco2, ve, eqo2, eqco2: g.eqco2, peto2: 78 + 1.3 * eqo2, petco2: 61 - 0.78 * g.eqco2, rer: g.vco2 / g.vo2, la: laOf(P) });
+      out.push({ P, vo2: g.vo2, vco2: g.vco2, ve, eqo2, eqco2: g.eqco2, peto2: petO2(P, eqo2), petco2: 61 - 0.78 * g.eqco2, rer: g.vco2 / g.vo2, la: laOf(P) });
     }
     return out;
   }
@@ -1877,7 +1880,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.23.2', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.23.3', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -3328,11 +3331,11 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     dlg.showModal();
     const E = window.LabExample, C = E.curves(), at = P => C.find(q => q.P === P).vo2, v1 = at(E.truth.vt1), v2 = at(E.truth.vt2);
     const c1 = css('--vt1'), c2 = css('--vt2'), fg = css('--fg'), x = C.map(q => q.vo2);
-    const ax = t => ({ title: { text: t, font: { size: 11 } }, showline: true, linecolor: fg, linewidth: 1, ticks: 'outside', tickcolor: fg, showgrid: false, zeroline: false });
+    const pad = [x[0] - 0.07 * (x.at(-1) - x[0]), x.at(-1) + 0.03 * (x.at(-1) - x[0])], ax = (t, r) => ({ range: r, title: { text: t, font: { size: 11 } }, showline: true, linecolor: fg, linewidth: 1, ticks: 'outside', tickcolor: fg, showgrid: false, zeroline: false });
     LOOK.forEach(([k, yl]) => {
       const vl = (v, c) => ({ type: 'line', xref: 'x', yref: 'paper', x0: v, x1: v, y0: 0, y1: 1, line: { color: c, width: 1.5, dash: 'dot' } });
       Plotly.newPlot('look_' + k, [{ x, y: C.map(q => q[k]), mode: 'lines', type: 'scatter', line: { color: fg, width: 2 }, hoverinfo: 'skip' }],
-        lay({ margin: { l: 56, r: 10, t: 20, b: 40 }, showlegend: false, dragmode: false, hovermode: false, xaxis: ax('VO₂ (L/min)'), yaxis: ax(yl),
+        lay({ margin: { l: 56, r: 10, t: 20, b: 40 }, showlegend: false, dragmode: false, hovermode: false, xaxis: ax('VO₂ (L/min)', pad), yaxis: ax(yl),
           shapes: [vl(v1, c1), vl(v2, c2)],
           annotations: [['VT1', v1, c1], ['VT2', v2, c2]].map(([t, v, c]) => ({ x: v, y: 1, xref: 'x', yref: 'paper', yanchor: 'bottom', text: t, showarrow: false, font: { color: c, size: 11 } })) }), { staticPlot: true, responsive: true });
     });
