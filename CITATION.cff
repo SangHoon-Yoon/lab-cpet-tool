@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use the Lab CPET tool in research, please cite it as below, and cite Oxynet and lactater when you report their results."
+title: "Lab CPET tool: browser-based analysis of cardiopulmonary exercise tests"
+authors:
+  - family-names: Yoon
+    given-names: SangHoon
+    affiliation: "Sports Performance Research Institute New Zealand (SPRINZ), Auckland University of Technology"
+license: MIT
+repository-code: "https://github.com/SangHoon-Yoon/lab-cpet-tool"
+url: "https://sanghoon-yoon.github.io/lab-cpet-tool/"
+type: software

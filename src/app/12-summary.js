@@ -79,10 +79,10 @@
     ['Zignoli A. Machine learning models for the automatic detection of exercise thresholds in cardiopulmonary exercising tests: from regression to generation to explanation. <i>Sensors</i>. 2023;23(2):826.', '10.3390/s23020826']
   ];
   function creditsHTML() {
-    return `<div class="methods"><p style="margin:0 0 8px"><b>Lab CPET tool</b>, version ${VERSION}, was created by <b>${AUTHOR}</b>.</p>
+    return `<div class="methods"><p style="margin:0 0 8px"><b>Lab CPET tool</b>, version ${VERSION}, was created by <b>${AUTHOR}</b>. © 2026 ${AUTHOR}. Free to use and adapt under the MIT licence, keeping this credit. If you use it in research, please cite: Yoon S. Lab CPET tool: browser-based analysis of cardiopulmonary exercise tests (version ${VERSION}). https://github.com/SangHoon-Yoon/lab-cpet-tool</p>
       <p style="margin:0 0 8px"><b>Oxynet.</b> The Oxynet suggestions use the frozen CNN and LSTM models from <a href="https://pypi.org/project/pyoxynet/">pyoxynet</a> 1.0.2 by Andrea Zignoli and the Oxynet team (MIT licence). They run on this computer through this tool’s own JavaScript runner, and no data are sent to Oxynet. This tool is not made or endorsed by the Oxynet team. Please cite:</p>
       <ol class="refs">${REFS.map(([t, d]) => `<li>${t}${d ? ` <a href="https://doi.org/${d}">doi:${d}</a>` : ''}</li>`).join('')}</ol>
-      <p style="margin:8px 0 0"><b>Other software.</b> Plotly.js (MIT licence) and SheetJS (Apache 2.0 licence). <b>Equations.</b> Substrate oxidation: Jeukendrup and Wallis (2005). Metabolic power: Brouwer (1957). V-slope: Beaver et al. (1986).</p></div>`;
+      <p style="margin:8px 0 0"><b>Other software.</b> Plotly.js (MIT licence), SheetJS (Apache 2.0 licence) and the lactate threshold methods of lactater by Felipe Mattioni Maturana (MIT licence). <b>Equations.</b> Substrate oxidation: Jeukendrup and Wallis (2005). Metabolic power: Brouwer (1957). V-slope: Beaver et al. (1986).</p></div>`;
   }
   $('#credit').innerHTML = `Lab CPET tool ${VERSION}. Created by ${AUTHOR}. Threshold suggestions on incremental tests include the open-source Oxynet models (Zignoli et al., 2022; Keir et al., 2026; pyoxynet, MIT licence).`;
   function vSummary() {
