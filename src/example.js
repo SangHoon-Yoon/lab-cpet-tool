@@ -74,6 +74,15 @@
   const lactate = P => +(P > 0 ? 0.9 + 0.08 * Math.exp((P - 100) / 50) : 0.9).toFixed(1);
   const fileName = 'Example_incremental_cycling_simulated.xlsx';
 
-  const API = { workbook, rows, lactate, fileName, truth: { vt1: VT1P, vt2: VT2P, rest: REST, stage: STAGE, p0: P0, inc: INC, end } };
+  // Noise-free steady-state values against power, for the reference charts.
+  function curves() {
+    const out = [];
+    for (let P = 100; P <= 320; P += 2) { // stops below the VO₂ ceiling, where the lines would turn vertical
+      const g = target(P, 0), ve = g.vco2 * g.eqco2, eqo2 = ve / g.vo2;
+      out.push({ P, vo2: g.vo2, vco2: g.vco2, ve, eqo2, eqco2: g.eqco2, peto2: 78 + 1.3 * eqo2, petco2: 61 - 0.78 * g.eqco2, rer: g.vco2 / g.vo2, la: 0.9 + 0.08 * Math.exp((P - 100) / 50) });
+    }
+    return out;
+  }
+  const API = { workbook, rows, curves, lactate, fileName, truth: { vt1: VT1P, vt2: VT2P, rest: REST, stage: STAGE, p0: P0, inc: INC, end } };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.LabExample = API;
 })(this);

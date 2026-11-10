@@ -191,7 +191,7 @@ details.sub[open]>summary{margin-bottom:6px}
 #lookDlg{width:min(1100px,calc(100vw - 24px));max-height:calc(100vh - 24px);border:1px solid var(--grid);border-radius:10px;background:var(--bg);color:var(--fg);padding:14px 18px}
 #lookDlg::backdrop{background:rgba(0,0,0,.35)}
 .lookhead{display:flex;justify-content:space-between;align-items:center;gap:12px}.lookhead h2{margin:0;font-size:1.1rem}
-.lookgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin:10px 0}
+.lookgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 14px;margin:8px 0 0}
 .lookgrid .panel{padding:8px}.lookgrid h3{margin:0 0 2px;font-size:.9rem}.lookcue{margin:4px 0 0;font-size:.82rem;line-height:1.4}
 
 </style>
@@ -1758,7 +1758,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   const lactate = P => +(P > 0 ? 0.9 + 0.08 * Math.exp((P - 100) / 50) : 0.9).toFixed(1);
   const fileName = 'Example_incremental_cycling_simulated.xlsx';
 
-  const API = { workbook, rows, lactate, fileName, truth: { vt1: VT1P, vt2: VT2P, rest: REST, stage: STAGE, p0: P0, inc: INC, end } };
+  // Noise-free steady-state values against power, for the reference charts.
+  function curves() {
+    const out = [];
+    for (let P = 100; P <= 320; P += 2) { // stops below the VO₂ ceiling, where the lines would turn vertical
+      const g = target(P, 0), ve = g.vco2 * g.eqco2, eqo2 = ve / g.vo2;
+      out.push({ P, vo2: g.vo2, vco2: g.vco2, ve, eqo2, eqco2: g.eqco2, peto2: 78 + 1.3 * eqo2, petco2: 61 - 0.78 * g.eqco2, rer: g.vco2 / g.vo2, la: 0.9 + 0.08 * Math.exp((P - 100) / 50) });
+    }
+    return out;
+  }
+  const API = { workbook, rows, curves, lactate, fileName, truth: { vt1: VT1P, vt2: VT2P, rest: REST, stage: STAGE, p0: P0, inc: INC, end } };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.LabExample = API;
 })(this);
 
@@ -1867,7 +1876,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.23.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.23.1', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -3302,50 +3311,29 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     S.gas = o.gas; S.lode = o.lode; S.hr = o.hr; S.meta = o.meta; S.set = Object.assign(defaults(), o.set); S.picks = o.picks; S.oxy = null; S.oxyCache = {}; S.view = 'protocol';
     start();
   }
-  // "What to look for": original reference charts drawn from the simulated example test (src/example.js), with VT1 and VT2
-  // marked where the model puts them, and the usual signs for each. Approach as described by Keir et al. (2022); not their figure.
-  const LOOK = [
-    ['vco2', 'VCO<sub>2</sub> against VO<sub>2</sub> (V-slope)', 'VCO₂ (L/min)', '<b class="vt1c">VT1</b>: the slope gets steeper, as buffering of lactic acid adds extra CO₂.'],
-    ['ve', 'Ventilation (VE)', 'VE (L/min)', '<b class="vt1c">VT1</b>: VE starts to rise faster. <b class="vt2c">VT2</b>: a second, steeper rise.'],
-    ['eqo2', 'VE/VO<sub>2</sub>', 'VE/VO₂', '<b class="vt1c">VT1</b>: the lowest point before a steady rise, while VE/VCO₂ stays flat.'],
-    ['eqco2', 'VE/VCO<sub>2</sub>', 'VE/VCO₂', 'Flat (or falling) through VT1. <b class="vt2c">VT2</b>: starts to rise.'],
-    ['peto2', 'End-tidal O<sub>2</sub> (P<sub>ET</sub>O<sub>2</sub>)', 'PETO₂ (mmHg)', '<b class="vt1c">VT1</b>: starts to rise, while PETCO₂ does not fall.'],
-    ['petco2', 'End-tidal CO<sub>2</sub> (P<sub>ET</sub>CO<sub>2</sub>)', 'PETCO₂ (mmHg)', 'Flat or rising between VT1 and VT2. <b class="vt2c">VT2</b>: starts to fall.'],
-    ['rer', 'Respiratory exchange ratio (RER)', 'RER', '<b class="vt1c">VT1</b>: rises faster. Helps confirm VT1; not used on its own.'],
-    ['la', 'Blood lactate', 'Lactate (mmol/L)', 'The first rise above baseline is near <b class="vt1c">VT1</b>; the rapid rise is near <b class="vt2c">VT2</b>.'],
-  ];
-  function lookData() {
-    if (S._look) return S._look;
-    const E = window.LabExample, T = E.truth, R = E.rows().filter(b => b.t >= T.rest && b.t < T.end), bins = [];
-    const med = a => { const s = a.slice().sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
-    for (let a = T.rest; a < T.end; a += 15) { const g = R.filter(b => b.t >= a && b.t < a + 15); if (g.length < 3) continue;
-      const o = {}; ['vo2', 'vco2', 've', 'eqo2', 'eqco2', 'peto2', 'petco2', 'rer'].forEach(k => (o[k] = med(g.map(b => b[k])))); bins.push(o); }
-    const vo2At = P => 0.8 + 0.0105 * P; // the model's steady-state VO₂ (L/min) at a power below VT2
-    const la = []; for (let P = T.p0; P < T.p0 + 8 * T.inc + 1; P += T.inc) { const st = R.filter(b => b.P === P && b.t >= T.rest + ((P - T.p0) / T.inc) * T.stage + T.stage - 30); if (st.length) la.push({ vo2: med(st.map(b => b.vo2)), la: E.lactate(P) }); }
-    return (S._look = { bins, la, vt1: vo2At(T.vt1), vt2: vo2At(T.vt2) + 0.01 });
-  }
+  // "What to look for": schematic reference charts drawn from the noise-free model behind the simulated example test
+  // (src/example.js), with VT1 and VT2 marked. Based on the approach of Keir et al. (2022); not their figure.
+  const LOOK = [['vco2', 'VCO₂ (L/min)'], ['ve', 'VE (L/min)'], ['eqo2', 'VE/VO₂'], ['eqco2', 'VE/VCO₂'], ['peto2', 'PETO₂ (mmHg)'], ['petco2', 'PETCO₂ (mmHg)'], ['rer', 'RER'], ['la', 'Lactate (mmol/L)']];
   function openLookFor() {
     let dlg = $('#lookDlg');
     if (!dlg) {
       dlg = document.createElement('dialog'); dlg.id = 'lookDlg'; dlg.setAttribute('aria-labelledby', 'lookH');
       dlg.innerHTML = `<div class="lookhead"><h2 id="lookH">What to look for at VT1 and VT2</h2><button id="lookX" aria-label="Close">Close</button></div>
-        <p class="hint">Typical patterns, plotted against VO<sub>2</sub> from a <b>simulated</b> incremental cycling test (the example test, not a real person), with <b class="vt1c">VT1</b> and <b class="vt2c">VT2</b> where the model puts them. Real data are noisier and not every sign is clear in every test: look for the signs that agree across several charts, rather than relying on one.</p>
-        <div class="lookgrid">${LOOK.map(([k, h, , cue]) => `<div class="panel"><h3>${h}</h3><div class="chart" id="look_${k}" style="height:190px"></div><p class="lookcue">${cue}</p></div>`).join('')}</div>
-        <p class="hint">VT1 is also called the gas exchange threshold or estimated lactate threshold; VT2 is also called the respiratory compensation point. Approach as described in Keir DA, Iannetta D, Mattioni Maturana F, Kowalchuk JM, Murias JM. Identification of non-invasive exercise thresholds: methods, strategies, and an online app. <i>Sports Medicine</i> (2022), <a href="https://doi.org/10.1007/s40279-021-01581-z" target="_blank" rel="noopener">doi:10.1007/s40279-021-01581-z</a>. These charts are drawn for this tool and are not taken from that paper.</p>`;
+        <p class="hint">Typical patterns from a simulated test. Based on Keir et al. (2022), <i>Sports Med</i>, <a href="https://doi.org/10.1007/s40279-021-01581-z" target="_blank" rel="noopener">doi:10.1007/s40279-021-01581-z</a>.</p>
+        <div class="lookgrid">${LOOK.map(([k]) => `<div class="chart" id="look_${k}" style="height:200px"></div>`).join('')}</div>`;
       document.body.appendChild(dlg);
       dlg.addEventListener('click', e => { if (e.target === dlg || e.target.id === 'lookX') dlg.close(); });
     }
     dlg.showModal();
-    const L = lookData(), c1 = css('--vt1'), c2 = css('--vt2'), x = L.bins.map(b => b.vo2);
-    LOOK.forEach(([k, , yl]) => {
-      const tr = k === 'la' ? [{ x: L.la.map(q => q.vo2), y: L.la.map(q => q.la), mode: 'lines+markers', type: 'scatter', line: { color: css('--fg'), width: 1.5 }, marker: { size: 6 }, hoverinfo: 'skip' }]
-        : [{ x, y: L.bins.map(b => b[k]), mode: 'markers', type: 'scatter', marker: { size: 5, color: css('--fg'), opacity: 0.7 }, hoverinfo: 'skip' }];
-      const vl = (v, c, t) => ({ type: 'line', xref: 'x', yref: 'paper', x0: v, x1: v, y0: 0, y1: 1, line: { color: c, width: 2, dash: 'dot' } });
-      Plotly.newPlot('look_' + k, tr, lay({ margin: { l: 52, r: 10, t: 18, b: 38 }, showlegend: false, dragmode: false, hovermode: false,
-        xaxis: { title: { text: 'VO₂ (L/min)', font: { size: 11 } }, gridcolor: css('--grid'), zeroline: false },
-        yaxis: { title: { text: yl, font: { size: 11 } }, gridcolor: css('--grid'), zeroline: false },
-        shapes: [vl(L.vt1, c1), vl(L.vt2, c2)],
-        annotations: [['VT1', L.vt1, c1], ['VT2', L.vt2, c2]].map(([t, v, c]) => ({ x: v, y: 1, xref: 'x', yref: 'paper', yanchor: 'bottom', text: t, showarrow: false, font: { color: c, size: 11 } })) }), { staticPlot: true, responsive: true });
+    const E = window.LabExample, C = E.curves(), at = P => C.find(q => q.P === P).vo2, v1 = at(E.truth.vt1), v2 = at(E.truth.vt2);
+    const c1 = css('--vt1'), c2 = css('--vt2'), fg = css('--fg'), x = C.map(q => q.vo2);
+    const ax = t => ({ title: { text: t, font: { size: 11 } }, showline: true, linecolor: fg, linewidth: 1, ticks: 'outside', tickcolor: fg, showgrid: false, zeroline: false });
+    LOOK.forEach(([k, yl]) => {
+      const vl = (v, c) => ({ type: 'line', xref: 'x', yref: 'paper', x0: v, x1: v, y0: 0, y1: 1, line: { color: c, width: 1.5, dash: 'dot' } });
+      Plotly.newPlot('look_' + k, [{ x, y: C.map(q => q[k]), mode: 'lines', type: 'scatter', line: { color: fg, width: 2 }, hoverinfo: 'skip' }],
+        lay({ margin: { l: 56, r: 10, t: 20, b: 40 }, showlegend: false, dragmode: false, hovermode: false, xaxis: ax('VO₂ (L/min)'), yaxis: ax(yl),
+          shapes: [vl(v1, c1), vl(v2, c2)],
+          annotations: [['VT1', v1, c1], ['VT2', v2, c2]].map(([t, v, c]) => ({ x: v, y: 1, xref: 'x', yref: 'paper', yanchor: 'bottom', text: t, showarrow: false, font: { color: c, size: 11 } })) }), { staticPlot: true, responsive: true });
     });
   }
   document.addEventListener('click', e => { if (e.target.closest('#lookFor')) openLookFor(); });
