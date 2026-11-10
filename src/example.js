@@ -20,13 +20,13 @@
   function target(P, t) {
     const vo2 = P > 0 ? Math.min(4.25, 0.8 + 0.0105 * P + (P > VT2P ? 0.002 * (P - VT2P) * Math.min(1, (t % STAGE) / STAGE) : 0)) : 0.35;
     const rer = P > 0 ? 0.84 + 0.0003 * Math.max(0, P - 100) + 0.0016 * Math.max(0, P - VT1P) : 0.82;
-    const eqco2 = P > 0 ? 27 + 0.09 * Math.max(0, P - VT2P) : 31;
+    const eqco2 = P > 0 ? 27 + 5 * Math.pow(Math.max(0, (VT1P - P) / (VT1P - P0)), 2) + 0.09 * Math.max(0, P - VT2P) : 33; // falls to its lowest at VT1, flat to VT2, then rises
     return { vo2, vco2: vo2 * rer, eqco2, hr: P > 0 ? Math.min(188, 70 + 0.38 * P) : 62, rf: P > 0 ? 16 + 0.07 * P + 0.12 * Math.max(0, P - VT2P) : 13 };
   }
 
   function rows() {
     const r = rng(20261111), out = [];
-    let t = 2, s = { vo2: 0.35, vco2: 0.29, hr: 62, eqco2: 31, rf: 13 }, n = 0;
+    let t = 2, s = { vo2: 0.35, vco2: 0.29, hr: 62, eqco2: 33, rf: 13 }, n = 0;
     while (t < total) {
       const P = powerAt(t), g = target(P, t), dt = 60 / s.rf;
       const k = (tau) => 1 - Math.exp(-dt / tau);
@@ -70,8 +70,9 @@
     return wb;
   }
 
-  // Blood lactate (mmol/L) at the end of a stage of power P; rest is 0.9.
-  const lactate = P => +(P > 0 ? 0.9 + 0.08 * Math.exp((P - 100) / 50) : 0.9).toFixed(1);
+  // Blood lactate (mmol/L) at the end of a stage of power P (rest included).
+  const laOf = P => 1.0 + 0.594 * (Math.exp(Math.max(0, P - VT1P) / 50) - 1); // flat until VT1, about 4 mmol/L at VT2
+  const lactate = P => +laOf(P).toFixed(1);
   const fileName = 'Example_incremental_cycling_simulated.xlsx';
 
   // Noise-free steady-state values against power, for the reference charts.
@@ -79,7 +80,7 @@
     const out = [];
     for (let P = 100; P <= 320; P += 2) { // stops below the VO₂ ceiling, where the lines would turn vertical
       const g = target(P, 0), ve = g.vco2 * g.eqco2, eqo2 = ve / g.vo2;
-      out.push({ P, vo2: g.vo2, vco2: g.vco2, ve, eqo2, eqco2: g.eqco2, peto2: 78 + 1.3 * eqo2, petco2: 61 - 0.78 * g.eqco2, rer: g.vco2 / g.vo2, la: 0.9 + 0.08 * Math.exp((P - 100) / 50) });
+      out.push({ P, vo2: g.vo2, vco2: g.vco2, ve, eqo2, eqco2: g.eqco2, peto2: 78 + 1.3 * eqo2, petco2: 61 - 0.78 * g.eqco2, rer: g.vco2 / g.vo2, la: laOf(P) });
     }
     return out;
   }
