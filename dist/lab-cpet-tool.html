@@ -1997,7 +1997,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     bindPresets();
     bindPlan();
     // A clear prompt when the file has no power or speed: the steps must be entered (or the Lode file added) for stage and power results.
-    const ns = $('#needSteps'); ns.innerHTML = !S.I && pr.type === 'incremental' && !set.blocks ? `<div class="needsteps"><p><b>No power or speed in this file.</b> Enter the incremental test steps to get stages and power results, or add the Lode file.</p><button class="primary" id="nsGo">Enter the incremental test steps</button></div>` : '';
+    const ns = $('#needSteps'); ns.innerHTML = !S.I && pr.type === 'incremental' && !set.blocks ? `<div class="needsteps"><p><b>No power or speed in this file.</b> Enter the incremental test steps to get stages and power results, or add the Lode file.</p><button class="primary" id="nsGo">Enter the incremental test steps</button><button id="nsLode">Add the Lode file</button></div>` : '';
+    if ($('#nsLode')) $('#nsLode').onclick = () => { S.addLode = true; fileIn.accept = '.xlsx,.xls'; fileIn.click(); };
     if ($('#nsGo')) $('#nsGo').onclick = () => { $('#dBox').open = true; const pd = $('#planD'); if (pd) { pd.open = true; pd.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(() => { const f = pd.querySelector('input'); if (f) f.focus(); }, 400); } };
     $('#mSex').value = m.sex || ''; if (av.length) $('#mSrc').value = set.source; $('#mType').value = pr.max ? 'two' : pr.type;
     const on = (id, fn) => { const el = $(id); if (el) el.onchange = e => later(() => fn(e)); };

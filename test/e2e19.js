@@ -8,7 +8,7 @@ const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
  ok(await pg.$eval('#sPreset',e=>e.closest('.tools').hidden),'no preset menu before any preset exists');
  // cycling file without power: enter steps, change settings, save as preset
  await load([f(/Example_GXT/)]);
- const fill=async(id,v)=>{await pg.fill(id,String(v));};await fill('#plWm',5);await fill('#plS',100);await fill('#plI',25);await fill('#plD',3);await fill('#plE',26);await pg.click('#plGo');await pg.waitForTimeout(1500);
+ const fill=async(id,v)=>{await pg.fill(id,String(v));};await pg.click('#nsGo');await pg.waitForTimeout(500);await fill('#plWm',5);await fill('#plS',100);await fill('#plI',25);await fill('#plD',3);await fill('#plE',26);await pg.click('#plGo');await pg.waitForTimeout(1500);
  await pg.evaluate(()=>{LabApp.S.set.inc.stageWin=30;LabApp.S.set.inc.peakWin=15;LabApp.S.set.lac={fit:'poly4',baseline:true,restrain:0.8,lt1:'Bsln + 0.5',lt2:'OBLA 4.0',show:true,series:{}};LabApp.S.meta.rep={title:'Test Clinic',protocol:'3 min stages, 25 W'};LabApp.S.meta.name='Should not be saved';});
  await pg.evaluate(()=>{document.getElementById('dBox').open=true});await pg.fill('#pName','Clinic bike');await pg.click('#pSave');await pg.waitForTimeout(300);
  const saved=await pg.evaluate(()=>JSON.parse(localStorage.getItem('labcpet.presets')));ok(saved.length===1&&saved[0].name==='Clinic bike'&&saved[0].set.plan&&saved[0].set.inc.stageWin===30&&saved[0].set.lac.fit==='poly4','preset saved with steps, windows and lactate settings');
