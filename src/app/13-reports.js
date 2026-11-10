@@ -1,7 +1,7 @@
   /* ---------------- Word reports ----------------
      Client report: the clinic template, in everyday language, for incremental tests. Research report: results, stages, thresholds, figures and methods. */
   const DX = window.LabDocx;
-  const repInfo = () => { const r = S.meta.rep = Object.assign({ title: 'Exercise test report', src: null, dob: '', height: '', protocol: '' }, S.meta.rep || {}); if (r.tester === undefined) { try { r.tester = localStorage.getItem('labcpet.tester') || ''; } catch (e) { r.tester = ''; } } if (!r.height && S.gas.meta && F(S.gas.meta.height)) r.height = String(S.gas.meta.height); return r; };
+  const repInfo = () => { const r = S.meta.rep = Object.assign({ title: (() => { try { return localStorage.getItem('labcpet.reptitle') || 'Exercise test report'; } catch (e) { return 'Exercise test report'; } })(), src: null, dob: '', height: '', protocol: '' }, S.meta.rep || {}); if (r.tester === undefined) { try { r.tester = localStorage.getItem('labcpet.tester') || ''; } catch (e) { r.tester = ''; } } if (!r.height && S.gas.meta && F(S.gas.meta.height)) r.height = String(S.gas.meta.height); return r; };
   // A picture of a Plotly chart, drawn off screen in print colours.
   async function figPNG(traces, layout, w, h) {
     const div = document.createElement('div'); div.style.cssText = `position:fixed;left:-10000px;top:0;width:${w}px;height:${h}px`; document.body.appendChild(div);
@@ -145,7 +145,7 @@
   }
   function bindReports() {
     const rep = repInfo(), on = (id, k, store) => { const el = $(id); if (el) el.onchange = () => { rep[k] = el.value; if (store) try { localStorage.setItem(store, el.value); } catch (e) { /* private window */ } }; };
-    on('#rTitle', 'title'); on('#rTester', 'tester', 'labcpet.tester'); on('#rDob', 'dob'); on('#rHt', 'height'); on('#rProt', 'protocol'); on('#rSrc', 'src');
+    on('#rTitle', 'title', 'labcpet.reptitle'); on('#rTester', 'tester', 'labcpet.tester'); on('#rDob', 'dob'); on('#rHt', 'height'); on('#rProt', 'protocol'); on('#rSrc', 'src');
     const go = async (fn, name) => { const msg = $('#rMsg'), un = results().thr.filter(r => r.status !== 'checked'); msg.textContent = 'Making the report…'; try { if (S.oxy && !S.oxy.done) await S.oxy.promise; const blob = await fn(); download(blob, stem() + name); msg.textContent = 'Report saved. Open it in Word to check and edit the wording.' + (un.length ? ` Note: ${un.map(r => r.threshold).join(', ')} ${un.length > 1 ? 'are' : 'is'} still the tool’s suggestion, not checked.` : ''); } catch (e) { console.error(e); msg.textContent = 'Could not make the report: ' + e.message; } };
     if ($('#rClient')) $('#rClient').onclick = () => go(clientReport, '_client_report.docx');
     $('#rResearch').onclick = () => go(researchReport, '_research_report.docx');
