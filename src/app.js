@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.19.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.20.0', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -24,7 +24,7 @@
   const vlab = k => VARS[k].h + (VARS[k].u ? ' (' + VARS[k].u + ')' : '');
 
   const defaults = () => ({
-    source: null, offset: 0, type: null, blocks: null, plan: null, excluded: [], oxyWin: 'analysis', fits: {},
+    source: null, offset: 0, type: null, blocks: null, plan: null, excluded: [], leaveOut: [], oxyWin: 'analysis', fits: {},
     outl: { local: true, nsd: 4, half: 5, vars: ['vo2', 'vco2', 've'], limits: true, rfMin: 5, rfMax: 100, vtMin: 0.3, remove: false, show: false },
     avg: { mode: 'bin', bin: 15, ma: 7, roll: 15 },
     view: { vars: ['vo2', 'hr', 've'], h: {} },
@@ -90,6 +90,7 @@
   };
 
   function start() {
+    S._exMode = false;
     const g = S.gas, m = g.meta, lm = (S.lode && S.lode.meta) || {};
     S.meta = Object.assign({
       name: [m.firstName || lm.firstName, m.lastName || lm.lastName].map(x => String(x || '').trim()).filter(Boolean).join(' ') || 'Participant',
@@ -102,7 +103,7 @@
     if (S.hr && !S.set.hrOffset) { const ce = P.cosmedStartEpoch(m); if (S.hr.start && ce) S.set.hrOffset = Math.round(S.hr.start - ce); }
     rebuild();
     S.align = L.alignment(S.gas, S.I);
-    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = !S.I;
+    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = false;
     ['#bSave', '#bExport', '#bCsv'].forEach(b => ($(b).disabled = false));
     buildDetails(); buildProc(); buildTabs(); recompute();
     H.steps = []; H.at = -1; H.saved = null; checkpoint(); S.gStep = 0; renderGuide();
@@ -133,11 +134,17 @@
   function computeD() {
     const g = S.gas, set = S.set, pr = S.proto, I = S.I, mass = S.meta.mass, mode = I ? I.mode : '';
     const fl = C.flagOutliers(g, Object.assign({}, set.outl, { limits: set.outl.local && set.outl.limits }));
-    const keep = Array.from(fl.flag, f => f === 0 || (!set.outl.remove && f !== 3));
+    // Periods the researcher left out (set.leaveOut, seconds) are dropped from every calculation and chart, like removed breaths.
+    const lo = set.leaveOut || [], out = t => lo.some(([a, b]) => t >= a && t <= b);
+    const keep = Array.from(fl.flag, (f, i) => (f === 0 || (!set.outl.remove && f !== 3)) && !out(g.t[i]));
     const av = set.avg, par = avgParOf(set), w0 = g.kind === 'avg' ? g.avgWidth : 15;
     const X = C.series(g, keep, av.mode, par), ref = av.mode === 'bin' && par === w0 ? X : C.series(g, keep, 'bin', w0), R0 = C.series(g, keep, 'raw', 0);
     [...new Set([X, ref, R0])].forEach(decorate);
-    const D = { fl, keep, X, ref, R0, mode };
+    // Oxynet rescales each signal from 0 to 1 over the data it is given, so one extreme breath (VO₂ of 10 L/min, PETCO₂ of 5 mmHg) squeezes
+    // everything else into a sliver of the scale. Its input therefore always leaves out flagged breaths, whatever the display settings say.
+    const flOx = set.outl.local ? fl : C.flagOutliers(g, Object.assign({}, defaults().outl, { limits: true })), R0ox = C.series(g, Array.from(flOx.flag, (f, i) => f === 0 && !out(g.t[i])), 'raw', 0);
+    decorate(R0ox);
+    const D = { fl, keep, X, ref, R0, R0ox, mode };
     // Incremental test
     if (pr.type === 'incremental' && pr.inc) {
       const inc = pr.inc, t0 = F(set.inc.t0) ? set.inc.t0 : inc.t0 + (inc.none ? 0 : set.inc.skip || 0), t1 = F(set.inc.t1) ? set.inc.t1 : inc.t1;
@@ -174,7 +181,7 @@
   const stepLength = () => (S.proto.pattern ? S.proto.pattern.stepDur : 240);
   const isWholeStage = () => !F(S.set.st.win) || S.set.st.win >= stepLength();
   const stWin = () => (isWholeStage() ? stepLength() + 15 : S.set.st.win); // a little extra, so a stage a fraction longer than planned stays whole
-  function recompute() { S.D = computeD(); S.checks = L.dataChecks(S); summaries(); render(); }
+  function recompute() { S.D = computeD(); S.checks = L.dataChecks(S); const lo = S.set.leaveOut || []; if (lo.length) S.checks.push({ level: 'info', text: `Left out by you: ${lo.map(([a, b]) => mmss(a) + '–' + mmss(b)).join(', ')} (${Math.round(lo.reduce((s, [a, b]) => s + b - a, 0))} s in all).` }); summaries(); render(); }
   function avgParOf(set) { const a = set.avg; return a.mode === 'bin' ? a.bin : a.mode === 'ma' ? a.ma : a.mode === 'roll' ? a.roll : 0; }
   function avgLabel() { const a = S.set.avg, bxb = S.gas.kind === 'bxb'; return { raw: bxb ? 'breath-by-breath' : S.gas.avgWidth + '-s averages from the file', bin: a.bin + '-s bins', ma: a.ma + '-' + (bxb ? 'breath' : 'sample') + ' moving average', roll: a.roll + '-s rolling average' }[a.mode]; }
   const iLab = () => (S.I ? S.I.label + ' (' + S.I.unit + ')' : 'Intensity');
@@ -226,6 +233,9 @@
           <span class="sep"></span><button id="pExp" ${presetList().length ? '' : 'disabled'}>Export presets</button><button id="pImp">Import presets</button><span class="hint" id="pMsg"></span></div></div>`;
     bindPresets();
     bindPlan();
+    // A clear prompt when the file has no power or speed: the steps must be entered (or the Lode file added) for stage and power results.
+    const ns = $('#needSteps'); ns.innerHTML = !S.I && pr.type === 'incremental' && !set.blocks ? `<div class="needsteps"><p><b>No power or speed in this file.</b> Enter the incremental test steps to get stages and power results, or add the Lode file.</p><button class="primary" id="nsGo">Enter the incremental test steps</button></div>` : '';
+    if ($('#nsGo')) $('#nsGo').onclick = () => { $('#dBox').open = true; const pd = $('#planD'); if (pd) { pd.open = true; pd.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(() => { const f = pd.querySelector('input'); if (f) f.focus(); }, 400); } };
     $('#mSex').value = m.sex || ''; if (av.length) $('#mSrc').value = set.source; $('#mType').value = pr.max ? 'two' : pr.type;
     const on = (id, fn) => { const el = $(id); if (el) el.onchange = e => later(() => fn(e)); };
     on('#mName', e => { m.name = e.target.value; summaries(); });
@@ -378,9 +388,9 @@
     const pr = S.proto, inc = pr.type === 'incremental', openBox = id => () => { const b = $(id); if (b) { b.open = true; b.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
     const st = [
       { tab: 'protocol', title: 'Check the test details', text: 'Open Test details. Check the name, body mass and test type, and that the detected stages match your protocol. Anything marked ! under Data checks needs a look.', act: openBox('#dBox') },
-      { tab: 'protocol', title: 'Look over the whole test', text: 'Look for mask leaks, gaps or odd values on the Protocol chart. To clean or smooth the data, open Data processing.' }
+      { tab: 'protocol', title: 'Look over the whole test', text: 'Look for mask leaks, gaps or odd values on the Protocol chart. To drop a stretch of noisy or wrong data, click Leave out a period and drag across it. To clean or smooth the data, open Data processing.' }
     ];
-    if (inc) st.push({ tab: 'incremental', title: 'Place the thresholds', text: `Check the highlighted analysis window, then drag the VT1 and VT2 lines on the charts, or click Use next to a suggestion. Check ${pr.max ? 'VO₂max' : 'VO₂peak'} and whether the test was maximal.` });
+    if (inc) st.push({ tab: 'incremental', title: 'Place the thresholds', text: 'Check the highlighted analysis window, then drag the VT1 and VT2 lines on the charts, or click Use next to a suggestion. Further down, the Oxynet models (two deep-learning models) give their own suggestions: click Use these lines on either chart to try them.' });
     else {
       st.push({ tab: 'steps', title: 'Place VT1 in each step test', text: 'Highlight the data to use in each test if needed, then drag the VT1 line on each test’s charts. Compare the tests stage by stage below.' });
       if (F(pr.base)) st.push({ tab: 'prolonged', title: 'Check the prolonged exercise', text: 'Read the summary and the values for each recording.' });
@@ -429,19 +439,20 @@
     else if (pr.type === 'incremental' && pr.inc) jumps.push(['inc', 'Incremental', [pr.inc.t0 / 60 - .5, pr.inc.t1 / 60 + .5]]);
     pr.tests.forEach((T, i) => { if (pr.type !== 'incremental') jumps.push(['t' + i, L.testName(pr, i), [T.t0 / 60 - 1, T.t1 / 60 + 1]]); });
     if (pr.maot) jumps.push(['m', 'All-out', [pr.maot.t0 / 60 - 3, pr.maot.t1 / 60 + 2]]);
-    // Each panel has its own height (set.view.h, by variable; '_int' for the intensity panel), changed with its + and − buttons.
+    // Each panel has its own height (set.view.h, by variable; '_int' for the intensity panel), changed by dragging its top or bottom edge.
     set.view.h = set.view.h || {}; const ph = k => set.view.h[k] || 132;
-    const vars = set.view.vars, n = vars.length, iPx = I ? (set.view.h._int || 112) : 0, gapPx = 12, sliderPx = 46, topPx = 44, H = topPx + vars.reduce((a, k) => a + ph(k) + gapPx, 0) + iPx + sliderPx + 30;
+    const vars = set.view.vars, n = vars.length, iPx = I ? (set.view.h._int || 112) : 0, gapPx = 22, sliderPx = 46, topPx = 44, H = topPx + vars.reduce((a, k) => a + ph(k) + gapPx, 0) + iPx + sliderPx + 30;
     const pTops = []; { let yy = topPx; vars.forEach(k => { pTops.push([k, yy]); yy += ph(k) + gapPx; }); if (I) pTops.push(['_int', yy]); }
-    const szBtns = pTops.map(([k, top]) => `<div class="psz" style="top:${top + 2}px"><button data-psz="${k}:-1" title="Make this panel shorter" aria-label="Make the ${k === '_int' ? iLab() : vlab(k)} panel shorter">−</button><button data-psz="${k}:1" title="Make this panel taller" aria-label="Make the ${k === '_int' ? iLab() : vlab(k)} panel taller">+</button></div>`).join('');
+    const szBtns = pTops.map(([k, top]) => { const h = k === '_int' ? iPx : ph(k), nm = k === '_int' ? iLab() : vlab(k); return `<div class="pgrip" data-pg="${k}:top" style="top:${top - 5}px" title="Drag to change the height of the ${esc(nm)} panel"></div><div class="pgrip" data-pg="${k}:bot" style="top:${top + h - 5}px" title="Drag to change the height of the ${esc(nm)} panel"></div>`; }).join('') + '<div class="pgline" id="pgline"></div>';
     $('#views').innerHTML = `
       <div class="tools"><span>Show (up to 6):</span>${chips(av, vars, 'data-sv')}</div>
       <div class="tools"><span>Averaging:</span><select id="vAvg">${[['raw', S.gas.kind === 'bxb' ? 'Breath by breath' : 'As in file'], ['bin:15', '15-s bins'], ['bin:30', '30-s bins'], ['bin:60', '60-s bins'], ['roll:30', '30-s rolling'], ['custom', 'Custom (under Data processing)']].map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')}</select>
         <span class="sep"></span><span>Go to:</span>${jumps.map(j => `<button data-j="${j[0]}">${j[1]}</button>`).join('')}<span id="pvInfo"></span></div>
+      <div class="tools"><button id="exBtn" aria-pressed="${S._exMode ? 'true' : 'false'}" title="Then drag across the chart over the data to leave out">Leave out a period</button><span class="hint" id="exHint">${S._exMode ? 'Drag across the chart over the noisy or wrong data. Click the button again when done.' : (set.leaveOut || []).length ? 'Left out:' : 'Noisy or wrong data? Leave that period out of every calculation.'}</span>${(set.leaveOut || []).map(([a, b], i) => `<span class="lochip">${mmss(a)}–${mmss(b)}<button data-lo="${i}" title="Put this period back" aria-label="Put ${mmss(a)} to ${mmss(b)} back">×</button></span>`).join('')}</div>
       <div class="panel"><div class="readout big" id="cur">Move over the chart to read every variable at one moment.</div>
         <div class="chartwrap" id="cwrap"><div class="chart" id="pv" style="height:${H}px"></div><div class="cursor" id="cline"></div><div class="zshade" id="zshade"></div>${szBtns}</div>
         <div class="readout" id="ro"></div></div>
-      <ul class="notes" data-info="pvInfo"><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
+      <ul class="notes" data-info="pvInfo"><li>Each panel’s height can be changed by dragging its top or bottom edge.</li><li>To leave out noisy or wrong data, click <b>Leave out a period</b> and drag across the chart over it. The period is dropped from every calculation and chart on every tab, like a removed breath, and is listed in Data checks and the export. Click × on a period to put it back.</li><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
       ${I ? `<li>Shaded: test stages (blue)${pr.maot ? ', all-out test (red)' : ''}. The ${I.label.toLowerCase()} panel gives each stage’s ${I.label.toLowerCase()}, with RPE and any other COSMED markers above it.</li>` : ''}</ul>`;
     multiToggle('data-sv', vars, 6, () => vProtocol());
     const curAvg = set.avg.mode === 'raw' ? 'raw' : set.avg.mode + ':' + avgParOf(set);
@@ -461,8 +472,12 @@
       tr.push({ x: Xp, y: Yp, xaxis: 'x', yaxis: yax, type: 'scattergl', mode: set.avg.mode === 'raw' ? 'markers' : 'lines', connectgaps: false, marker: { color: css('--ma'), size: 4 }, line: { color: css('--ma'), width: 2 }, hoverinfo: 'skip' });
       if (set.outl.show && !set.outl.remove && set.outl.local && g.v[k]) { const fl = S.D.fl.flag, a = []; for (let i = 0; i < g.t.length; i++) if ((fl[i] === 1 || fl[i] === 2) && F(g.v[k][i])) a.push(i); tr.push({ x: a.map(i => g.t[i] / 60), y: a.map(i => g.v[k][i]), xaxis: 'x', yaxis: yax, type: 'scattergl', mode: 'markers', marker: { color: css('--accent'), size: 8, symbol: 'x' }, hoverinfo: 'skip' }); }
       L2[yax.replace('y', 'yaxis')] = ax(vlab(k), { domain: dom, anchor: 'x', fixedrange: true, title: { text: vlab(k), font: { size: 11, color: css('--fg') }, standoff: 6 } });
+      panelBox(yax, j);
     });
     const iax = 'y' + (n + 1);
+    // Each panel gets its own framed, lightly tinted box so neighbouring variables are easy to tell apart.
+    function panelBox(ya, j) { L2.shapes.push({ type: 'rect', xref: 'paper', yref: ya + ' domain', x0: 0, x1: 1, y0: 0, y1: 1, fillcolor: j % 2 ? 'rgba(0,0,0,0)' : css('--panelalt'), line: { color: css('--line'), width: 1 }, layer: 'below' }); }
+    if (I) panelBox(iax, n);
     if (I) {
       const ch = []; for (let i = 0; i < I.t.length; i++) if (i === 0 || I.p[i] !== I.p[i - 1] || i === I.t.length - 1) ch.push(i);
       tr.push({ x: ch.map(i => I.t[i] / 60), y: ch.map(i => I.p[i]), xaxis: 'x', yaxis: iax, type: 'scatter', mode: 'lines', line: { shape: 'hv', color: css('--power'), width: 1.5 }, fill: 'tozeroy', fillcolor: css('--powerfill'), hoverinfo: 'skip' });
@@ -473,6 +488,7 @@
       // The value of each stage or steady block, just under its line.
       pr.plateaus.filter(q => q.dur >= 45 && q.p > (I.unit === 'W' ? 20 : 2)).forEach(q => L2.annotations.push({ xref: 'x', yref: iax, x: (q.t0 + q.t1) / 120, y: q.p, yanchor: 'top', showarrow: false, text: q.p.toFixed(iDp()), font: { size: 10, color: css('--fg') } }));
     }
+    (set.leaveOut || []).forEach(([a, b]) => { L2.shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: a / 60, x1: b / 60, y0: 0, y1: 1, fillcolor: css('--leftout'), line: { color: css('--warn'), width: 1, dash: 'dot' }, layer: 'above' }); L2.annotations.push({ xref: 'x', yref: 'paper', x: (a + b) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: 'left out', font: { size: 10, color: css('--warn') } }); });
     pr.phases.forEach(q => {
       if (q.kind === 'test' || q.kind === 'allout') L2.shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: q.t0 / 60, x1: q.t1 / 60, y0: 0, y1: 1, fillcolor: css(q.kind === 'test' ? '--test' : '--maot'), line: { width: 0 }, layer: 'below' });
       L2.annotations.push({ xref: 'x', yref: 'paper', x: (q.t0 + q.t1) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: q.label, font: { size: 10, color: css('--muted') } });
@@ -489,8 +505,33 @@
     const showMode = () => { gd.classList.remove('m-pan', 'm-zoom'); gd.classList.add(gd._fullLayout.dragmode === 'zoom' ? 'm-zoom' : 'm-pan'); }; showMode();
     gd.on('plotly_relayout', e => { showMode(); if (busy) return; let a = e['xaxis.range[0]'], b = e['xaxis.range[1]']; if (e['xaxis.range']) [a, b] = e['xaxis.range']; if (e['xaxis.autorange']) { a = 0; b = end; } if (a === undefined) return; X0 = [+a, +b]; busy = true; Plotly.relayout(gd, fit(+a, +b)).then(() => setTimeout(() => (busy = false), 0)); readout(+a, +b); });
     $$('[data-j]').forEach(b => (b.onclick = () => setX(jumps.find(j => j[0] === b.dataset.j)[2])));
-    const SZ = [80, 132, 200, 300, 450];
-    $$('[data-psz]').forEach(b => (b.onclick = () => { const [k, d] = b.dataset.psz.split(':'), cur = set.view.h[k] || (k === '_int' ? 112 : 132), i = SZ.findIndex(v => v >= cur - 1), j = Math.max(0, Math.min(SZ.length - 1, (i < 0 ? SZ.length - 1 : i) + +d)); set.view.h[k] = SZ[j]; S._pvX = gd._fullLayout.xaxis.range.slice(); vProtocol(); }));
+    // Panel heights: drag a panel's top or bottom edge; a line shows the new edge until the button is let go.
+    const pgl = $('#pgline');
+    $$('[data-pg]').forEach(gr => (gr.onmousedown = ev => {
+      if (ev.button) return; ev.preventDefault(); ev.stopPropagation();
+      const [k, edge] = gr.dataset.pg.split(':'), h0 = k === '_int' ? iPx : ph(k), y0 = ev.clientY, top0 = parseFloat(gr.style.top) + 5; let h = h0;
+      const mm = e => { if (!e.buttons) return mu(); const d = e.clientY - y0; h = Math.round(Math.max(70, Math.min(700, edge === 'bot' ? h0 + d : h0 - d))); pgl.style.display = 'block'; pgl.style.top = (edge === 'bot' ? top0 - h0 + h : top0 + h0 - h) + 'px'; };
+      const mu = () => { window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu); pgl.style.display = 'none'; if (h !== h0) { set.view.h[k] = h; S._pvX = gd._fullLayout.xaxis.range.slice(); vProtocol(); } };
+      window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
+    }));
+    // Leaving out a period: while the button is on, a drag across the chart marks the period instead of zooming or moving.
+    $('#exBtn').onclick = () => { S._exMode = !S._exMode; S._pvX = gd._fullLayout.xaxis.range.slice(); vProtocol(); };
+    $$('[data-lo]').forEach(b => (b.onclick = () => { set.leaveOut.splice(+b.dataset.lo, 1); S._pvX = gd._fullLayout.xaxis.range.slice(); recompute(); }));
+    if (S._exMode) gd.classList.add('m-ex');
+    $('#cwrap').addEventListener('mousedown', ev => {
+      if (!S._exMode || ev.button || ev.target.closest('.pgrip,.modebar')) return;
+      const fl = gd._fullLayout, xa = fl.xaxis, box = gd.getBoundingClientRect(), x0 = ev.clientX - box.left, y0 = ev.clientY - box.top, top = fl.margin.t, h = fl.height - fl.margin.t - fl.margin.b - 40;
+      if (x0 < xa._offset || x0 > xa._offset + xa._length || y0 < top || y0 > top + h) return; ev.preventDefault(); ev.stopPropagation();
+      const clamp = x => Math.max(xa._offset, Math.min(xa._offset + xa._length, x)), sh = $('#zshade'); let x1 = x0;
+      sh.classList.add('ex');
+      const mm = e => { if (!e.buttons) return mu(); x1 = clamp(e.clientX - box.left); sh.style.display = 'block'; sh.style.left = Math.min(x1, x0) + 'px'; sh.style.width = Math.abs(x1 - x0) + 'px'; sh.style.top = top + 'px'; sh.style.height = h + 'px'; };
+      const mu = () => {
+        sh.style.display = 'none'; sh.classList.remove('ex'); window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu);
+        if (Math.abs(x1 - x0) < 3) return; const a = Math.round(xa.p2l(Math.min(x0, x1) - xa._offset) * 60), b = Math.round(xa.p2l(Math.max(x0, x1) - xa._offset) * 60);
+        set.leaveOut = (set.leaveOut || []).concat([[Math.max(0, a), b]]).sort((p, q) => p[0] - q[0]); S._pvX = gd._fullLayout.xaxis.range.slice(); recompute();
+      };
+      window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
+    }, true);
     if (S._pvX) { const r = S._pvX; S._pvX = null; setX(r); }
     // Zoom tool: a light shade over the period being selected.
     const shade = $('#zshade');
@@ -550,7 +591,7 @@
     gd.addEventListener('mousedown', ev => {
       const q = near(ev); if (!q) return; ev.stopPropagation(); ev.preventDefault();
       const r = gd.getBoundingClientRect(); let raf = 0;
-      const mm = e => { if (!e.buttons) return mu(); const xa = gd._fullLayout.xaxis; let x = xa.p2l(e.clientX - r.left - xa._offset); x = Math.max(xa.range[0], Math.min(xa.range[1], x)); ctx.set(q, ctx.fromX(x, spec.x)); if (!raf) raf = requestAnimationFrame(() => { raf = 0; moveLines(ctx); ctx.live(); }); };
+      const mm = e => { if (!e.buttons) return mu(); const xa = gd._fullLayout.xaxis; let x = xa.p2l(e.clientX - r.left - xa._offset); x = Math.max(xa.range[0], Math.min(xa.range[1], x)); ctx.set(q, ctx.fromX(x, spec.x), x, spec.x); if (!raf) raf = requestAnimationFrame(() => { raf = 0; moveLines(ctx); ctx.live(); }); };
       const mu = () => { window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu); moveLines(ctx); ctx.done(); };
       window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
     }, true);
@@ -560,11 +601,11 @@
     const xa = fl.xaxis, ya = fl.yaxis, l = xa._offset, t = ya._offset, w = xa._length, h = ya._length, px = x => l + xa.l2p(x), py = y => t + ya.l2p(y), sp = c.spec, colors = seriesColors();
     let out = `<defs><clipPath id="${c.clip}"><rect x="${l}" y="${t}" width="${w}" height="${h}"></rect></clipPath></defs>`;
     if (S.set.fits[c.id] && sp.fit) {
-      const knots = ctx.lines.map(q => { const v = ctx.get(q); return F(v) ? ctx.toX(v, sp.x) : NaN; });
+      const knots = ctx.lines.map(q => { const v = ctx.get(q); return F(v) ? ctx.toX(v, sp.x, q) : NaN; });
       sp.y.forEach((k, i) => { const f = L.piecewise(sp.xv, ctx.pts.v[k], knots); if (f) out += `<polyline class="fit" clip-path="url(#${c.clip})" fill="none" stroke="${sp.y.length > 1 ? colors[i] : css('--fg')}" stroke-width="2" points="${f.x.map((x, j) => px(x).toFixed(1) + ',' + py(f.y[j]).toFixed(1)).join(' ')}"></polyline>`; });
     }
     ctx.lines.forEach(q => {
-      const v = ctx.get(q), x = F(v) ? ctx.toX(v, sp.x) : NaN; if (!F(x)) return;
+      const v = ctx.get(q), x = F(v) ? ctx.toX(v, sp.x, q) : NaN; if (!F(x)) return;
       const X = px(x); if (X < l - 1 || X > l + w + 1) return;
       out += `<line data-q="${q}" data-x="${x}" x1="${X.toFixed(1)}" x2="${X.toFixed(1)}" y1="${t}" y2="${t + h}" stroke="${vtColor(q)}" stroke-width="2.5"></line><text x="${X.toFixed(1)}" y="${t - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="${vtColor(q)}">${vtName(q)}</text>`;
     });
@@ -597,9 +638,13 @@
     if (!pr.inc || !D) { $('#views').innerHTML = '<p class="msg">No ascending stages were found. Enter the protocol by hand under Test details.</p>'; return; }
     const ids = []; S.D.X.t.forEach((t, i) => { if (t >= D.t0 && t <= D.t1 && F(S.D.X.v.vo2[i]) && S.D.X.v.vo2[i] > .3) ids.push(i); });
     const pts = { t: ids.map(i => S.D.X.t[i]), v: {} }; Object.keys(S.D.X.v).forEach(k => (pts.v[k] = ids.map(i => S.D.X.v[k][i])));
+    // VT lines are stored as VO₂. On time (and VCO₂) charts VO₂ maps to time through a curve that never falls, so it has flat stretches
+    // where many times share one VO₂; the time the line was dragged to is kept too (S.picks.incT), so the line stays where it was put.
+    const tAt = (v, q) => { const h = (S.picks.incT || {})[q]; return F(h) && Math.abs(M.vo2At(h) - v) < 0.0011 ? h : M.tOf(v); };
     const M = D.map, ctx = {
-      lines: ['vt1', 'vt2'], pts, charts: [], get: q => incVT(q), set: (q, v) => { S.picks.inc[q] = Math.round(v * 1000) / 1000; if (S.picks.incSrc) delete S.picks.incSrc[q]; }, live: () => incResults(),
-      toX: (v, key) => (key === 'vo2' ? v : key === 'vco2' ? M.vco2At(M.tOf(v)) : M.tOf(v) / 60),
+      lines: ['vt1', 'vt2'], pts, charts: [], get: q => incVT(q), live: () => incResults(),
+      set: (q, v, x, key) => { S.picks.inc[q] = Math.round(v * 1000) / 1000; if (S.picks.incSrc) delete S.picks.incSrc[q]; const T = S.picks.incT = S.picks.incT || {}; if (key === 't') T[q] = x * 60; else if (key === 'vco2') T[q] = M.tOfVco2(x); else delete T[q]; },
+      toX: (v, key, q) => (key === 'vo2' ? v : key === 'vco2' ? M.vco2At(tAt(v, q)) : tAt(v, q) / 60),
       fromX: (x, key) => (key === 'vo2' ? x : key === 'vco2' ? M.vo2At(M.tOfVco2(x)) : M.vo2At(x * 60)), done: () => { incResults(); summaries(); }
     };
     const xk = set.x, stW = [[30, '30 s'], [60, '60 s'], [90, '90 s']], pkW = [[15, '15 s'], [30, '30 s'], [60, '60 s']];
@@ -623,7 +668,7 @@
       <h2 class="row" id="oxH">Oxynet suggestions<span>from the open-source pyoxynet models, run on this computer</span></h2>
       <div class="tools"><span>Give Oxynet:</span>${pr.max ? `<button data-ow="max" aria-pressed="${oxyChoice() === 'max'}">VO₂max stages</button>` : ''}<button data-ow="analysis" aria-pressed="${oxyChoice() === 'analysis'}">${pr.max ? 'Threshold window' : 'Analysis window'}</button><button data-ow="whole" aria-pressed="${oxyChoice() === 'whole'}">All exercise data</button><span class="hint" id="oxS"></span></div>
       <div class="grid3">${[['cnn', 'CNN model'], ['lstm', 'LSTM model']].map(([m, t]) => `<div class="panel"><h3 id="oxh_${m}">${t}<span>domain outputs over time</span><button class="fitbtn" id="oxUse_${m}" disabled title="Move the VT1 and VT2 lines to this model’s thresholds">Use these lines</button></h3><div hidden data-info="oxh_${m}">${OXINFO[m]}</div><div style="padding:2px 8px">${[['--t3', 'Moderate'], ['--t2', 'Heavy'], ['--t1', 'Severe']].map(([c, n]) => `<span class="lg"><i style="background:${css(c)}"></i>${n}</span>`).join('')}</div><div class="chart mid" id="ox_${m}"></div><p class="hint" id="oxm_${m}" style="padding:0 10px 6px"></p></div>`).join('')}</div>
-      <ul class="notes" data-info="oxH"><li>Oxynet reads 40-s windows and places each threshold at the start of the window in which its outputs cross, so each output is drawn at the start of its window and the dashed lines pass through the crossings. VT1 is the first crossing of moderate and heavy, and VT2 is the last crossing of heavy and severe. The outputs are smoothed network outputs, not calibrated probabilities. The LSTM outputs sum to 1, so they usually cross near 0.5; the CNN outputs do not, so they can cross higher. These are suggestions for the researcher, who places the final lines.</li><li>The result can shift noticeably with the data given, because Oxynet scales each signal over that data. Try each option${pr.max ? '' : ', and move the analysis window if a warm-up is included'}.</li><li>Oxynet: Zignoli et al. (2022), <i>Eur J Sport Sci</i>, <a href="https://doi.org/10.1080/17461391.2020.1866081">doi:10.1080/17461391.2020.1866081</a>; Keir et al. (2026), <i>Sports Med</i>, <a href="https://doi.org/10.1007/s40279-026-02403-w">doi:10.1007/s40279-026-02403-w</a>. Full credits are in the Summary tab.</li></ul>
+      <ul class="notes" data-info="oxH"><li>Oxynet always gets the breath-by-breath data with flagged outlier breaths left out, even when they are kept elsewhere. It rescales each signal from 0 to 1, so a single extreme breath would squeeze all the other data into a sliver of the scale.</li><li>Oxynet reads 40-s windows and places each threshold at the start of the window in which its outputs cross, so each output is drawn at the start of its window and the dashed lines pass through the crossings. VT1 is the first crossing of moderate and heavy, and VT2 is the last crossing of heavy and severe. The outputs are smoothed network outputs, not calibrated probabilities. The LSTM outputs sum to 1, so they usually cross near 0.5; the CNN outputs do not, so they can cross higher. These are suggestions for the researcher, who places the final lines.</li><li>The result can shift noticeably with the data given, because Oxynet scales each signal over that data. Try each option${pr.max ? '' : ', and move the analysis window if a warm-up is included'}.</li><li>Oxynet: Zignoli et al. (2022), <i>Eur J Sport Sci</i>, <a href="https://doi.org/10.1080/17461391.2020.1866081">doi:10.1080/17461391.2020.1866081</a>; Keir et al. (2026), <i>Sports Med</i>, <a href="https://doi.org/10.1007/s40279-026-02403-w">doi:10.1007/s40279-026-02403-w</a>. Full credits are in the Summary tab.</li></ul>
       <div class="row2"><div class="panel" style="flex:1 1 380px"><h3>How each method placed them<span>VO₂ in L/min; “Use” moves the line there</span></h3><div class="tblwrap"><table id="mT"></table></div></div>
       <div class="panel" style="flex:1 1 380px"><h3>Was it maximal?</h3><div class="tblwrap"><table id="eT"></table></div></div></div>
       <h2 class="row">Stages<span>mean of the last ${set.stageWin} s of each stage</span></h2><div class="panel"><div class="tblwrap"><table id="sT"></table></div></div>
@@ -715,10 +760,10 @@
   const oxyChoice = () => (S.proto.max ? S.set.oxyWinTwo || 'max' : S.set.oxyWin);
   const oxyName = () => ({ whole: 'all the exercise data', max: 'the VO₂max stages', analysis: S.proto.max ? 'the threshold window' : 'the analysis window' }[oxyChoice()]);
   function oxyInput() {
-    const D = S.D.inc, R = S.D.R0, pr = S.proto, ch = oxyChoice(), a = ch === 'whole' ? S.gas.t[0] : ch === 'max' ? pr.max.t0 : D.t0, b = ch === 'whole' ? (pr.max ? pr.max.t1 : L.exerciseEnd(S.gas)) : ch === 'max' ? pr.max.t1 : D.t1, ids = [];
+    const D = S.D.inc, R = S.D.R0ox, pr = S.proto, ch = oxyChoice(), a = ch === 'whole' ? S.gas.t[0] : ch === 'max' ? pr.max.t0 : D.t0, b = ch === 'whole' ? (pr.max ? pr.max.t1 : L.exerciseEnd(S.gas)) : ch === 'max' ? pr.max.t1 : D.t1, ids = [];
     R.t.forEach((t, i) => { if (t >= a && t <= b) ids.push(i); });
     const pick = k => ids.map(i => R.v[k][i]), out = { t: ids.map(i => R.t[i]) }; ['vo2', 'vco2', 've', 'peto2', 'petco2'].forEach(k => (out[k] = R.v[k] ? pick(k) : []));
-    out.key = [a, b, out.t.length, S.set.outl.remove, S.set.outl.nsd, S.set.outl.local].join('|');
+    out.key = [a, b, out.t.length, S.set.outl.nsd, S.set.outl.local, 'ox2'].join('|');
     return out;
   }
   function runOxynet(after) {
@@ -1104,7 +1149,7 @@
     lacSeries().forEach(se => { const res = lacAnalyse(se); if (!res.n) return; ['lt1', 'lt2'].forEach(q => { const s = ltSource(se, res, q); if (s) used.push(`${q.toUpperCase()} ${s.replace(' (default)', '')}`); }); });
     return ` Blood lactate thresholds were determined with the methods of the lactater R package (Mattioni Maturana; the methods used by Exphyslab), ported to JavaScript in the tool. Lactate was fitted against ${S.I && S.I.unit !== 'W' ? 'speed' : 'power'} with a ${fit}${ls.baseline ? ' including' : ' excluding'} the resting baseline${ls.lt1 === 'Log-log' || ls.lt2 === 'Log-log' ? `, and the Log-log method used the first ${Math.round(ls.restrain * 100)}% of the data` : ''}. Thresholds used: ${[...new Set(used)].join('; ')}.`;
   }
-  function methodsText() { return methodsCore() + lactateText(); }
+  function methodsText() { const lo = S.set.leaveOut || []; return methodsCore() + (lo.length ? ` Data from ${lo.length} period${lo.length > 1 ? 's' : ''} (${lo.map(([a, b]) => mmss(a) + '–' + mmss(b)).join(', ')}) judged noisy or erroneous were left out of the analysis.` : '') + lactateText(); }
   function methodsCore() {
     const pr = S.proto, I = S.I, set = S.set, g = S.gas, bxb = g.kind === 'bxb';
     const avgT = avgLabel().replace('breath-by-breath', 'breath-by-breath data');
@@ -1113,7 +1158,7 @@
     const entered = I && I.plan ? ' Power was taken from the protocol entered by the researcher, not from a recording.' : '';
     const tool = ` Data were analysed with the Lab CPET tool (version ${VERSION}, created by ${AUTHOR}).`;
     const oxUsed = S.oxy && S.oxy.done && S.proto.type === 'incremental', fromOx = Object.entries((S.picks.incSrc) || {}).filter(e => /^Oxynet/.test(e[1]));
-    const ox = oxUsed ? ` Suggestions from the Oxynet open-source models (pyoxynet; CNN and LSTM) were also available to the researcher, run on ${oxyName()}${fromOx.length ? `, and ${fromOx.map(e => `the ${e[1].replace('Oxynet ', '')} suggestion was used for ${e[0].toUpperCase()}`).join(' and ')}` : ''} (Zignoli et al., 2022; Keir et al., 2026).` : '';
+    const ox = oxUsed ? ` Suggestions from the Oxynet open-source models (pyoxynet; CNN and LSTM) were also available to the researcher, run on ${oxyName()} with flagged outlier breaths left out${fromOx.length ? `, and ${fromOx.map(e => `the ${e[1].replace('Oxynet ', '')} suggestion was used for ${e[0].toUpperCase()}`).join(' and ')}` : ''} (Zignoli et al., 2022; Keir et al., 2026).` : '';
     const gas = `Gas exchange was recorded with a COSMED metabolic cart (${bxb ? 'breath-by-breath export' : g.avgWidth + '-s average export'}) and displayed as ${avgT}. ${set.outl.remove ? `Breaths more than ${set.outl.nsd} SD from their local mean were removed.` : ''}`.trim();
     const eq = I && I.mode === 'cycling' ? ' Gross efficiency was calculated as external power divided by metabolic power (Brouwer, 1957).' : I ? ' Running economy was calculated as stage-end VO₂ per kilogram per kilometre.' : '';
     if (pr.type === 'incremental') return `${gas} ${pr.max ? `Thresholds came from the longer stages. After a recovery block, VO₂max was the highest ${set.inc.peakWin}-s rolling mean during the shorter stages to failure.` : `VO₂peak was the highest ${set.inc.peakWin}-s rolling mean.`} ${I ? `Stage values were the mean of the last ${set.inc.stageWin} s of each stage. ` : ''}VT1 and VT2 were identified visually from V-slope, ventilatory equivalents and end-tidal gases, starting from two-line breakpoint suggestions.${I ? ` ${I.label} at each threshold was estimated from the linear regression of stage-end VO₂ on ${I.label.toLowerCase()}.` : ''}${skipped}${entered}${ox}${eq}${tool}`;
@@ -1311,7 +1356,7 @@
   function settingsRows() {
     const set = S.set, out = [['tool', 'Lab CPET tool'], ['tool_version', VERSION], ['created_by', AUTHOR], ['exported', new Date().toISOString()], ['gas_file_type', S.gas.kind === 'bxb' ? 'breath-by-breath' : S.gas.avgWidth + '-s averages'], ['cosmed_files_joined', S.gas.files ? S.gas.files.map(f => f.name + ' at ' + f.start + ' s').join('; ') : ''], ['intensity_source', S.I ? (S.I.plan ? 'steps entered by the researcher' : S.I.source) : 'none'], ['entered_steps', S.set.plan ? JSON.stringify(S.set.plan) : ''], ['lode_offset_s', set.offset], ['body_mass_kg', S.meta.mass], ['averaging', avgLabel()], ['outlier_flagging', set.outl.local ? set.outl.nsd + ' SD' : 'off'], ['flagged_removed', set.outl.remove]];
     if (S.proto.type === 'incremental') { out.push(['analysis_window_min', S.D.inc ? (S.D.inc.t0 / 60).toFixed(2) + '-' + (S.D.inc.t1 / 60).toFixed(2) : ''], ['first_stage_seconds_left_out', set.inc.skip || 0], ['vo2peak_window_s', set.inc.peakWin], ['stage_window_s', set.inc.stageWin]); }
-    else out.push(['stage_window_s', set.st.regWin], ['vt1_chart_window_s', isWholeStage() ? 'whole stage' : set.st.win], ['step_test_selection_s_from_start', S.proto ? S.proto.tests.map((T, i) => { const r = testSel(T); return L.testName(S.proto, i) + ': ' + (r ? r.join('-') : 'all'); }).join('; ') : 'all'], ['step_test_vt2', set.st.vt2], ['tests_excluded', set.excluded.join(' ')], ['steady_average_min', set.per.avgMin]);
+    else out.push(['stage_window_s', set.st.regWin], ['vt1_chart_window_s', isWholeStage() ? 'whole stage' : set.st.win], ['step_test_selection_s_from_start', S.proto ? S.proto.tests.map((T, i) => { const r = testSel(T); return L.testName(S.proto, i) + ': ' + (r ? r.join('-') : 'all'); }).join('; ') : 'all'], ['step_test_vt2', set.st.vt2], ['tests_excluded', set.excluded.join(' ')], ['periods_left_out_s', (set.leaveOut || []).map(p => p.join('-')).join(' ')], ['steady_average_min', set.per.avgMin]);
     return out;
   }
   $('#bExport').onclick = async () => {
