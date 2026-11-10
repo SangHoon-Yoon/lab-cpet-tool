@@ -15,5 +15,5 @@ const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
  const fill=async(id,v)=>{await pg.fill(id,String(v));};
  await pg.click('#nsGo');await pg.waitForTimeout(500);await fill('#plWm',5);await fill('#plS',100);await fill('#plI',25);await fill('#plD',3);await fill('#plE',26);await pg.click('#plGo');await pg.waitForTimeout(1500);
  const st=await pg.evaluate(()=>LabApp.S.proto.inc.stages.map(q=>Math.round(q.dur)));ok(st.length>3&&st.every(x=>x>=170||x===st.at(-1)),'steps apply with no shorter stages: '+JSON.stringify(st));
- await pg.selectOption('#plHasSh','1');ok(!(await pg.$eval('#plSw',e=>e.closest('label').hidden)),'choosing Yes shows the boxes');await pg.fill('#plSw','');await pg.click('#plGo');await pg.waitForTimeout(300);ok(/Enter the power/.test(await pg.$eval('#plMsg',e=>e.textContent)),'asks for the start power when Yes and empty');
+ await pg.evaluate(()=>{document.getElementById('planD').open=true});await pg.selectOption('#plHasSh','1');ok(!(await pg.$eval('#plSw',e=>e.closest('label').hidden)),'choosing Yes shows the boxes');await pg.fill('#plSw','');await pg.click('#plGo');await pg.waitForTimeout(300);ok(/Enter the power/.test(await pg.$eval('#plMsg',e=>e.textContent)),'asks for the start power when Yes and empty');
  console.log(' errors:',errs.length?errs:'none');await b.close()})().catch(e=>{console.error(e);process.exit(1)});
