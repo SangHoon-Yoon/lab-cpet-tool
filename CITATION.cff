@@ -4,7 +4,6 @@ title: "Lab CPET tool: browser-based analysis of cardiopulmonary exercise tests"
 authors:
   - family-names: Yoon
     given-names: SangHoon
-    affiliation: "Sports Performance Research Institute New Zealand (SPRINZ), Auckland University of Technology"
 license: MIT
 repository-code: "https://github.com/SangHoon-Yoon/lab-cpet-tool"
 url: "https://sanghoon-yoon.github.io/lab-cpet-tool/"

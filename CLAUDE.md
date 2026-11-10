@@ -3,7 +3,7 @@
 Read this first in every session. It keeps decisions that are easy to lose when a long conversation is summarised.
 
 ## What it is
-A single-file, browser-only HTML tool for the SPRINZ (AUT) lab: COSMED gas data (+ Lode power, + blood lactate) →
+A single-file, browser-only HTML tool for exercise physiology labs (kept general, no institution named): COSMED gas data (+ Lode power, + blood lactate) →
 protocol view, VT1/VT2 and VO₂peak (incremental), VT1 per 5-step test, prolonged-trial analysis, LT1/LT2, Word reports.
 Created by SangHoon (Andrew) Yoon. Goals, scope and version history: Claude Doc "Lab CPET Tool: Changes and Goals"
 (https://claude.ai/artifact/QNgUJBLxd9fZ8z6k4HpbQr). User guide: Claude Doc "Lab CPET Tool: User Guide"
