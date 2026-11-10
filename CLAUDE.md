@@ -29,11 +29,13 @@ Created by SangHoon (Andrew) Yoon. Goals, scope and version history: Claude Doc 
 - Undo: state = `S.set` + `S.picks`, checkpointed after each click/change/keyup (keep new state in those two objects).
 - Left-out periods (`S.set.leaveOut`, seconds) drop breaths in computeD, so every tab and protocol respects them.
 - Oxynet input always excludes flagged outlier breaths (min-max scaling is fragile to single extreme breaths).
+- Threshold status: a line is "checked" only when an explicit pick exists (moved, typed, method chosen, or Confirm). `statusOf(source)` gives the export status.
+- Licence MIT (© 2026 SangHoon Yoon); third-party notices in THIRD_PARTY_NOTICES.md. `.github/workflows/pages.yml` publishes dist to GitHub Pages on push to main once the repo is public.
 - Plain, short user-facing text; no abbreviations unexplained.
 
 ## Tests
 - Unit: `node test/run.js`, `node test/lactate.js`
-- Browser: `NODE_PATH=$(npm root -g):$PWD/node_modules node test/e2eN.js` (e2e … e2e21); samples in /home/claude/samples (not committed)
+- Browser: `NODE_PATH=$(npm root -g):$PWD/node_modules node test/e2eN.js` (e2e … e2e23); samples in /home/claude/samples (not committed)
 - Run the full set before sending a build; tests that read hidden boxes must be updated when the UI changes on purpose.
 
 ## Git
