@@ -10,7 +10,7 @@ const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
  await load([f(/Example_GXT/)]);
  const fill=async(id,v)=>{await pg.fill(id,String(v));};await pg.click('#nsGo');await pg.waitForTimeout(500);await fill('#plWm',5);await fill('#plS',100);await fill('#plI',25);await fill('#plD',3);await fill('#plE',26);await pg.click('#plGo');await pg.waitForTimeout(1500);
  await pg.evaluate(()=>{LabApp.S.set.inc.stageWin=30;LabApp.S.set.inc.peakWin=15;LabApp.S.set.lac={fit:'poly4',baseline:true,restrain:0.8,lt1:'Bsln + 0.5',lt2:'OBLA 4.0',show:true,series:{}};LabApp.S.meta.rep={title:'Test Clinic',protocol:'3 min stages, 25 W'};LabApp.S.meta.name='Should not be saved';});
- await pg.evaluate(()=>{document.getElementById('dBox').open=true});await pg.fill('#pName','Clinic bike');await pg.click('#pSave');await pg.waitForTimeout(300);
+ await pg.evaluate(()=>{document.getElementById('dBox').open=true});await pg.evaluate(()=>{document.querySelector('details[data-fold=dpre]').open=true});await pg.fill('#pName','Clinic bike');await pg.click('#pSave');await pg.waitForTimeout(300);
  const saved=await pg.evaluate(()=>JSON.parse(localStorage.getItem('labcpet.presets')));ok(saved.length===1&&saved[0].name==='Clinic bike'&&saved[0].set.plan&&saved[0].set.inc.stageWin===30&&saved[0].set.lac.fit==='poly4','preset saved with steps, windows and lactate settings');
  ok(!JSON.stringify(saved).includes('Should not be saved')&&!('picks' in saved[0]),'no participant data or thresholds in the preset');
  // new test with the preset chosen at load
@@ -22,7 +22,7 @@ const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
  await pg.click('#bLoad');await load([f(/TREAD_CHAR/)],'Clinic bike');
  ok(await pg.evaluate(()=>!LabApp.S.set.plan&&LabApp.S.set.inc.stageWin===30),'steps not used on a file with its own speed; other settings are');
  // export and import
- await pg.evaluate(()=>{document.getElementById('dBox').open=true});const [dl]=await Promise.all([pg.waitForEvent('download'),pg.click('#pExp')]);const pf=out+'presets.json';await dl.saveAs(pf);
+ await pg.evaluate(()=>{document.getElementById('dBox').open=true;document.querySelector('details[data-fold=dpre]').open=true});const [dl]=await Promise.all([pg.waitForEvent('download'),pg.click('#pExp')]);const pf=out+'presets.json';await dl.saveAs(pf);
  await pg.evaluate(()=>localStorage.setItem('labcpet.presets','[]'));await pg.evaluate(()=>{});
  const [fc]=await Promise.all([pg.waitForEvent('filechooser'),pg.click('#pImp')]);await fc.setFiles(pf);await pg.waitForTimeout(500);
  ok(await pg.evaluate(()=>JSON.parse(localStorage.getItem('labcpet.presets')).length)===1&&/Imported 1 preset/.test(await pg.$eval('#pMsg',e=>e.textContent)),'export and import presets');

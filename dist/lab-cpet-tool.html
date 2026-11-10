@@ -174,6 +174,10 @@ details.adv#planD>summary{display:inline-block;color:var(--accent);font-weight:6
 #exBtn[aria-pressed=true]{background:var(--warn);color:#fff;border-color:var(--warn)}
 .lochip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--warn);border-radius:12px;padding:1px 4px 1px 9px;font-size:.8rem;font-family:var(--mono,monospace)}
 .lochip button{border:none;background:none;padding:0 4px;cursor:pointer;color:var(--muted);font-size:1rem;line-height:1}
+details.sub{border-top:1px solid var(--line);padding:8px 0 4px;margin-top:8px}
+details.sub>summary{cursor:pointer;font-weight:600;font-size:.92rem;display:flex;gap:8px;align-items:center}
+details.sub>summary .hint{font-weight:400}
+details.sub[open]>summary{margin-bottom:6px}
 
 </style>
 </head>
@@ -1764,7 +1768,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.20.1', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.20.2', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -1988,12 +1992,12 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
           <div class="tblwrap"><table class="blocks" id="bT"></table></div>
           <div class="tools"><button id="bAdd">Add block</button><button id="bApply" class="primary">Apply</button><button id="bClear" ${set.blocks ? '' : 'disabled'}>Back to detected stages</button></div>
         </div></details>
-      <div class="step"><h4>Data checks</h4><ul class="checks" id="chk"></ul></div>
-      <div class="step"><h4>Lab presets <span id="preInfo"></span></h4>
+      <details class="sub" data-fold="dchk" ${openFolds.has('dchk') ? 'open' : ''}><summary>Data checks <span class="hint" id="chkSum"></span></summary><ul class="checks" id="chk"></ul></details>
+      <details class="sub" data-fold="dpre" ${openFolds.has('dpre') ? 'open' : ''}><summary>Lab presets <span class="hint">${presetList().length ? presetList().length + ' saved' : 'none saved yet'}</span><span id="preInfo"></span></summary><div>
         <p class="hint" data-info="preInfo">A preset keeps the settings of a protocol so the next test starts with them: test type, entered steps (used only when a file has no power or speed), averaging and outliers, the analysis windows, the step-test options, the lactate settings and the report heading and protocol text. Thresholds, lactate values and participant details are never saved in a preset. Presets are kept in this browser; use Export and Import to share them with the lab.</p>
         <div class="tools"><select id="pSel">${presetList().map(x => `<option>${esc(x.name)}</option>`).join('') || '<option value="">No presets yet</option>'}</select><button id="pApply" ${presetList().length ? '' : 'disabled'}>Apply</button><button id="pDel" ${presetList().length ? '' : 'disabled'}>Delete</button>
           <span class="sep"></span><input id="pName" placeholder="Name, e.g. Clinic run" style="width:14em"><button id="pSave">Save these settings as a preset</button>
-          <span class="sep"></span><button id="pExp" ${presetList().length ? '' : 'disabled'}>Export presets</button><button id="pImp">Import presets</button><span class="hint" id="pMsg"></span></div></div>`;
+          <span class="sep"></span><button id="pExp" ${presetList().length ? '' : 'disabled'}>Export presets</button><button id="pImp">Import presets</button><span class="hint" id="pMsg"></span></div></div></details>`;
     bindPresets();
     bindPlan();
     // A clear prompt when the file has no power or speed: the steps must be entered (or the Lode file added) for stage and power results.
@@ -2036,8 +2040,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   // The usual incremental test: warm-up, longer stages, then shorter stages to failure.
   function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, switchP: NaN, shortMin: last.shortMin || 1, endMin: +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
   function planForm() {
-    const set = S.set, q = set.plan || planDefaults(), need = !S.I, show = need || set.plan, val = v => (F(v) ? v : ''), uu = q.unit === 'W' ? 'W' : 'km/h', fld = (id, lab, v, extra) => `<label class="f"><span>${lab}</span><input type="number" step="any" id="${id}" value="${val(v)}" ${extra || ''}></label>`;
-    return `<details class="adv" id="planD" ${show ? 'open' : ''}><summary>${S.lode || S.I && !S.I.plan ? 'Replace the detected stages with entered ones' : 'Enter the incremental test steps'}</summary><div class="plan ${need ? 'need' : ''}" style="margin-top:8px">
+    const set = S.set, q = set.plan || planDefaults(), need = !S.I, show = need && !set.plan, val = v => (F(v) ? v : ''), uu = q.unit === 'W' ? 'W' : 'km/h', fld = (id, lab, v, extra) => `<label class="f"><span>${lab}</span><input type="number" step="any" id="${id}" value="${val(v)}" ${extra || ''}></label>`;
+    return `<details class="adv" id="planD" ${show ? 'open' : ''}><summary>${set.plan ? `Change the entered steps <span class="hint">(applied: ${+set.plan.startP} ${set.plan.unit === 'W' ? 'W' : 'km/h'}, +${+set.plan.inc} every ${+set.plan.stageMin} min)</span>` : S.lode || S.I && !S.I.plan ? 'Replace the detected stages with entered ones' : 'Enter the incremental test steps'}</summary><div class="plan ${need ? 'need' : ''}" style="margin-top:8px">
       <h4>Incremental test steps</h4>
       ${need ? '<p class="hint">This COSMED file has no power recording. Enter the steps here, or <button id="bAddLode">add the Lode file</button>. Times are from the start of the COSMED recording.</p>' : ''}
       <div class="form">
@@ -2078,7 +2082,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     setTimeout(() => $$('[data-ex]').forEach(el => (el.onchange = () => { const k = +el.dataset.ex, a = S.set.excluded; if (el.checked) a.splice(a.indexOf(k), 1); else a.push(k); rebuild(); buildTabs(); recompute(); })), 0);
     return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} prolonged trial. Steady work: ${F(pr.base) ? iVal(pr.base) : 'none found'}${pr.ttf && pr.maot ? `; work ends at ${mmss(pr.ttf)}; all-out test at ${mmss(pr.maot.t0)}` : ''}.${pr.pauses.length ? ' ' + pr.pauses.length + ' pause(s).' : ''} ${tests ? 'Tick the step tests to include:' : 'No step tests found.'}</p>${tests ? `<div class="hint">${tests}</div>` : ''}`;
   }
-  function drawChecks() { const el = $('#chk'); if (!el || !S.checks) return; const ic = { ok: '✓', warn: '!', info: 'i' }; el.innerHTML = S.checks.map(c => `<li class="${c.level}"><span class="ic" aria-hidden="true">${ic[c.level]}</span><span>${esc(c.text)}</span></li>`).join(''); }
+  function drawChecks() { const el = $('#chk'); if (!el || !S.checks) return; const ic = { ok: '✓', warn: '!', info: 'i' }; el.innerHTML = S.checks.map(c => `<li class="${c.level}"><span class="ic" aria-hidden="true">${ic[c.level]}</span><span>${esc(c.text)}</span></li>`).join(''); const w = S.checks.filter(c => c.level === 'warn').length, sm = $('#chkSum'); if (sm) sm.textContent = w ? `${w} to look at` : 'all passed'; }
 
   function buildProc() {
     const o = S.set.outl, av = S.set.avg, bxb = S.gas.kind === 'bxb', unit = bxb ? 'breaths' : 'samples', on = (id, fn) => { const el = $(id); if (el) el.onchange = e => later(() => fn(e)); };
@@ -2271,11 +2275,29 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     $$('[data-j]').forEach(b => (b.onclick = () => setX(jumps.find(j => j[0] === b.dataset.j)[2])));
     // Panel heights: drag a panel's top or bottom edge; a line shows the new edge until the button is let go.
     const pgl = $('#pgline');
+    // Live resizing: the chart's height and each panel's share are recomputed and applied while the edge is dragged.
+    function resizePanels() {
+      const iP = I ? (set.view.h._int || 112) : 0, H2 = topPx + vars.reduce((a, k) => a + ph(k) + gapPx, 0) + iP + sliderPx + 30, lay2 = H2 - topPx - sliderPx - 30, up = { height: H2, 'xaxis.rangeslider.thickness': 34 / H2 };
+      let yy = lay2, tp = topPx; const tops = [];
+      vars.forEach((k, j) => { up[(j ? 'yaxis' + (j + 1) : 'yaxis') + '.domain'] = [(yy - ph(k)) / lay2, yy / lay2]; yy -= ph(k) + gapPx; tops.push([k, tp, ph(k)]); tp += ph(k) + gapPx; });
+      if (I) { up['yaxis' + (n + 1) + '.domain'] = [0, iP / lay2]; tops.push(['_int', tp, iP]); }
+      gd.style.height = H2 + 'px'; Plotly.relayout(gd, up).then(placeGrips);
+    }
+    // Grips sit on each panel's real edges, read from the drawn chart (the range slider takes some height, so the planned sizes are not exact).
+    function placeGrips() {
+      const fl = gd._fullLayout; if (!fl) return;
+      [...vars.map((k, j) => [k, j ? 'yaxis' + (j + 1) : 'yaxis']), ...(I ? [['_int', 'yaxis' + (n + 1)]] : [])].forEach(([k, a]) => {
+        const y = fl[a]; if (!y) return; const t = $(`[data-pg="${k}:top"]`), b = $(`[data-pg="${k}:bot"]`);
+        if (t) t.style.top = y._offset - 5 + 'px'; if (b) b.style.top = y._offset + y._length - 5 + 'px';
+      });
+    }
+    placeGrips();
     $$('[data-pg]').forEach(gr => (gr.onmousedown = ev => {
       if (ev.button) return; ev.preventDefault(); ev.stopPropagation();
       const [k, edge] = gr.dataset.pg.split(':'), h0 = k === '_int' ? iPx : ph(k), y0 = ev.clientY, top0 = parseFloat(gr.style.top) + 5; let h = h0;
-      const mm = e => { if (!e.buttons) return mu(); const d = e.clientY - y0; h = Math.round(Math.max(70, Math.min(700, edge === 'bot' ? h0 + d : h0 - d))); pgl.style.display = 'block'; pgl.style.top = (edge === 'bot' ? top0 - h0 + h : top0 + h0 - h) + 'px'; };
-      const mu = () => { window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu); pgl.style.display = 'none'; if (h !== h0) { set.view.h[k] = h; S._pvX = gd._fullLayout.xaxis.range.slice(); vProtocol(); } };
+      let raf = 0; void top0; void pgl;
+      const mm = e => { if (!e.buttons) return mu(); const d = e.clientY - y0; h = Math.round(Math.max(70, Math.min(700, edge === 'bot' ? h0 + d : h0 - d))); set.view.h[k] = h; if (!raf) raf = requestAnimationFrame(() => { raf = 0; resizePanels(); }); };
+      const mu = () => { window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu); if (raf) { cancelAnimationFrame(raf); raf = 0; } resizePanels(); };
       window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
     }));
     // Leaving out a period: while the button is on, a drag across the chart marks the period instead of zooming or moving.

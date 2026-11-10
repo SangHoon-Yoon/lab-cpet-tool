@@ -167,3 +167,7 @@ details.adv#planD>summary{display:inline-block;color:var(--accent);font-weight:6
 #exBtn[aria-pressed=true]{background:var(--warn);color:#fff;border-color:var(--warn)}
 .lochip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--warn);border-radius:12px;padding:1px 4px 1px 9px;font-size:.8rem;font-family:var(--mono,monospace)}
 .lochip button{border:none;background:none;padding:0 4px;cursor:pointer;color:var(--muted);font-size:1rem;line-height:1}
+details.sub{border-top:1px solid var(--line);padding:8px 0 4px;margin-top:8px}
+details.sub>summary{cursor:pointer;font-weight:600;font-size:.92rem;display:flex;gap:8px;align-items:center}
+details.sub>summary .hint{font-weight:400}
+details.sub[open]>summary{margin-bottom:6px}
