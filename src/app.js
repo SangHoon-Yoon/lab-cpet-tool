@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.20.0', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.20.1', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -557,6 +557,9 @@
     wrap.onmouseleave = () => { line.style.display = 'none'; };
   }
 
+  // Time of an incremental VT line: the time it was dragged to on a time chart, if that still gives its VO₂;
+  // otherwise the first time the smoothed, never-falling VO₂ reaches it.
+  const vtTime = (M, v, q) => { const h = (S.picks.incT || {})[q]; return F(h) && Math.abs(M.vo2At(h) - v) < 0.0011 ? h : M.tOf(v); };
   /* ---------------- Threshold charts ---------------- */
   // ctx: { lines: ['vt1','vt2'], get(q) -> VO2, set(q, VO2), toX(VO2, key), fromX(x, key), pts: {t, v}, live(), done(), charts: [] }
   const vtColor = q => css(q.endsWith('1') ? '--vt1' : '--vt2');
@@ -641,7 +644,7 @@
     const pts = { t: ids.map(i => S.D.X.t[i]), v: {} }; Object.keys(S.D.X.v).forEach(k => (pts.v[k] = ids.map(i => S.D.X.v[k][i])));
     // VT lines are stored as VO₂. On time (and VCO₂) charts VO₂ maps to time through a curve that never falls, so it has flat stretches
     // where many times share one VO₂; the time the line was dragged to is kept too (S.picks.incT), so the line stays where it was put.
-    const tAt = (v, q) => { const h = (S.picks.incT || {})[q]; return F(h) && Math.abs(M.vo2At(h) - v) < 0.0011 ? h : M.tOf(v); };
+    const tAt = (v, q) => vtTime(M, v, q);
     const M = D.map, ctx = {
       lines: ['vt1', 'vt2'], pts, charts: [], get: q => incVT(q), live: () => incResults(),
       set: (q, v, x, key) => { S.picks.inc[q] = Math.round(v * 1000) / 1000; if (S.picks.incSrc) delete S.picks.incSrc[q]; const T = S.picks.incT = S.picks.incT || {}; if (key === 't') T[q] = x * 60; else if (key === 'vco2') T[q] = M.tOfVco2(x); else delete T[q]; },
@@ -713,8 +716,8 @@
     runOxynet(incResults);
     function incResults() {
       const v1 = incVT('vt1'), v2 = incVT('vt2'), pk = D.peak, mass = S.meta.mass;
-      const at = v => { if (!F(v)) return {}; const beyond = pr.max && v > M.hi + 0.01, t = beyond ? NaN : M.tOf(v), hr = beyond ? NaN : L.meanInWindow(S.D.R0, 'hr', t - 15, t + 15), iv = D.fit ? D.fit.m * v + D.fit.b : NaN, st = S.I && !beyond ? C.loadAt(S.I, t) : NaN; return { t, hr, iv, st, pct: pk.vo2 ? 100 * v / pk.vo2.value : NaN, kg: F(mass) && mass > 0 ? v * 1000 / mass : NaN }; };
-      const a1 = at(v1), a2 = at(v2); S._inc = { v1, v2, a1, a2 };
+      const at = (v, q) => { if (!F(v)) return {}; const beyond = pr.max && v > M.hi + 0.01, t = beyond ? NaN : vtTime(M, v, q), hr = beyond ? NaN : L.meanInWindow(S.D.R0, 'hr', t - 15, t + 15), iv = D.fit ? D.fit.m * v + D.fit.b : NaN, st = S.I && !beyond ? C.loadAt(S.I, t) : NaN; return { t, hr, iv, st, pct: pk.vo2 ? 100 * v / pk.vo2.value : NaN, kg: F(mass) && mass > 0 ? v * 1000 / mass : NaN }; };
+      const a1 = at(v1, 'vt1'), a2 = at(v2, 'vt2'); S._inc = { v1, v2, a1, a2 };
       const tile = (cls, big, lab, sub) => `<div class="stat ${cls}"><b>${big}</b><span>${lab}</span>${sub ? `<small>${sub}</small>` : ''}</div>`;
       $('#tiles').innerHTML =
         tile('key', pk.vo2 ? fx(pk.vo2.value, 2) + ' L/min' : '–', (pr.max ? 'VO₂max (' : 'VO₂peak (') + set.peakWin + '-s mean)', pk.vo2kg ? fx(pk.vo2kg.value, 1) + ' mL/kg/min, at ' + mmss(pk.vo2.t1) : '') +
@@ -1109,7 +1112,7 @@
       [['vo2peak', 'L/min', pk.vo2], ['vo2peak_kg', 'mL/kg/min', pk.vo2kg], ['hr_peak', 'bpm', pk.hr], ['rer_peak', '', pk.rer], ['ve_peak', 'L/min', pk.ve]].forEach(([k, u, o]) => { if (o) push('incremental', '', NaN, k, o.value, u); });
       const peakI = pr.max ? pr.max.peak : pr.inc.peak; push('incremental', '', peakI, 'intensity_peak', peakI, unit);
       ['vt1', 'vt2'].forEach(q => {
-        const x = v(q); if (!F(x)) return; const t = M.tOf(x), hr = L.meanInWindow(D.R0, 'hr', t - 15, t + 15), iv = d.fit ? d.fit.m * x + d.fit.b : NaN, kg = F(m.mass) ? x * 1000 / m.mass : NaN, pct = pk.vo2 ? 100 * x / pk.vo2.value : NaN;
+        const x = v(q); if (!F(x)) return; const t = vtTime(M, x, q), hr = L.meanInWindow(D.R0, 'hr', t - 15, t + 15), iv = d.fit ? d.fit.m * x + d.fit.b : NaN, kg = F(m.mass) ? x * 1000 / m.mass : NaN, pct = pk.vo2 ? 100 * x / pk.vo2.value : NaN;
         thr.push(Object.assign({}, idcols, { test: 'incremental', threshold: q.toUpperCase(), source: F(S.picks.inc[q]) ? ((S.picks.incSrc && S.picks.incSrc[q]) || 'placed by user') : 'classical suggestion', vo2_L_min: rd(x, 3), vo2_mL_kg_min: rd(kg, 2), pct_vo2peak: rd(pct, 1), intensity_regression: rd(iv, 2), intensity_stage: I ? C.loadAt(I, t) : '', intensity_unit: unit, hr_bpm: rd(hr, 1), time_s: Math.round(t) }));
         [['vo2', 'L/min', x], ['vo2_kg', 'mL/kg/min', kg], ['pct_vo2peak', '%', pct], ['intensity', unit, iv], ['hr', 'bpm', hr]].forEach(([k, u, val]) => push('incremental', '', NaN, q + '_' + k, val, u));
       });
@@ -1222,7 +1225,7 @@
   // Ventilatory equivalents against time with the VT lines, for reports without lactate and for the research report.
   async function gasFigure(w = 600, h = 380) {
     const D = S.D.inc, X = S.D.X, M = D.map, lo = D.t0, hi = S.proto.max ? S.proto.max.t1 : D.t1, ids = X.t.map((t, i) => i).filter(i => X.t[i] >= lo - 60 && X.t[i] <= hi + 30), shapes = [], ann = [];
-    ['vt1', 'vt2'].forEach(q => { const v = incVT(q); if (!F(v)) return; const t = M.tOf(v) / 60; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: t, x1: t, y0: 0, y1: 1, line: { color: '#E8323C', width: 2, dash: 'dash' } }); ann.push({ xref: 'x', yref: 'paper', x: t, y: 1.02, yanchor: 'bottom', showarrow: false, text: q.toUpperCase(), font: { color: '#E8323C', size: 14 } }); });
+    ['vt1', 'vt2'].forEach(q => { const v = incVT(q); if (!F(v)) return; const t = vtTime(M, v, q) / 60; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: t, x1: t, y0: 0, y1: 1, line: { color: '#E8323C', width: 2, dash: 'dash' } }); ann.push({ xref: 'x', yref: 'paper', x: t, y: 1.02, yanchor: 'bottom', showarrow: false, text: q.toUpperCase(), font: { color: '#E8323C', size: 14 } }); });
     const tr = [['eqo2', '#1F3864', 'VE/VO₂'], ['eqco2', '#E8336D', 'VE/VCO₂']].filter(([k]) => X.v[k]).map(([k, c, n]) => ({ x: ids.map(i => X.t[i] / 60), y: ids.map(i => X.v[k][i]), mode: 'markers', marker: { size: 6, color: c }, name: n }));
     return figPNG(tr, ax => ({ showlegend: true, legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,.8)' }, xaxis: ax('Time (min)'), yaxis: ax('Ventilatory equivalent'), shapes, annotations: ann, margin: { l: 64, r: 16, t: 36, b: 56 } }), w, h);
   }
