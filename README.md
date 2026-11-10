@@ -1,6 +1,6 @@
 # Lab CPET tool
 
-Browser-based analysis of cardiopulmonary exercise tests for the SPRINZ lab, Auckland University of Technology.
+Browser-based analysis of cardiopulmonary exercise tests.
 
 **Created by SangHoon Yoon.** © 2026 SangHoon Yoon. Free to use and adapt under the [MIT licence](LICENSE), keeping this credit. To cite it, use [CITATION.cff](CITATION.cff) (GitHub's "Cite this repository" button). Third-party parts and their licences: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
