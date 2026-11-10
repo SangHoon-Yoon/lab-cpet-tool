@@ -29,6 +29,17 @@
       listFiles();
     }
   }
+  // Example test: a simulated incremental cycling test, with blood lactate filled in for each stage.
+  const exampleWB = () => P.readWorkbook(XLSX.write(window.LabExample.workbook(XLSX), { type: 'array', bookType: 'xlsx' }));
+  $('#bExample').onclick = () => {
+    S.pending = [{ name: window.LabExample.fileName, kind: 'cosmed', status: 'ok', obj: P.parseCosmed(exampleWB()), err: '' }];
+    $('#sPreset').value = ''; $('#bGo').disabled = false; $('#bGo').onclick();
+    const st = S.proto.inc && !S.proto.inc.none ? S.proto.inc.stages : [];
+    S.set.lac = Object.assign({}, S.set.lac || {}, { series: { inc: { base: { la: window.LabExample.lactate(0) }, rows: Object.fromEntries(st.map((q, i) => { const pr = st[i - 1], part = i === st.length - 1 && pr && q.dur < 0.9 * pr.dur; return [i, { la: window.LabExample.lactate(part ? pr.p + (q.p - pr.p) * q.dur / pr.dur : q.p) }]; })) } } });
+    H.steps = []; H.at = -1; H.saved = null; checkpoint(); // the Lactate tab reads these values when it is opened
+    toast('Example test loaded: simulated data, with lactate on the Lactate tab');
+  };
+  $('#bExampleFile').onclick = () => XLSX.writeFile(window.LabExample.workbook(XLSX), window.LabExample.fileName);
   // Remove a wrongly added file before continuing.
   $('#flist').addEventListener('click', ev => { const b = ev.target.closest('[data-rm]'); if (!b) return; ev.preventDefault(); ev.stopPropagation(); S.pending.splice(+b.dataset.rm, 1); listFiles(); });
   function listFiles() {

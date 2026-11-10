@@ -6,6 +6,10 @@ Browser-based analysis of cardiopulmonary exercise tests.
 
 **Use it online:** https://sanghoon-yoon.github.io/lab-cpet-tool/ (or download `dist/lab-cpet-tool.html` and open it offline). Your data never leave your browser: the page has no server and sends nothing anywhere.
 
+> **A tool to help, not to rely on.** Suggested thresholds and fits only assist. Always look at the data yourself, place and check every threshold, and confirm results against your usual method. Not a medical device.
+
+**Try it without your own data:** on the start page, choose "Try an example test" (a simulated incremental cycling test with lactate; not a real person).
+
 Single-file browser tool for COSMED gas-exchange tests. Open `dist/lab-cpet-tool.html`; it runs offline and no data leave the computer.
 
 - Treadmill: COSMED export only (speed comes from that file). Cycling: COSMED and Lode exports, or COSMED with the power steps entered by hand.

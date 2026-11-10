@@ -10,7 +10,7 @@ parts={f.name:f.read_text() for f in sorted((root/'report').glob('*.xml'))}
 (root/'src/app.js').write_text(''.join(f.read_text() for f in sorted((root/'src/app').glob('*.js'))))
 h=(root/'index.html').read_text()
 h=h.replace('<link rel="stylesheet" href="src/styles.css">','<style>\n'+(root/'src/styles.css').read_text()+'\n</style>')
-for src in ['vendor/plotly.min.js','vendor/xlsx.min.js','src/parse.js','src/gdcore.js','src/protocol.js','src/oxynet_models.js','src/oxynet.js','src/lactate.js','src/docx_parts.js','src/docx.js','src/app.js']:
+for src in ['vendor/plotly.min.js','vendor/xlsx.min.js','src/parse.js','src/gdcore.js','src/protocol.js','src/oxynet_models.js','src/oxynet.js','src/lactate.js','src/example.js','src/docx_parts.js','src/docx.js','src/app.js']:
     code=(root/src).read_text().replace('</script','<\\/script')
     h=h.replace(f'<script src="{src}"></script>','<script>\n'+code+'\n</script>')
 (root/'dist').mkdir(exist_ok=True); (root/'dist/lab-cpet-tool.html').write_text(h)
