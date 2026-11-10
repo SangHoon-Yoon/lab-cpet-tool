@@ -193,6 +193,7 @@ details.sub[open]>summary{margin-bottom:6px}
 .lookhead{display:flex;justify-content:space-between;align-items:center;gap:12px}.lookhead h2{margin:0;font-size:1.1rem}
 .lookgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 14px;margin:8px 0 0}
 .lookgrid .panel{padding:8px}.lookgrid h3{margin:0 0 2px;font-size:.9rem}.lookcue{margin:4px 0 0;font-size:.82rem;line-height:1.4}
+.figbox{margin-top:10px;border:1px solid var(--grid);border-radius:8px;padding:8px 10px 4px;background:var(--bg)}
 
 </style>
 </head>
@@ -1880,7 +1881,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.23.3', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.23.4', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -2581,8 +2582,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
         <span id="winInfo"></span><span class="sep"></span><span>${pr.max ? 'VO₂max' : 'VO₂peak'} over:</span>${pkW.map(([v, l]) => `<button data-pk="${v}" aria-pressed="${set.peakWin === v}">${l}</button>`).join('')}
         <span class="sep"></span><span>Stage means and the VO₂–${I.label.toLowerCase()} regression use the last:</span>${stW.map(([v, l]) => `<button data-sw="${v}" aria-pressed="${set.stageWin === v}">${l}</button>`).join('')}
       </div>
-      <div class="tools" style="margin-top:8px"><span>Show:</span><select id="iSelVar">${(() => { const av = availVars(), vs = ['vo2', 'hr', 've', 'eqo2', 'eqco2', 'rer', 'petco2'].filter(k => k === 'vo2' || av.includes(k)); if (!vs.includes(set.selVar)) set.selVar = 'vo2'; return vs.map(k => `<option value="${k}" ${k === set.selVar ? 'selected' : ''}>${VARS[k].l}</option>`).join(''); })()}</select><span class="hint">Highlighted: the ${pr.max ? 'threshold' : 'analysis'} window, ${mmss(D.t0)}–${mmss(D.t1)}</span></div>
-      <div class="chartwrap" id="iSelWrap"><div class="chart" id="iSelC" style="height:240px"></div><div class="zshade" id="iSelShade"></div></div>
+      <div class="figbox"><div class="tools"><span>Show:</span><select id="iSelVar">${(() => { const av = availVars(), vs = ['vo2', 'hr', 've', 'eqo2', 'eqco2', 'rer', 'petco2'].filter(k => k === 'vo2' || av.includes(k)); if (!vs.includes(set.selVar)) set.selVar = 'vo2'; return vs.map(k => `<option value="${k}" ${k === set.selVar ? 'selected' : ''}>${VARS[k].l}</option>`).join(''); })()}</select><span class="hint">Highlighted: the ${pr.max ? 'threshold' : 'analysis'} window, ${mmss(D.t0)}–${mmss(D.t1)}</span></div>
+      <div class="chartwrap" id="iSelWrap"><div class="chart" id="iSelC" style="height:240px"></div><div class="zshade" id="iSelShade"></div></div></div>
       <p class="hint" data-info="winInfo">Drag across the chart to highlight the data to analyse, or type the times. Drag either side of the highlight to make it longer or shorter, or click elsewhere on the chart to go back to the default window. ${pr.inc.none ? 'With no stages entered, the window covers all the exercise data, including any warm-up. Set its start after the warm-up.' : pr.max ? 'Thresholds and the regression use the threshold stages, and by default the window covers all of them. VO₂max and the peak values come from the VO₂max stages.' : 'By default the window covers all the incremental stages.'}${pr.inc.none ? '' : ' If the gas data look off when the first stage starts, leave out those seconds: this affects the threshold charts, the suggestions and any Oxynet run on this window, but not the stage means, regression or peak values.'}</p></div>
       <div class="tools"><span>Plot thresholds against:</span><button data-x="vo2" aria-pressed="${xk === 'vo2'}">VO<sub>2</sub></button><button data-x="t" aria-pressed="${xk === 't'}">Time</button><button id="addV2" hidden>Add a VT2 line</button><button id="lookFor" title="Reference charts of the typical patterns at VT1 and VT2">What to look for</button><span id="plotInfo"></span>
         <span class="hint" data-info="plotInfo">Drag a <b class="vt1c">VT1</b> or <b class="vt2c">VT2</b> line sideways on any chart (the cursor changes over it); it moves on all of them.</span></div>
@@ -3317,7 +3318,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   }
   // "What to look for": schematic reference charts drawn from the noise-free model behind the simulated example test
   // (src/example.js), with VT1 and VT2 marked. Based on the approach of Keir et al. (2022); not their figure.
-  const LOOK = [['vco2', 'VCO₂ (L/min)'], ['ve', 'VE (L/min)'], ['eqo2', 'VE/VO₂'], ['eqco2', 'VE/VCO₂'], ['peto2', 'PETO₂ (mmHg)'], ['petco2', 'PETCO₂ (mmHg)'], ['rer', 'RER'], ['la', 'Lactate (mmol/L)']];
+  const LOOK = [['vco2', 'VCO₂ (L/min)'], ['ve', 'VE (L/min)'], ['eqo2', 'VE/VO₂'], ['eqco2', 'VE/VCO₂'], ['peto2', 'PETO₂ (mmHg)'], ['petco2', 'PETCO₂ (mmHg)', [25, 45]], ['rer', 'RER'], ['la', 'Lactate (mmol/L)']];
   function openLookFor() {
     let dlg = $('#lookDlg');
     if (!dlg) {
@@ -3332,10 +3333,10 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     const E = window.LabExample, C = E.curves(), at = P => C.find(q => q.P === P).vo2, v1 = at(E.truth.vt1), v2 = at(E.truth.vt2);
     const c1 = css('--vt1'), c2 = css('--vt2'), fg = css('--fg'), x = C.map(q => q.vo2);
     const pad = [x[0] - 0.07 * (x.at(-1) - x[0]), x.at(-1) + 0.03 * (x.at(-1) - x[0])], ax = (t, r) => ({ range: r, title: { text: t, font: { size: 11 } }, showline: true, linecolor: fg, linewidth: 1, ticks: 'outside', tickcolor: fg, showgrid: false, zeroline: false });
-    LOOK.forEach(([k, yl]) => {
+    LOOK.forEach(([k, yl, yr]) => {
       const vl = (v, c) => ({ type: 'line', xref: 'x', yref: 'paper', x0: v, x1: v, y0: 0, y1: 1, line: { color: c, width: 1.5, dash: 'dot' } });
       Plotly.newPlot('look_' + k, [{ x, y: C.map(q => q[k]), mode: 'lines', type: 'scatter', line: { color: fg, width: 2 }, hoverinfo: 'skip' }],
-        lay({ margin: { l: 56, r: 10, t: 20, b: 40 }, showlegend: false, dragmode: false, hovermode: false, xaxis: ax('VO₂ (L/min)', pad), yaxis: ax(yl),
+        lay({ margin: { l: 56, r: 10, t: 20, b: 40 }, showlegend: false, dragmode: false, hovermode: false, xaxis: ax('VO₂ (L/min)', pad), yaxis: ax(yl, yr),
           shapes: [vl(v1, c1), vl(v2, c2)],
           annotations: [['VT1', v1, c1], ['VT2', v2, c2]].map(([t, v, c]) => ({ x: v, y: 1, xref: 'x', yref: 'paper', yanchor: 'bottom', text: t, showarrow: false, font: { color: c, size: 11 } })) }), { staticPlot: true, responsive: true });
     });

@@ -186,3 +186,4 @@ details.sub[open]>summary{margin-bottom:6px}
 .lookhead{display:flex;justify-content:space-between;align-items:center;gap:12px}.lookhead h2{margin:0;font-size:1.1rem}
 .lookgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 14px;margin:8px 0 0}
 .lookgrid .panel{padding:8px}.lookgrid h3{margin:0 0 2px;font-size:.9rem}.lookcue{margin:4px 0 0;font-size:.82rem;line-height:1.4}
+.figbox{margin-top:10px;border:1px solid var(--grid);border-radius:8px;padding:8px 10px 4px;background:var(--bg)}
