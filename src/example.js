@@ -74,6 +74,6 @@
   const lactate = P => +(P > 0 ? 0.9 + 0.08 * Math.exp((P - 100) / 50) : 0.9).toFixed(1);
   const fileName = 'Example_incremental_cycling_simulated.xlsx';
 
-  const API = { workbook, lactate, fileName, truth: { vt1: VT1P, vt2: VT2P } };
+  const API = { workbook, rows, lactate, fileName, truth: { vt1: VT1P, vt2: VT2P, rest: REST, stage: STAGE, p0: P0, inc: INC, end } };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.LabExample = API;
 })(this);

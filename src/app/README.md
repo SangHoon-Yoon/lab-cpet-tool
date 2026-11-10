@@ -20,4 +20,5 @@ opens it, the last closes it), so a name defined in one part can be used in the 
 | 12-summary | Summary tab, results table, methods paragraph |
 | 13-reports | Word reports |
 | 14-save-export | Save, open and export |
+| 14b-what-to-look-for | "What to look for" reference charts (simulated example, VT1 and VT2 signs) |
 | 15-undo-presets-start | Undo/redo, unsaved-work warning, lab presets, start-up |
