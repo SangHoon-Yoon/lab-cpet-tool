@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),X=require('xlsx');
-const dir='/home/claude/samples/',f=re=>dir+fs.readdirSync(dir).find(x=>re.test(x)),sim=path.resolve(__dirname,'sim')+'/';
+const dir=require('./paths').SAMPLES,f=re=>dir+fs.readdirSync(dir).find(x=>re.test(x)),sim=path.resolve(__dirname,'sim')+'/';
 const url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html'),out=path.resolve(__dirname,'shots')+'/',dl='/tmp/claude-0/-home-claude/f2a3b0f6-b28d-5952-946e-21cdf36e71d8/scratchpad/';
 const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
 (async()=>{const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});

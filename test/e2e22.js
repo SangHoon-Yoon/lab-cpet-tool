@@ -1,6 +1,6 @@
 // Steps form closes after Apply and its title says the steps were applied; Data checks and Lab presets fold; panels resize while dragging.
 const {chromium}=require('playwright'),fs=require('fs'),path=require('path');
-const d='/home/claude/samples/',f=re=>d+fs.readdirSync(d).find(x=>re.test(x));const url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html'),out=path.resolve(__dirname,'shots')+'/';
+const d=require('./paths').SAMPLES,f=re=>d+fs.readdirSync(d).find(x=>re.test(x));const url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html'),out=path.resolve(__dirname,'shots')+'/';
 const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
 (async()=>{const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});const ctx=await b.newContext({viewport:{width:1400,height:1000}});const errs=[];
  const pg=await ctx.newPage();pg.on('pageerror',x=>errs.push(x.message));await pg.goto(url);

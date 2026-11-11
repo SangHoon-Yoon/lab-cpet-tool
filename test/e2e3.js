@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),X=require('xlsx');
-const dir='/home/claude/samples/',f=re=>dir+fs.readdirSync(dir).find(x=>re.test(x));const url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html'),out=path.resolve(__dirname,'shots')+'/',dl='/tmp/claude-0/-home-claude/f2a3b0f6-b28d-5952-946e-21cdf36e71d8/scratchpad/';
+const dir=require('./paths').SAMPLES,f=re=>dir+fs.readdirSync(dir).find(x=>re.test(x));const url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html'),out=path.resolve(__dirname,'shots')+'/',dl='/tmp/claude-0/-home-claude/f2a3b0f6-b28d-5952-946e-21cdf36e71d8/scratchpad/';
 const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
 (async()=>{const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});const ctx=await b.newContext({viewport:{width:1400,height:1000},acceptDownloads:true});let ext=0;await ctx.route('**/*',r=>{const u=r.request().url();if(/^(file|blob|data):/.test(u))return r.continue();ext++;return r.abort();});
  const pg=await ctx.newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));pg.on('console',m=>{if(m.type()==='error')errs.push(m.text())});

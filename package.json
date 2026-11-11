@@ -1,15 +1,20 @@
 {
   "name": "lab-cpet-tool",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.23.4",
+  "description": "Browser-only tool for cardiopulmonary exercise test (CPET) analysis",
+  "main": "dist/lab-cpet-tool.html",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "python3 build.py",
+    "test": "node test/all.js",
+    "test:unit": "node test/run.js && node test/lactate.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "SangHoon Yoon",
+  "license": "MIT",
   "dependencies": {
     "xlsx": "^0.18.5"
+  },
+  "private": true,
+  "devDependencies": {
+    "playwright": "1.63.0"
   }
 }

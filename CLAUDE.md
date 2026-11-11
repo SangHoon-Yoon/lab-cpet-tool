@@ -1,19 +1,21 @@
 # Lab CPET tool — notes for Claude
 
-Read this first in every session. It keeps decisions that are easy to lose when a long conversation is summarised.
+Read this first in every session. Technical notes only; this file is public.
+
+## Start here (every session)
+1. If `../lab-cpet-private` exists (Andrew's private repository, next to this folder; in a cloud session it may be
+   attached separately), read its `CLAUDE.md`, then `notes/DECISIONS.md` and `notes/ROADMAP.md`. Decisions, plans
+   and anything about participants, the institution or the clinic belong there, not here.
+2. `docs/HISTORY.md` lists every version; `docs/USER_GUIDE.md` is the user guide. Update them with each release.
+3. Sample files (participant data) are in `../lab-cpet-private/samples` (git-ignored there) or where `LABCPET_SAMPLES`
+   points. Never copy them into this repository.
+4. `npm test` builds and runs everything (10–15 min); `node test/all.js e2e24` runs chosen browser tests.
 
 ## What it is
-A single-file, browser-only HTML tool for exercise physiology labs (kept general, no institution named): COSMED gas data (+ Lode power, + blood lactate) →
-protocol view, VT1/VT2 and VO₂peak (incremental), VT1 per 5-step test, prolonged-trial analysis, LT1/LT2, Word reports.
-Created by SangHoon (Andrew) Yoon. Goals, scope and version history: Claude Doc "Lab CPET Tool: Changes and Goals"
-(https://claude.ai/artifact/QNgUJBLxd9fZ8z6k4HpbQr). User guide: Claude Doc "Lab CPET Tool: User Guide"
-(doc 6deecae8-ae85-48da-97b6-1a9475e93582). Update both with each release.
-
-## Scope decisions (from Andrew)
-- Gas alone or gas + lactate. Lactate-only tests stay with Exphyslab. No VO₂ lag correction, no prescription calculator.
-- Researchers place thresholds; suggestions (classical, Oxynet) only assist. Participant names stay visible (no de-identification).
-- Data never leave the browser. Results must be validated against the lab's usual method (Exphyslab, Excel).
-- Credit "created by SangHoon Yoon"; cite Oxynet papers and lactater.
+A single-file, browser-only HTML tool for exercise physiology labs (kept general, no institution named): COSMED gas
+data (+ Lode power, + blood lactate) → protocol view, VT1/VT2 and VO₂peak (incremental), VT1 per 5-step test,
+prolonged-trial analysis, LT1/LT2, Word reports. Created by SangHoon Yoon. Data never leave the browser;
+threshold suggestions only assist; credit "created by SangHoon Yoon" and cite the Oxynet papers and lactater.
 
 ## Layout
 - `src/parse.js` COSMED/Lode readers · `src/gdcore.js` shared maths · `src/protocol.js` stage detection, joins, suggestions, checks
@@ -36,10 +38,13 @@ Created by SangHoon (Andrew) Yoon. Goals, scope and version history: Claude Doc 
 - Plain, short user-facing text; no abbreviations unexplained.
 
 ## Tests
-- Unit: `node test/run.js`, `node test/lactate.js`
-- Browser: `NODE_PATH=$(npm root -g):$PWD/node_modules node test/e2eN.js` (e2e … e2e25); samples in /home/claude/samples (not committed)
+- Setup once: `npm install` then `npx playwright install chromium`. Python 3 is needed for `build.py`.
+- Everything: `npm test` (build, simulated files, unit tests, browser tests e2e … e2e25). Unit only: `npm run test:unit`.
+- Paths come from `test/paths.js` (samples: `LABCPET_SAMPLES`, else `../lab-cpet-private/samples`, else `../samples`; downloads: `DL` or a temp folder).
 - Run the full set before sending a build; tests that read hidden boxes must be updated when the UI changes on purpose.
+- `test/oxy_ref.py` + `test/oxy_compare.js` compare with pyoxynet itself (needs Python with pyoxynet; optional).
 
 ## Git
 - Author: `git -c user.name="SangHoon Yoon" -c user.email="shyoon217@gmail.com"`; push `git push origin HEAD:main`.
-- Never commit participant data (.xlsx, test/sim, test/shots are ignored).
+- Never commit participant data (.xlsx, test/sim, test/shots are ignored). The repository is public: no participant
+  names or codes, no institution or clinic names in files or commit messages.

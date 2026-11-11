@@ -1,10 +1,10 @@
 // Undo/redo with Ctrl+Z; unsaved-work warning.
 const {chromium}=require('playwright'),fs=require('fs'),path=require('path');
-const d='/home/claude/samples/',f=re=>d+fs.readdirSync(d).find(x=>re.test(x));const url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html');
+const d=require('./paths').SAMPLES,f=re=>d+fs.readdirSync(d).find(x=>re.test(x));const url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html');
 const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
 (async()=>{const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});const ctx=await b.newContext({viewport:{width:1400,height:1000},acceptDownloads:true});const errs=[];
  const pg=await ctx.newPage();pg.on('pageerror',x=>errs.push(x.message));await pg.goto(url);await pg.setInputFiles('#fileIn',[f(/TREAD_CHAR/)]);await pg.waitForFunction(()=>!document.querySelector('#bGo').disabled,{timeout:60000});await pg.waitForTimeout(300);await pg.click('#bGo');await pg.waitForSelector('#pv .main-svg');
- await pg.click('[data-tab=incremental]');await pg.waitForTimeout(2500);
+ await pg.click('[data-tab=incremental]');await pg.waitForFunction(()=>LabApp.S.oxy&&LabApp.S.oxy.done,{timeout:90000});await pg.waitForTimeout(800);
  const vt=()=>pg.evaluate(()=>[LabApp.S.picks.inc.vt1??null,LabApp.S.picks.inc.vt2??null]);
  const uses=await pg.$$('[data-use^="vt1:"]');await uses[0].click();await pg.waitForTimeout(700);const a=await vt();
  await uses.length>1&&(await pg.$$('[data-use^="vt1:"]'))[1].click();await pg.waitForTimeout(700);const b2=await vt();ok(a[0]!==b2[0],'two different VT1 picks: '+a[0]+' then '+b2[0]);

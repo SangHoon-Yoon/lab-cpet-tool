@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('fs'),path=require('path');
-const dir='/home/claude/samples/',f=re=>dir+fs.readdirSync(dir).find(x=>re.test(x)),sim=path.resolve(__dirname,'sim')+'/';
+const dir=require('./paths').SAMPLES,f=re=>dir+fs.readdirSync(dir).find(x=>re.test(x)),sim=path.resolve(__dirname,'sim')+'/';
 const page_url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html'),out=path.resolve(__dirname,'shots')+'/';
 const cases={tread:[f(/TREAD_CHAR/)],cyc5:[f(/CPET_BxB/),f(/Admin/)],cycinc:[sim+'sim_cycle_incremental_COSMED.xlsx',sim+'sim_cycle_incremental_Lode.xlsx'],run5:[sim+'sim_run_5ST_60min_5ST_COSMED.xlsx']};
 (async()=>{const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});

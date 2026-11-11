@@ -1,5 +1,5 @@
 const {chromium}=require('playwright'),fs=require('fs'),path=require('path');
-const dir='/home/claude/samples/',f=re=>dir+fs.readdirSync(dir).find(x=>re.test(x)),fl=fs.readdirSync(dir).filter(x=>/MORNING/.test(x)).map(x=>dir+x);const url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html'),out=path.resolve(__dirname,'shots')+'/';
+const dir=require('./paths').SAMPLES,f=re=>dir+fs.readdirSync(dir).find(x=>re.test(x)),fl=fs.readdirSync(dir).filter(x=>/MORNING/.test(x)).map(x=>dir+x);const url='file://'+path.resolve(__dirname,'../dist/lab-cpet-tool.html'),out=path.resolve(__dirname,'shots')+'/';
 const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
 (async()=>{const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});const ctx=await b.newContext({viewport:{width:1400,height:1300}});const errs=[];
  const open=async files=>{const pg=await ctx.newPage();pg.on('pageerror',e=>errs.push(e.message));await pg.goto(url);await pg.setInputFiles('#fileIn',files);await pg.waitForFunction(()=>!document.querySelector('#bGo').disabled,{timeout:60000});await pg.waitForTimeout(500);await pg.click('#bGo');await pg.waitForSelector('#pv .main-svg');await pg.waitForTimeout(900);await pg.evaluate(()=>{document.getElementById('dBox').open=false});await pg.waitForTimeout(300);return pg;};

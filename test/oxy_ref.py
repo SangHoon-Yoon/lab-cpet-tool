@@ -1,9 +1,10 @@
+import os
 # Reference outputs from pyoxynet itself, for test/oxy_compare.js.
 import pandas as pd, glob, json, warnings, sys
 warnings.filterwarnings('ignore')
 import pyoxynet, numpy as np
 def load(pat):
-    d=pd.read_excel(glob.glob('/home/claude/samples/*'+pat+'*')[0],sheet_name='Data',header=0).iloc[2:]
+    d=pd.read_excel(glob.glob(os.path.join(os.environ.get('LABCPET_SAMPLES', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'lab-cpet-private', 'samples')), '*'+pat+'*'))[0],sheet_name='Data',header=0).iloc[2:]
     d=d[d['t'].notna()]
     sec=lambda x:x.hour*3600+x.minute*60+x.second
     return pd.DataFrame({'time':[sec(x) for x in d['t']],'VO2_I':d['VO2'].astype(float)/1000,'VCO2_I':d['VCO2'].astype(float)/1000,'VE_I':d['VE'].astype(float),'PetO2_I':d['PetO2'].astype(float),'PetCO2_I':d['PetCO2'].astype(float)})

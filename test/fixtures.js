@@ -1,7 +1,7 @@
 // Simulated test files. They copy the real export layouts, but the physiology is made up, so they only prove the parsing and detection logic.
 const X=require('xlsx'),fs=require('fs');
 const P=require('../src/parse.js');
-const dir='/home/claude/samples/';
+const dir=require('./paths').SAMPLES;
 const find=re=>dir+fs.readdirSync(dir).find(f=>re.test(f));
 const ep=X.read(fs.readFileSync(find(/TREAD_CHAR/)));
 const rows=X.utils.sheet_to_json(ep.Sheets.Data,{header:1,raw:true,defval:null});
@@ -12,7 +12,7 @@ function lodeWB(t,p){const wb=X.utils.book_new();
  X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet([['Participant ID','Date','Duration'],['x',46170.5,t[t.length-1]]]),'Devices');
  X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet([['Time','Load','RPM'],...t.map((x,i)=>[x,p[i],85])]),'Bicycle-1-x');return wb;}
 function cosmedWB(R){const wb=X.utils.book_new();X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(R),'Data');return wb;}
-const out='/home/claude/lab-cpet-tool/test/sim/';fs.mkdirSync(out,{recursive:true});
+const out=require('./paths').SIM;fs.mkdirSync(out,{recursive:true});
 { const R=rows.map((r,i)=>{ if(i<3)return r; const q=r.slice(); q[c('Speed')]=null;q[c('Grade')]=null;return q;});
   const stages=[];for(const r of rows.slice(3)){ if(r[c('t')]==null)continue; const s=(typeof r[c('t')]==='number'?r[c('t')]*86400:0); stages.push([s,r[c('Speed')]]);}
   const t=[],p=[];for(let x=0.2;x<=stages[stages.length-1][0];x+=0.2){const st=stages.find(q=>q[0]>=x)||stages[stages.length-1];t.push(+x.toFixed(2));p.push(100+25*(st[1]-9));}

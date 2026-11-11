@@ -1,7 +1,7 @@
 const P=require('../src/parse.js'),C=require('../src/gdcore.js'),L=require('../src/protocol.js'),fs=require('fs');
-const dir='/home/claude/samples/';const f=re=>dir+fs.readdirSync(dir).find(x=>re.test(x));
+const dir=require('./paths').SAMPLES;const f=re=>dir+fs.readdirSync(dir).find(x=>re.test(x));
 const rd=p=>P.readWorkbook(fs.readFileSync(p));
-const sim='/home/claude/lab-cpet-tool/test/sim/';
+const sim=require('./paths').SIM;
 let fails=0;const ok=(c,m)=>{console.log((c?'  pass ':'  FAIL ')+m);if(!c)fails++;};
 const prep=(g,I)=>{const keep=g.t.map((_,i)=>Number.isFinite(g.v.vo2[i])&&g.v.vo2[i]>0);const S=C.series(g,keep,'bin',g.kind==='avg'?g.avgWidth:15);return S;};
 console.log('TREAD_CHAR treadmill');
