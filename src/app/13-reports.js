@@ -48,7 +48,7 @@
     const stRows = rows.rows.filter(r => r.extra === undefined), hrP = stRows.filter(r => F(r.hr)).map(r => r.stageP), hrV = stRows.filter(r => F(r.hr)).map(r => r.hr);
     const lin = hrP.length >= 2 ? C.linreg(hrP, hrV) : null, hrAt = p => (lin && F(p) ? lin.m * p + lin.b : NaN), rpeAt = p => interpAt(stRows.map(r => r.stageP), stRows.map(r => r.rpe), p);
     const st = pr.max ? pr.max.stages : pr.inc.stages, last = st.at(-1), full = st.filter(q => q.full).length, partial = last && !last.full;
-    const maxRows = pr.max ? pr.max.stages.map((q, i) => ({ stageP: q.p, part: !q.full, hr: D.maxValues[i] ? Math.round(D.maxValues[i].m.hr) : NaN, rpe: D.maxRpe[i], la: NaN })) : [];
+    const maxRows = pr.max ? pr.max.stages.map((q, i) => ({ stageP: q.p, part: !q.full, hr: Math.round(stageHR(q)), rpe: D.maxRpe[i], la: NaN })) : [];
     return { pr, I, D, rep, se, res, isRun, src, hasLac, rows, stRows, maxRows, thr, hrAt, rpeAt, full, partial, last, st, maxHr: D.peak.hr ? D.peak.hr.value : NaN };
   }
   async function clientReport() {
@@ -156,17 +156,23 @@
   function repFigs(hasLac) { const f = repInfo().figs || {}, src = repInfo().src === 'gas' || !hasLac ? 'gas' : 'lactate', pick = (k, d) => (f[k] === undefined ? d : !!f[k]); return { client: { gas: pick('cGas', src === 'gas'), lac: pick('cLac', src === 'lactate'), pet: pick('cPet', false) }, research: { gas: pick('rGas', true), lac: pick('rLac', true), pet: pick('rPet', false) } }; }
   function reportsHTML() {
     const rep = repInfo(), inc = S.proto.type === 'incremental' && S.D.inc && S.I, se = inc ? lacSeries()[0] : null, hasLac = se && lacAnalyse(se).fit;
-    const f = (id, lab, val, w) => `<label class="f"><span>${lab}</span><input id="${id}" value="${esc(val || '')}" ${w ? `style="width:${w}"` : ''}></label>`;
-    return `<div class="form">${f('rTitle', 'Report heading', rep.title)}${f('rTester', 'Tester', rep.tester)}${f('rDob', 'Date of birth', rep.dob)}${f('rHt', 'Height (cm)', rep.height)}
-        <label class="f"><span>Thresholds in the client report</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''}>Gas (VT1, VT2)</option></select></label>
-        <label class="f" style="grid-column:span 2"><span>Protocol (as written in the report)</span><textarea id="rProt" rows="2">${esc(rep.protocol || (inc ? protocolText() : ''))}</textarea></label></div>
-      ${(() => { const fg = repFigs(!!hasLac), bx = (k, on, lab, dis) => `<label class="chk"><input type="checkbox" data-rfig="${k}" ${on && !dis ? 'checked' : ''} ${dis ? 'disabled' : ''}>${lab}</label>`, gasL = 'Breathing chart (VE/VO₂ and VE/VCO₂ against time, with VT1 and VT2)', lacL = 'Lactate curve (with LT1 and LT2)', petL = 'End-tidal CO₂ (PETCO₂ against time, with VT1 and VT2)', noPet = !inc || !hasPet(), anyLac = lacUsed();
-        return `<div class="tools"><span>Figures in the client report:</span>${bx('cGas', fg.client.gas, gasL, !inc)}${bx('cLac', fg.client.lac, lacL, !hasLac)}${bx('cPet', fg.client.pet, petL, noPet)}</div><div class="tools"><span>Figures in the research report:</span>${bx('rGas', fg.research.gas, gasL, !inc)}${bx('rLac', fg.research.lac, lacL, !anyLac)}${bx('rPet', fg.research.pet, petL, noPet)}</div>`; })()}
-      <div class="tools"><button class="primary" id="rClient" ${inc ? '' : 'disabled title="The client report is for incremental tests"'}>Client report (Word)</button><button id="rResearch">Research report (Word)</button><span class="hint" id="rMsg">${inc ? '' : 'The client report is for incremental tests.'}</span></div>`;
+    const f = (id, lab, val) => `<label>${lab}<input id="${id}" value="${esc(val || '')}"></label>`;
+    const fg = repFigs(!!hasLac), noPet = !inc || !hasPet(), anyLac = lacUsed();
+    const bx = (k, on, lab, dis, why) => `<label class="chk" ${dis ? `title="${why}"` : ''}><input type="checkbox" data-rfig="${k}" ${on && !dis ? 'checked' : ''} ${dis ? 'disabled' : ''}>${lab}</label>`;
+    const figs = (pre, o, lacOff) => `<div class="replab">Figures to include</div><div class="repfigs">${bx(pre + 'Gas', o.gas, 'Breathing chart, with VT1 and VT2', !inc, 'For incremental tests')}${bx(pre + 'Lac', o.lac, 'Lactate curve, with LT1 and LT2', lacOff, 'Enter lactate values first')}${bx(pre + 'Pet', o.pet, 'End-tidal CO₂ chart, with VT1 and VT2', noPet, 'Needs PETCO₂ from an incremental test')}</div>`;
+    return `<div class="repform">${f('rTitle', 'Report heading', rep.title)}${f('rTester', 'Tester', rep.tester)}${f('rDob', 'Date of birth', rep.dob)}${f('rHt', 'Height (cm)', rep.height)}
+        <label style="grid-column:1/-1">Protocol, as written in the report<textarea id="rProt" rows="2">${esc(rep.protocol || (inc ? protocolText() : ''))}</textarea></label></div>
+      <div class="repcards">
+        <div class="repcard"><h4>Client report</h4><p class="hint">${inc ? 'One or two pages in everyday language, with training zones.' : 'Only for incremental tests.'}</p>
+          <div class="repsrc"><span>Thresholds from</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''}>Gas (VT1, VT2)</option></select></div>
+          ${figs('c', fg.client, !hasLac)}<button id="rClient" ${inc ? '' : 'disabled title="The client report is for incremental tests"'}>Make the client report (Word)</button></div>
+        <div class="repcard"><h4>Research report</h4><p class="hint">Peak values, thresholds with their status, stage tables and methods.</p>
+          ${figs('r', fg.research, !anyLac)}<button id="rResearch">Make the research report (Word)</button></div>
+      </div><p class="hint" id="rMsg" style="margin:0"></p>`;
   }
   function bindReports() {
     const rep = repInfo(), on = (id, k, store) => { const el = $(id); if (el) el.onchange = () => { rep[k] = el.value; if (store) try { localStorage.setItem(store, el.value); } catch (e) { /* private window */ } }; };
-    on('#rTitle', 'title', 'labcpet.reptitle'); on('#rTester', 'tester', 'labcpet.tester'); on('#rDob', 'dob'); on('#rHt', 'height'); on('#rProt', 'protocol'); on('#rSrc', 'src');
+    on('#rTitle', 'title', 'labcpet.reptitle'); on('#rTester', 'tester', 'labcpet.tester'); on('#rDob', 'dob'); on('#rHt', 'height'); on('#rProt', 'protocol'); if ($('#rSrc')) $('#rSrc').onchange = () => { rep.src = $('#rSrc').value; const fg = repFigs(true).client; [['cGas', fg.gas], ['cLac', fg.lac]].forEach(([k, v]) => { const el = $(`[data-rfig=${k}]`); if (el && !el.disabled) el.checked = v; }); };
     $$('[data-rfig]').forEach(el => (el.onchange = () => { rep.figs = Object.assign({}, rep.figs, { [el.dataset.rfig]: el.checked }); }));
     const go = async (fn, name) => { const msg = $('#rMsg'), un = results().thr.filter(r => r.status !== 'checked'); msg.textContent = 'Making the report…'; try { if (S.oxy && !S.oxy.done) await S.oxy.promise; const blob = await fn(); download(blob, stem() + name); msg.textContent = 'Report saved. Open it in Word to check and edit the wording.' + (un.length ? ` Note: ${un.map(r => r.threshold).join(', ')} ${un.length > 1 ? 'are' : 'is'} still the tool’s suggestion, not checked.` : ''); } catch (e) { console.error(e); msg.textContent = 'Could not make the report: ' + e.message; } };
     if ($('#rClient')) $('#rClient').onclick = () => go(clientReport, '_client_report.docx');

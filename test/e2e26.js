@@ -7,15 +7,14 @@ let fail=0;const ok=(c,m)=>{console.log((c?'  ok ':'  FAIL ')+m);if(!c)fail++;};
  await pg.click('[data-tab=lactate]');await pg.waitForTimeout(800);
  const st=()=>pg.evaluate(()=>({base:LabApp.S.set.lac.baseline,fit:LabApp.S.set.lac.fit,lt1:LabApp.S.set.lac.lt1,marked:(document.querySelector('#lc0').data[2]||{x:[]}).x.length,ticked:document.querySelectorAll('#lms0 [data-lshow]:checked').length,tiles:document.querySelector('#lt0').innerText}));
  const s0=await st();ok(s0.marked===2&&s0.ticked===2,'chart starts with only the two starting methods marked: '+s0.marked);
- await pg.click('#lms0 [data-lshow="OBLA 4.0"]');await pg.waitForTimeout(500);const s1=await st();ok(s1.marked===3&&s1.ticked===3,'ticking a method marks it on the chart');
+ await pg.click('#lms0 [data-lshow="OBLA 4.0"]');await pg.waitForTimeout(500);const s1=await st();ok(s1.marked===3&&s1.ticked===3,'ticking a method marks it on the chart');ok(await pg.evaluate(()=>document.activeElement&&document.activeElement.dataset.lshow)==='OBLA 4.0','the tab is not redrawn when a box is ticked');
  await pg.click('#lms0 [data-lall="1"]');await pg.waitForTimeout(500);ok((await st()).marked>8,'All marks every method');
  await pg.click('#lms0 [data-lall="0"]');await pg.waitForTimeout(500);ok((await st()).marked===2,'back to the starting methods');
  const pos=await pg.evaluate(()=>{const t=document.querySelector('.lacT').getBoundingClientRect(),c=document.querySelector('#lc0').getBoundingClientRect();return c.top>t.bottom&&c.width>700;});ok(pos,'chart sits under the table, wide');
  await pg.selectOption('#lBase','1');await pg.waitForTimeout(500);const s2=await st();ok(s2.base&&s2.tiles!==s1.tiles,'Baseline in the fit changes the result');
  await pg.selectOption('#lFit','poly4');await pg.waitForTimeout(500);const s3=await st();ok(s3.fit==='poly4','curve fit changes');
- await pg.selectOption('#lD1','OBLA 2.0');await pg.waitForTimeout(500);const s4=await st();ok(s4.lt1==='OBLA 2.0'&&/OBLA 2\.0/.test(s4.tiles),'starting LT1 method changes the LT1 tile');
- // undo brings the settings back
- await pg.waitForTimeout(600);await pg.evaluate(()=>document.activeElement.blur());await pg.keyboard.press('Control+z');await pg.waitForTimeout(800);ok((await pg.evaluate(()=>LabApp.S.set.lac.lt1))==='Log-log','undo restores the starting method');
+ ok(await pg.$('#lD1')===null,'no starting-method menus');
+ await pg.waitForTimeout(600);await pg.evaluate(()=>document.activeElement.blur());await pg.keyboard.press('Control+z');await pg.waitForTimeout(800);ok((await pg.evaluate(()=>LabApp.S.set.lac.fit))==='poly3','undo restores the curve fit');
  // Enter moves down, Tab across, values land in the right rows
  await pg.click('[data-lk="la:b"]');await pg.evaluate(()=>document.activeElement.select());await pg.keyboard.type('1.1');await pg.keyboard.press('Enter');await pg.waitForTimeout(300);
  ok(await pg.evaluate(()=>document.activeElement.dataset.lk)==='la:0','Enter moves to the next row');
@@ -28,7 +27,7 @@ let fail=0;const ok=(c,m)=>{console.log((c?'  ok ':'  FAIL ')+m);if(!c)fail++;};
  ok(await pg.evaluate(()=>LabApp.S.set.lac.series.inc.extra.length)===3,'three rows added without moving the mouse');
  // Baseline label and chart height
  const ticks=await pg.$$eval('#lc0 .xtick text',x=>x.map(t=>t.textContent));ok(ticks[0]==='Baseline','x-axis says Baseline: '+ticks.slice(0,3).join(', '));
- await pg.evaluate(()=>{document.querySelector('#lc0').style.height='480px'});await pg.waitForTimeout(500);
+ {await pg.$eval('[data-lsize="0"]',e=>e.scrollIntoView({block:'center'}));await pg.waitForTimeout(200);const bb=await (await pg.$('[data-lsize="0"]')).boundingBox(),h0=await pg.evaluate(()=>document.querySelector('#lc0').getBoundingClientRect().height);await pg.mouse.move(bb.x+bb.width/2,bb.y+7);await pg.mouse.down();await pg.mouse.move(bb.x+bb.width/2,bb.y+7+60,{steps:6});await pg.waitForTimeout(100);const live=await pg.evaluate(()=>document.querySelector('#lc0 .main-svg').getBoundingClientRect().height);await pg.mouse.move(bb.x+bb.width/2,bb.y+7+(480-h0),{steps:4});await pg.mouse.up();await pg.waitForTimeout(300);ok(Math.abs(live-(h0+60))<4,'the chart follows the bar while it is dragged');}
  await pg.selectOption('#lFit','poly3');await pg.waitForTimeout(500);ok(Math.round(await pg.evaluate(()=>document.querySelector('#lc0').getBoundingClientRect().height))===480,'chart height is kept after a redraw');
  await pg.screenshot({path:out+'z_lac.png',fullPage:true});
  // shorter stages at the end get no row
