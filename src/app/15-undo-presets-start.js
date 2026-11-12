@@ -81,5 +81,5 @@
   }
   fillStartPresets();
   setupInfo();
-  window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse }, _rep: { clientReport, researchReport } };
+  window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse, rows: lacRows }, _rep: { clientReport, researchReport } };
 })();

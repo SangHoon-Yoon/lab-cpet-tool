@@ -1,7 +1,8 @@
   /* ---------------- Word reports ----------------
      Client report: the clinic template, in everyday language, for incremental tests. Research report: results, stages, thresholds, figures and methods. */
   const DX = window.LabDocx;
-  const repInfo = () => { const r = S.meta.rep = Object.assign({ title: (() => { try { return localStorage.getItem('labcpet.reptitle') || 'Exercise test report'; } catch (e) { return 'Exercise test report'; } })(), src: null, dob: '', height: '', protocol: '' }, S.meta.rep || {}); if (r.tester === undefined) { try { r.tester = localStorage.getItem('labcpet.tester') || ''; } catch (e) { r.tester = ''; } } if (!r.height && S.gas.meta && F(S.gas.meta.height)) r.height = String(S.gas.meta.height); return r; };
+  // The report settings. Missing ones are filled in on the SAME object, so a form that holds it keeps changing the live settings.
+  const repInfo = () => { const r = S.meta.rep = S.meta.rep || {}, d = { title: (() => { try { return localStorage.getItem('labcpet.reptitle') || 'Exercise test report'; } catch (e) { return 'Exercise test report'; } })(), src: null, dob: '', height: '', protocol: '' }; Object.keys(d).forEach(k => { if (r[k] === undefined) r[k] = d[k]; }); if (r.tester === undefined) { try { r.tester = localStorage.getItem('labcpet.tester') || ''; } catch (e) { r.tester = ''; } } if (!r.height && S.gas.meta && F(S.gas.meta.height)) r.height = String(S.gas.meta.height); return r; };
   // A picture of a Plotly chart, drawn off screen in print colours.
   async function figPNG(traces, layout, w, h) {
     const div = document.createElement('div'); div.style.cssText = `position:fixed;left:-10000px;top:0;width:${w}px;height:${h}px`; document.body.appendChild(div);
@@ -17,7 +18,7 @@
     if (res.hasBase) ann.push({ x: d[0].p, y: d[0].la, text: 'Baseline', showarrow: true, arrowhead: 2, ax: 0, ay: -40, font: { size: 13 } });
     const pts = ['lt1', 'lt2'].map(q => ltVal(se, res, q)).filter(F);
     return figPNG([{ x: res.fit.x, y: res.fit.y, mode: 'lines', line: { color: '#E8336D', width: 2.5 } }, { x: d.map(r => r.p), y: d.map(r => r.la), mode: 'markers', marker: { size: 11, color: '#fff', line: { color: '#000', width: 1.5 } } }, { x: pts, y: pts.map(p => res.fit.model.predict(p)), mode: 'markers', marker: { size: 10, color: '#555' } }],
-      ax => ({ xaxis: ax(isRun ? 'Running speed (km/h)' : 'Power (W)'), yaxis: ax('Lactate (mmol/L)', { rangemode: 'tozero' }), shapes, annotations: ann, margin: { l: 64, r: 16, t: 36, b: 56 } }), w, h);
+      ax => ({ xaxis: ax(isRun ? 'Running speed (km/h)' : 'Power (W)', lacTicks(res)), yaxis: ax('Lactate (mmol/L)', { rangemode: 'tozero' }), shapes, annotations: ann, margin: { l: 64, r: 16, t: 36, b: 56 } }), w, h);
   }
   // Ventilatory equivalents against time with the VT lines, for reports without lactate and for the research report.
   async function gasFigure(w = 600, h = 380) {
@@ -88,10 +89,18 @@
     }
     if (zh.length > 1) B.push(DX.table(zh, isRun ? [1900, 1500, 1500, 1500, 1500] : [2100, 1950, 1950, 1950], { lastLine: true }));
     B.push(DX.para(DX.rich('HR, heart rate; RPE, rating of perceived exertion.', { i: true, sz: 11 }), { after: 6 }));
-    B.push(DX.para(c.src === 'lactate' ? `Here is a figure showing how your lactate changed as you ${isRun ? 'ran faster' : 'rode harder'} across the stages. Your first (LT1) and second (LT2) lactate thresholds are shown.` : 'Here is a figure showing how your breathing changed relative to the oxygen you used and the carbon dioxide you breathed out. Your first (VT1) and second (VT2) ventilatory thresholds are shown.', { jc: 'both', keep: true }));
-    const png = c.src === 'lactate' ? await lactateFigure(c.se, c.res) : await gasFigure();
-    B.push(DX.picture(doc, png, 600, c.src === 'lactate' ? 400 : 380, 14, { frame: true }));
-    B.push(DX.para(DX.rich(c.src === 'lactate' ? 'LT1, lactate threshold 1; LT2, lactate threshold 2' : 'VT1, ventilatory threshold 1; VT2, ventilatory threshold 2; VE, ventilation; VO₂, oxygen uptake; VCO₂, carbon dioxide output', { i: true, sz: 11 })));
+    // figures: by default the one that matches the thresholds used; the Reports form can add or remove either
+    const fg = repFigs(c.hasLac).client;
+    if (fg.lac && c.hasLac) {
+      B.push(DX.para(`Here is a figure showing how your lactate changed as you ${isRun ? 'ran faster' : 'rode harder'} across the stages. Your first (LT1) and second (LT2) lactate thresholds are shown.`, { jc: 'both', keep: true }));
+      B.push(DX.picture(doc, await lactateFigure(c.se, c.res), 600, 400, 14, { frame: true }));
+      B.push(DX.para(DX.rich('LT1, lactate threshold 1; LT2, lactate threshold 2', { i: true, sz: 11 })));
+    }
+    if (fg.gas) {
+      B.push(DX.para('Here is a figure showing how your breathing changed relative to the oxygen you used and the carbon dioxide you breathed out. Your first (VT1) and second (VT2) ventilatory thresholds are shown.', { jc: 'both', keep: true }));
+      B.push(DX.picture(doc, await gasFigure(), 600, 380, 14, { frame: true }));
+      B.push(DX.para(DX.rich('VT1, ventilatory threshold 1; VT2, ventilatory threshold 2; VE, ventilation; VO₂, oxygen uptake; VCO₂, carbon dioxide output', { i: true, sz: 11 })));
+    }
     const pk = D.peak.vo2kg, mx = S.proto.max ? 'VO₂max' : 'VO₂peak';
     B.push(DX.para('', { after: 0 }), DX.heading(mx));
     B.push(DX.para(pk ? `Your ${S.proto.max ? 'maximum' : 'peak'} rate of oxygen uptake (${mx}) was ${pk.value.toFixed(1)} ml/kg/min.` : 'Oxygen uptake was not available.', { jc: 'both' }));
@@ -123,29 +132,34 @@
     tests.forEach(t => {
       B.push(DX.para('', { after: 0 }), DX.heading('Stages' + (tests.length > 1 ? ' – ' + t.replace(/_/g, ' ') : '')));
       const rows = [{ ...H, cells: [`${I ? I.label : 'Intensity'} (${u})`, 'VO₂ (L/min)', 'VO₂ (mL/kg/min)', 'HR (bpm)', 'RER', 'VE (L/min)', 'Lactate (mmol/L)', 'RPE'].map(x => ({ text: x, sz: 9 })) }];
-      R.stages.filter(r => r.test === t).forEach((r, i) => { const lr = (lacBy[t] || [])[i] || {}; rows.push({ fill: alt(i), cells: [v(r.intensity, u === 'W' ? 0 : 1), v(r.vo2_L_min, 2), v(r.vo2_mL_kg_min, 1), v(r.hr_bpm, 0), v(r.rer, 2), v(r.ve_L_min, 1), F(lr.la) ? (+lr.la).toFixed(1) : '–', F(lr.rpe) ? String(lr.rpe) : (r.rpe !== '' && r.rpe !== undefined ? String(r.rpe) : '–')].map(x => ({ text: x, sz: 9 })) }); });
+      R.stages.filter(r => r.test === t).forEach((r, i) => { const lr = (lacBy[t] || []).find(x => x.i === i) || {}; rows.push({ fill: alt(i), cells: [v(r.intensity, u === 'W' ? 0 : 1), v(r.vo2_L_min, 2), v(r.vo2_mL_kg_min, 1), v(r.hr_bpm, 0), v(r.rer, 2), v(r.ve_L_min, 1), F(lr.la) ? (+lr.la).toFixed(1) : '–', F(lr.rpe) ? String(lr.rpe) : (r.rpe !== '' && r.rpe !== undefined ? String(r.rpe) : '–')].map(x => ({ text: x, sz: 9 })) }); });
       B.push(DX.table(rows, [1250, 1150, 1250, 1050, 950, 1150, 1250, 900], { lastLine: true }));
     });
     // figures
-    const figs = [];
-    if (pr.type === 'incremental' && D.inc) figs.push(['Ventilatory equivalents against time, with VT1 and VT2.', await gasFigure(600, 360), 600, 360]);
-    for (const se of lacSeries()) { const res = lacAnalyse(se); if (res.fit) figs.push([`Lactate against ${I.unit === 'W' ? 'power' : 'speed'}${lacSeries().length > 1 ? ' (' + se.name + ')' : ''}, with LT1 and LT2 (${LM.FITS[lacSet().fit].toLowerCase()}).`, await lactateFigure(se, res, 600, 360), 600, 360]); }
+    const figs = [], fg = repFigs(true).research;
+    if (fg.gas && pr.type === 'incremental' && D.inc) figs.push(['Ventilatory equivalents against time, with VT1 and VT2.', await gasFigure(600, 360), 600, 360]);
+    if (fg.lac) for (const se of lacSeries()) { const res = lacAnalyse(se); if (res.fit) figs.push([`Lactate against ${I.unit === 'W' ? 'power' : 'speed'}${lacSeries().length > 1 ? ' (' + se.name + ')' : ''}, with LT1 and LT2 (${LM.FITS[lacSet().fit].toLowerCase()}).`, await lactateFigure(se, res, 600, 360), 600, 360]); }
     if (figs.length) { B.push(DX.para('', { after: 0 }), DX.heading('Figures')); figs.forEach(([cap, png, w, h]) => { B.push(DX.picture(doc, png, w, h, 15)); B.push(DX.para(DX.rich(cap, { i: true, sz: 10 }), { jc: 'center' })); }); }
     const warn = (S.checks || []).filter(x => x.level === 'warn'); if (warn.length) { B.push(DX.para('', { after: 0 }), DX.heading('Data checks')); warn.forEach(x => B.push(DX.para('! ' + x.text, { jc: 'both' }))); }
     B.push(DX.para('', { after: 0 }), DX.heading('Methods')); B.push(DX.para(methodsText(), { jc: 'both' })); B.push(DX.para(DX.rich(CAVEAT, { i: true, sz: 9 })));
     return DX.pack(doc, { title: 'Exercise test report – ' + m.name, creator: 'Lab CPET tool', a4: true });
   }
+  // Which figures go in each report. Until a box is ticked or unticked, the client report gets the figure that matches its thresholds and the research report gets every figure.
+  function repFigs(hasLac) { const f = repInfo().figs || {}, src = repInfo().src === 'gas' || !hasLac ? 'gas' : 'lactate', pick = (k, d) => (f[k] === undefined ? d : !!f[k]); return { client: { gas: pick('cGas', src === 'gas'), lac: pick('cLac', src === 'lactate') }, research: { gas: pick('rGas', true), lac: pick('rLac', true) } }; }
   function reportsHTML() {
     const rep = repInfo(), inc = S.proto.type === 'incremental' && S.D.inc && S.I, se = inc ? lacSeries()[0] : null, hasLac = se && lacAnalyse(se).fit;
     const f = (id, lab, val, w) => `<label class="f"><span>${lab}</span><input id="${id}" value="${esc(val || '')}" ${w ? `style="width:${w}"` : ''}></label>`;
     return `<div class="form">${f('rTitle', 'Report heading', rep.title)}${f('rTester', 'Tester', rep.tester)}${f('rDob', 'Date of birth', rep.dob)}${f('rHt', 'Height (cm)', rep.height)}
         <label class="f"><span>Thresholds in the client report</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''}>Gas (VT1, VT2)</option></select></label>
         <label class="f" style="grid-column:span 2"><span>Protocol (as written in the report)</span><textarea id="rProt" rows="2">${esc(rep.protocol || (inc ? protocolText() : ''))}</textarea></label></div>
+      ${(() => { const fg = repFigs(!!hasLac), bx = (k, on, lab, dis) => `<label class="chk"><input type="checkbox" data-rfig="${k}" ${on && !dis ? 'checked' : ''} ${dis ? 'disabled' : ''}>${lab}</label>`, gasL = 'Breathing chart (VE/VO₂ and VE/VCO₂ against time, with VT1 and VT2)', lacL = 'Lactate curve (with LT1 and LT2)', anyLac = lacUsed();
+        return `<div class="tools"><span>Figures in the client report:</span>${bx('cGas', fg.client.gas, gasL, !inc)}${bx('cLac', fg.client.lac, lacL, !hasLac)}</div><div class="tools"><span>Figures in the research report:</span>${bx('rGas', fg.research.gas, gasL, !inc)}${bx('rLac', fg.research.lac, lacL, !anyLac)}</div>`; })()}
       <div class="tools"><button class="primary" id="rClient" ${inc ? '' : 'disabled title="The client report is for incremental tests"'}>Client report (Word)</button><button id="rResearch">Research report (Word)</button><span class="hint" id="rMsg">${inc ? '' : 'The client report is for incremental tests.'}</span></div>`;
   }
   function bindReports() {
     const rep = repInfo(), on = (id, k, store) => { const el = $(id); if (el) el.onchange = () => { rep[k] = el.value; if (store) try { localStorage.setItem(store, el.value); } catch (e) { /* private window */ } }; };
     on('#rTitle', 'title', 'labcpet.reptitle'); on('#rTester', 'tester', 'labcpet.tester'); on('#rDob', 'dob'); on('#rHt', 'height'); on('#rProt', 'protocol'); on('#rSrc', 'src');
+    $$('[data-rfig]').forEach(el => (el.onchange = () => { rep.figs = Object.assign({}, rep.figs, { [el.dataset.rfig]: el.checked }); }));
     const go = async (fn, name) => { const msg = $('#rMsg'), un = results().thr.filter(r => r.status !== 'checked'); msg.textContent = 'Making the report…'; try { if (S.oxy && !S.oxy.done) await S.oxy.promise; const blob = await fn(); download(blob, stem() + name); msg.textContent = 'Report saved. Open it in Word to check and edit the wording.' + (un.length ? ` Note: ${un.map(r => r.threshold).join(', ')} ${un.length > 1 ? 'are' : 'is'} still the tool’s suggestion, not checked.` : ''); } catch (e) { console.error(e); msg.textContent = 'Could not make the report: ' + e.message; } };
     if ($('#rClient')) $('#rClient').onclick = () => go(clientReport, '_client_report.docx');
     $('#rResearch').onclick = () => go(researchReport, '_research_report.docx');

@@ -179,7 +179,10 @@ details.sub>summary{cursor:pointer;font-weight:600;font-size:.92rem;display:flex
 details.sub>summary .hint{font-weight:400}
 details.sub[open]>summary{margin-bottom:6px}
 /* threshold status */
-.tstat{display:inline-block;font-size:.72rem;font-weight:600;padding:1px 7px;border-radius:10px;vertical-align:middle;white-space:nowrap}
+.tstat{display:inline-block;font-size:.72rem;font-weight:600;padding:1px 7px;border-radius:10px;vertical-align:middle;max-width:100%}
+.stat{overflow-wrap:anywhere}
+.stat .tconf{margin:2px 0 0 0}
+.chart.sizable{resize:vertical;overflow:hidden;min-height:200px;max-height:900px}
 .tstat.sug{color:var(--warn);border:1px solid var(--warn)}
 .tstat.ok{color:#2f7d32;border:1px solid #2f7d32}
 .tconf{font-size:.72rem;padding:1px 8px;margin-left:4px;vertical-align:middle}
@@ -1881,7 +1884,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.23.4', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.24.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -2183,7 +2186,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       ${need ? '<p class="hint">This COSMED file has no power recording. Enter the steps here, or <button id="bAddLode">add the Lode file</button>. Times are from the start of the COSMED recording.</p>' : ''}
       <div class="form">
         <label class="f"><span>Unit</span><select id="plU"><option value="W">W (cycling)</option><option value="km/h">km/h (treadmill)</option></select></label>
-        ${fld('plWm', 'Warm-up length (min)', q.warmMin)}${fld('plWp', `Warm-up intensity (${uu}, optional)`, q.warmP)}
+        ${fld('plWm', 'Warm-up length (min, optional)', q.warmMin)}${fld('plWp', `Warm-up intensity (${uu}, optional)`, q.warmP)}
         ${fld('plS', `Starting intensity (${uu})`, q.startP)}${fld('plI', `Increment (${uu})`, q.inc)}${fld('plD', 'Stage length (min)', q.stageMin)}
         <label class="f"><span>Shorter stages at the end</span><select id="plHasSh"><option value="0">No</option><option value="1" ${F(q.switchP) || F(q.switchMin) ? 'selected' : ''}>Yes</option></select></label>
         ${fld('plSw', `Shorter stages started at (${uu})`, q.switchP)}${fld('plSd', 'Shorter stage length (min)', q.shortMin)}
@@ -2839,7 +2842,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
      but either pair can be copied to the other through the VO₂–intensity regression. */
   const LM = window.LabLactate;
   const LT_METHODS = ['Log-log', 'OBLA 2.0', 'OBLA 2.5', 'OBLA 3.0', 'OBLA 3.5', 'OBLA 4.0', 'Bsln + 0.5', 'Bsln + 1.0', 'Bsln + 1.5', 'Dmax', 'ModDmax', 'Exp-Dmax', 'Log-Poly-ModDmax', 'Log-Exp-ModDmax', 'LTP1', 'LTP2', 'LTratio'];
-  const lacSet = () => (S.set.lac = Object.assign({ fit: 'poly3', baseline: false, restrain: 0.75, lt1: 'Log-log', lt2: 'ModDmax', show: true, series: {} }, S.set.lac || {}));
+  // The lactate settings. Missing ones are filled in on the SAME object, so anything holding it keeps seeing later changes.
+  const lacSet = () => { const o = S.set.lac = S.set.lac || {}, d = { fit: 'poly3', baseline: false, restrain: 0.75, lt1: 'Log-log', lt2: 'ModDmax', show: true }; Object.keys(d).forEach(k => { if (o[k] === undefined) o[k] = d[k]; }); o.series = o.series || {}; return o; };
   // One series per lactate curve: the incremental test, or each step test. fit maps VO₂ (L/min) to intensity.
   function lacSeries() {
     const pr = S.proto, D = S.D, out = [];
@@ -2854,8 +2858,11 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   // The rows of a series: the resting baseline, each stage (an unfinished last stage gets a pro-rated intensity, as in Exphyslab) and any added rows.
   function lacRows(se) {
     const ls = lacSet(), sv = ls.series[se.key] || {}, ent = sv.rows || {}, rows = [];
+    // Lactate is taken at the end of the longer stages, so shorter (for example 1-min) stages at the end get no row unless a value was already entered.
+    const longs = se.stages.filter(q => q.dur >= 120).map(q => q.dur), usual = longs.length ? C.median(longs) : NaN, isShort = q => F(usual) && q.dur < 0.6 * usual;
     se.stages.forEach((q, i) => {
-      const prev = se.stages[i - 1], last = i === se.stages.length - 1, part = last && prev && q.dur < 0.9 * prev.dur;
+      const prev = se.stages[i - 1], last = i === se.stages.length - 1, part = last && prev && q.dur < 0.9 * prev.dur, e0 = ent[i] || {};
+      if (isShort(q) && !(last && prev && !isShort(prev)) && !F(e0.la)) return;
       const auto = part ? +(prev.p + (q.p - prev.p) * q.dur / prev.dur).toFixed(2) : q.p, e = ent[i] || {};
       rows.push({ i, label: 'Stage ' + (i + 1) + (part ? ' (part)' : ''), stageP: q.p, part, autoP: auto, p: F(e.p) ? e.p : auto, autoHr: F(q.hr) ? Math.round(q.hr) : NaN, hr: F(e.hr) ? e.hr : F(q.hr) ? Math.round(q.hr) : NaN, autoRpe: q.rpe, rpe: F(e.rpe) ? e.rpe : q.rpe, la: e.la });
     });
@@ -2888,14 +2895,13 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
         <span>Log-log uses the first</span><input type="number" id="lRes" min="0.25" max="1" step="0.05" value="${ls.restrain}" style="width:4.5em"><span>of the data</span><span id="lacInfo"></span></div>
       <div class="tools"><span>Starting LT1:</span>${sel('lD1', LT_METHODS.map(m => [m, m]), ls.lt1)}<span>Starting LT2:</span>${sel('lD2', LT_METHODS.map(m => [m, m]), ls.lt2)}
         <label class="chk"><input type="checkbox" id="lShow" ${ls.show ? 'checked' : ''}>Show every method on the charts</label></div>
-      <ul class="notes" data-info="lacInfo"><li>Type the blood lactate (mmol/L) taken at the end of each stage, and the resting value as the baseline. Leave a stage empty if no sample was taken. To paste from Excel, copy the lactate column (or the lactate, heart-rate and RPE columns together), click the first box to fill, and paste: the values fill down the table. Intensity and heart rate are filled in from the test, and you can change them. An unfinished last stage gets a pro-rated intensity, as in Exphyslab.</li>
+      <ul class="notes" data-info="lacInfo"><li>Type the blood lactate (mmol/L) taken at the end of each stage, and the resting value as the baseline. Leave a stage empty if no sample was taken. Press Enter to move down a row and Tab to move across. Shorter stages at the end of a test (for example 1-min stages) get no row, because lactate is taken at the end of the longer stages; use Add a row if you did take one. To paste from Excel, copy the lactate column (or the lactate, heart-rate and RPE columns together), click the first box to fill, and paste: the values fill down the table. Intensity and heart rate are filled in from the test, and you can change them. An unfinished last stage gets a pro-rated intensity, as in Exphyslab.</li>
         <li>The thresholds use the methods of the open-source lactater R package by Felipe Mattioni Maturana, which Exphyslab also uses: Log-log, OBLA (fixed 2.0–4.0 mmol/L), baseline plus 0.5–1.5 mmol/L, the Dmax family, lactate turn points (LTP1 and LTP2) and LTratio. Dmax methods always use a 3rd degree polynomial or exponential fit without the baseline, as in lactater.</li>
         <li>The LT1 and LT2 lines start at the methods you choose above. Drag them, type a value, or click <b>LT1</b> or <b>LT2</b> next to any method. LT lines are kept apart from the VT lines; use the copy buttons to move one pair onto the other through the VO₂–${u === 'km/h' ? 'speed' : 'power'} regression.</li>
         <li>Check the values against your usual method (for example Exphyslab) before relying on them.</li></ul>
       ${series.length ? series.map((se, si) => `<h2 class="row">${esc(se.name)}<span>lactate curve</span></h2>
-        <div class="grid3"><div class="panel"><div class="tblwrap"><table class="lacT" data-si="${si}"><thead><tr><th>Stage</th><th>${I ? I.label : 'Intensity'} (${u})</th><th>Lactate (mmol/L)</th><th>Heart rate</th><th>RPE</th><th></th></tr></thead><tbody></tbody></table></div>
-          <div class="tools" style="padding:0 10px 8px"><button data-ladd="${si}">Add a row</button><span class="hint" id="lmsg${si}"></span></div></div>
-          <div class="panel"><h3>Lactate against ${I ? I.label.toLowerCase() : 'intensity'}</h3><div class="chart mid" id="lc${si}"></div>
+        <div class="grid3"><div class="panel"><div class="tools" style="padding:8px 10px 0"><button data-ladd="${si}">Add a row</button><span class="hint" id="lmsg${si}"></span></div><div class="tblwrap"><table class="lacT" data-si="${si}"><thead><tr><th>Stage</th><th>${I ? I.label : 'Intensity'} (${u})</th><th>Lactate (mmol/L)</th><th>Heart rate</th><th>RPE</th><th></th></tr></thead><tbody></tbody></table></div></div>
+          <div class="panel"><h3>Lactate against ${I ? I.label.toLowerCase() : 'intensity'}</h3><div class="chart mid sizable" id="lc${si}" style="height:${ls.chartH || 320}px" title="Drag the bottom-right corner to change the chart's height"></div>
             <div class="stats" id="lt${si}" style="padding:4px 10px 0"></div><div class="tools" id="lcp${si}" style="padding:0 10px 10px"></div></div></div>
         <details class="box fold" data-fold="lm${si}" ${openFolds.has('lm' + si) ? 'open' : ''}><summary>Every method<span>intensity, lactate and heart rate</span></summary><div class="foldbody"><div class="tblwrap"><table id="lmT${si}"></table></div></div></details>`).join('') : '<p class="msg">No stages were found. Check Test details.</p>'}`;
     const re = () => { vLactate(); summaries(); };
@@ -2907,7 +2913,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   function lacPanel(se, si, dp) {
     const ls = lacSet(), I = S.I, u = I ? I.unit : '', sv = ls.series[se.key] = ls.series[se.key] || {}, { base, rows } = lacRows(se), res = lacAnalyse(se);
     const num = (v, d) => (F(v) ? (+v).toFixed(d) : ''), inp = (k, v, ph, w) => `<input type="number" step="any" data-lk="${k}" value="${trim0(num(v, k.startsWith('la') ? 2 : k.startsWith('hr') || k.startsWith('rpe') ? 0 : 2))}" placeholder="${ph}" style="width:${w || 5.5}em">`;
-    const tb = $(`.lacT[data-si="${si}"] tbody`), focusK = document.activeElement && tb.contains(document.activeElement) ? document.activeElement.dataset.lk : null;
+    const gd0 = document.getElementById('lc' + si), tb = $(`.lacT[data-si="${si}"] tbody`), focusK = document.activeElement && tb.contains(document.activeElement) ? document.activeElement.dataset.lk : null;
     tb.innerHTML = `<tr><td>Rest (baseline)</td><td>–</td><td>${inp('la:b', base.la, '')}</td><td>${inp('hr:b', base.hr, '', 4.5)}</td><td></td><td></td></tr>` +
       rows.map(r => `<tr><td>${r.label}</td><td>${inp('p:' + r.i, r.p, r.autoP ?? '')}</td><td>${inp('la:' + r.i, r.la, '')}</td><td>${inp('hr:' + r.i, r.hr, r.autoHr ?? '', 4.5)}</td><td>${inp('rpe:' + r.i, r.rpe, r.autoRpe ?? '', 3.5)}</td><td>${r.extra !== undefined ? `<button class="rm" data-lrm="${r.extra}" title="Remove this row" aria-label="Remove this row">×</button>` : ''}</td></tr>`).join('');
     $$(`.lacT[data-si="${si}"] input`).forEach(el => (el.onchange = () => {
@@ -2917,7 +2923,14 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       else { sv.rows = sv.rows || {}; const o = sv.rows[id] = Object.assign({}, sv.rows[id]); if (F(v)) o[k] = v; else delete o[k]; }
       setTimeout(() => { lacPanel(se, si, dp); summaries(); }, 0); // after the box has lost focus; the box being typed in keeps focus
     }));
-    if (focusK) { const el = tb.querySelector(`[data-lk="${focusK}"]`); if (el) el.focus(); }
+    // Enter moves to the same column in the next row (Shift+Enter moves up); Tab moves across as usual.
+    tb.onkeydown = ev => {
+      if (ev.key !== 'Enter') return; const el = ev.target.closest('[data-lk]'); if (!el) return; ev.preventDefault();
+      const col = el.dataset.lk.split(':')[0], trs = [...tb.rows]; let j = trs.indexOf(el.closest('tr'));
+      for (j += ev.shiftKey ? -1 : 1; j >= 0 && j < trs.length; j += ev.shiftKey ? -1 : 1) { const nx = trs[j].querySelector(`[data-lk^="${col}:"]`); if (nx) { nx.focus(); nx.select(); return; } }
+      el.blur();
+    };
+    if (focusK) { const el = tb.querySelector(`[data-lk="${focusK}"]`); if (el) { el.focus(); el.select(); } }
     // Paste a column (or several columns) copied from Excel: values fill down from the box pasted into, and to the right.
     const rowIds = ['b', ...rows.map(r => String(r.i))], colIds = ['p', 'la', 'hr', 'rpe'];
     tb.onpaste = ev => {
@@ -2933,7 +2946,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       }));
       lacPanel(se, si, dp); summaries(); const m = $('#lmsg' + si); if (m) m.textContent = `Pasted ${n} value${n === 1 ? '' : 's'}. Check them against your sheet.`;
     };
-    $(`[data-ladd="${si}"]`).onclick = () => { sv.extra = (sv.extra || []).concat([{}]); lacPanel(se, si, dp); };
+    $(`[data-ladd="${si}"]`).onclick = () => { sv.extra = (sv.extra || []).concat([{}]); lacPanel(se, si, dp); const nx = tb.querySelector(`[data-lk="p:x${sv.extra.length - 1}"]`); if (nx) nx.focus(); };
+    if (!gd0._ro) { gd0._ro = new ResizeObserver(() => { const h = Math.round(gd0.getBoundingClientRect().height); if (h > 50 && Math.abs(h - (lacSet().chartH || 320)) > 2) { lacSet().chartH = h; if (gd0.data) Plotly.Plots.resize(gd0); } }); gd0._ro.observe(gd0); }
     $$(`.lacT[data-si="${si}"] [data-lrm]`).forEach(b => (b.onclick = () => { sv.extra.splice(+b.dataset.lrm, 1); lacPanel(se, si, dp); summaries(); }));
     $('#lmsg' + si).textContent = res.n ? res.problems.join(' ') + (res.hasBase ? '' : ' No baseline entered, so the baseline-plus methods are left out.') : 'Type the lactate values to see the curve and thresholds.';
     // chart
@@ -2941,13 +2955,13 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     const pts = res.fit ? res.fit.data : [], tr = [];
     if (res.fit) {
       tr.push({ x: res.fit.x, y: res.fit.y, mode: 'lines', type: 'scatter', line: { color: css('--ma'), width: 2 }, name: 'Fitted curve', hoverinfo: 'skip' });
-      tr.push({ x: pts.map(r => r.p), y: pts.map(r => r.la), mode: 'markers', type: 'scatter', marker: { color: css('--bg'), size: 9, line: { color: css('--fg'), width: 1.5 } }, name: 'Samples', hovertemplate: `%{x:.${dp}f} ${u}<br>%{y:.2f} mmol/L<extra></extra>` });
+      tr.push({ x: pts.map(r => r.p), y: pts.map(r => r.la), mode: 'markers', type: 'scatter', marker: { color: css('--bg'), size: 9, line: { color: css('--fg'), width: 1.5 } }, name: 'Samples', text: pts.map((r, i) => (res.hasBase && i === 0 ? 'Baseline (rest)' : (+r.p.toFixed(dp + 1)) + ' ' + u)), hovertemplate: `%{text}<br>%{y:.2f} mmol/L<extra></extra>` });
       if (lacSet().show) { const ms = res.methods.filter(m => F(m.p) && F(m.la)); tr.push({ x: ms.map(m => m.p), y: ms.map(m => m.la), text: ms.map(m => m.name), mode: 'markers', type: 'scatter', marker: { size: 8, color: ms.map((m, i) => css(['--t1', '--t2', '--t3', '--vt1', '--vt2', '--power'][i % 6])), line: { color: css('--bg'), width: 1 } }, name: 'Methods', hovertemplate: `%{text}<br>%{x:.${dp}f} ${u}, %{y:.1f} mmol/L<extra></extra>` }); }
     }
     const xs = pts.map(r => r.p), xr = xs.length ? [Math.min(...xs) - (Math.max(...xs) - Math.min(...xs)) * .05, Math.max(...xs) * 1.03] : [0, 1], ys = pts.map(r => r.la);
     const shapes = [], ann = [];
     if (se.fit) se.vtLines.forEach(q => { const v = se.vt(q), x = F(v) ? se.fit.m * v + se.fit.b : NaN; if (!F(x)) return; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: x, x1: x, y0: 0, y1: 1, line: { color: vtColor(q), width: 1.5, dash: 'dot' } }); ann.push({ xref: 'x', yref: 'paper', x, y: 0.02, xanchor: 'left', showarrow: false, text: q.toUpperCase() + ' (gas)', font: { size: 10, color: vtColor(q) } }); });
-    Plotly.newPlot(gd, tr, lay({ showlegend: false, margin: { l: 52, r: 12, t: 22, b: 44 }, xaxis: ax(`${I ? I.label : 'Intensity'} (${u})`, { range: xr }), yaxis: ax('Lactate (mmol/L)', { range: [0, Math.max(2, ...ys) * 1.1] }), shapes, annotations: ann }), FIGCFG);
+    Plotly.newPlot(gd, tr, lay({ showlegend: false, margin: { l: 52, r: 12, t: 22, b: 44 }, xaxis: ax(`${I ? I.label : 'Intensity'} (${u})`, Object.assign({ range: xr }, lacTicks(res))), yaxis: ax('Lactate (mmol/L)', { range: [0, Math.max(2, ...ys) * 1.1] }), shapes, annotations: ann }), FIGCFG);
     const ctx = { lines: res.fit ? ['lt1', 'lt2'] : [], charts: [], pts: { v: {} }, get: q => ltVal(se, res, q), set: (q, v) => setLT(se.key, q, Math.round(v * 100) / 100), toX: v => v, fromX: x => x, live: () => tiles(), done: () => { tiles(); summaries(); } };
     attachVT(gd, ctx, { x: 'p', y: [] });
     const tiles = () => {
@@ -2965,6 +2979,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     $('#lmT' + si).innerHTML = res.methods.length ? `<thead><tr><th>Method</th><th>Fit</th><th>${u}</th><th>Lactate</th><th>Heart rate</th><th>Use as</th></tr></thead><tbody>${res.methods.map(m => `<tr><td>${m.name}</td><td class="hint">${m.fitting}</td><td>${F(m.p) ? fx(m.p, dp + 1) : '<span class="hint">not found</span>'}</td><td>${F(m.la) ? fx(m.la, m.cat === 'Bsln+' ? 2 : 1) : ''}</td><td>${F(m.hr) ? m.hr : ''}</td><td>${F(m.p) ? `<button data-luse="lt1:${m.p}:${m.name}">LT1</button> <button data-luse="lt2:${m.p}:${m.name}">LT2</button>` : ''}</td></tr>`).join('')}</tbody>` : '<tbody><tr><td class="hint">No methods yet.</td></tr></tbody>';
     $$(`#lmT${si} [data-luse]`).forEach(b => (b.onclick = () => { const [q, v, ...nm] = b.dataset.luse.split(':'); setLT(se.key, q, +v, nm.join(':')); moveLines(ctx); tiles(); summaries(); }));
   }
+  // With a resting sample, the x-axis is labelled at each sample and the resting one reads "Baseline" (it is drawn one step before the first stage, where no stage was run).
+  function lacTicks(res) { if (!res.fit || !res.hasBase) return {}; const d = res.fit.data, k = Math.ceil((d.length - 1) / 12), keep = d.filter((r, i) => i === 0 || (i - 1) % k === 0); return { tickmode: 'array', tickvals: keep.map(r => r.p), ticktext: keep.map((r, i) => (i === 0 ? 'Baseline' : String(+r.p.toFixed(1)))) }; }
   const trim0 = t => (t.includes('.') ? t.replace(/0+$/, '').replace(/\.$/, '') : t); // 12.50 → 12.5, but 150 stays 150
   const pace = kmh => { if (!(kmh > 0)) return '–'; const s = Math.round(3600 / kmh); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
@@ -3128,7 +3144,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   /* ---------------- Word reports ----------------
      Client report: the clinic template, in everyday language, for incremental tests. Research report: results, stages, thresholds, figures and methods. */
   const DX = window.LabDocx;
-  const repInfo = () => { const r = S.meta.rep = Object.assign({ title: (() => { try { return localStorage.getItem('labcpet.reptitle') || 'Exercise test report'; } catch (e) { return 'Exercise test report'; } })(), src: null, dob: '', height: '', protocol: '' }, S.meta.rep || {}); if (r.tester === undefined) { try { r.tester = localStorage.getItem('labcpet.tester') || ''; } catch (e) { r.tester = ''; } } if (!r.height && S.gas.meta && F(S.gas.meta.height)) r.height = String(S.gas.meta.height); return r; };
+  // The report settings. Missing ones are filled in on the SAME object, so a form that holds it keeps changing the live settings.
+  const repInfo = () => { const r = S.meta.rep = S.meta.rep || {}, d = { title: (() => { try { return localStorage.getItem('labcpet.reptitle') || 'Exercise test report'; } catch (e) { return 'Exercise test report'; } })(), src: null, dob: '', height: '', protocol: '' }; Object.keys(d).forEach(k => { if (r[k] === undefined) r[k] = d[k]; }); if (r.tester === undefined) { try { r.tester = localStorage.getItem('labcpet.tester') || ''; } catch (e) { r.tester = ''; } } if (!r.height && S.gas.meta && F(S.gas.meta.height)) r.height = String(S.gas.meta.height); return r; };
   // A picture of a Plotly chart, drawn off screen in print colours.
   async function figPNG(traces, layout, w, h) {
     const div = document.createElement('div'); div.style.cssText = `position:fixed;left:-10000px;top:0;width:${w}px;height:${h}px`; document.body.appendChild(div);
@@ -3144,7 +3161,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     if (res.hasBase) ann.push({ x: d[0].p, y: d[0].la, text: 'Baseline', showarrow: true, arrowhead: 2, ax: 0, ay: -40, font: { size: 13 } });
     const pts = ['lt1', 'lt2'].map(q => ltVal(se, res, q)).filter(F);
     return figPNG([{ x: res.fit.x, y: res.fit.y, mode: 'lines', line: { color: '#E8336D', width: 2.5 } }, { x: d.map(r => r.p), y: d.map(r => r.la), mode: 'markers', marker: { size: 11, color: '#fff', line: { color: '#000', width: 1.5 } } }, { x: pts, y: pts.map(p => res.fit.model.predict(p)), mode: 'markers', marker: { size: 10, color: '#555' } }],
-      ax => ({ xaxis: ax(isRun ? 'Running speed (km/h)' : 'Power (W)'), yaxis: ax('Lactate (mmol/L)', { rangemode: 'tozero' }), shapes, annotations: ann, margin: { l: 64, r: 16, t: 36, b: 56 } }), w, h);
+      ax => ({ xaxis: ax(isRun ? 'Running speed (km/h)' : 'Power (W)', lacTicks(res)), yaxis: ax('Lactate (mmol/L)', { rangemode: 'tozero' }), shapes, annotations: ann, margin: { l: 64, r: 16, t: 36, b: 56 } }), w, h);
   }
   // Ventilatory equivalents against time with the VT lines, for reports without lactate and for the research report.
   async function gasFigure(w = 600, h = 380) {
@@ -3215,10 +3232,18 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     }
     if (zh.length > 1) B.push(DX.table(zh, isRun ? [1900, 1500, 1500, 1500, 1500] : [2100, 1950, 1950, 1950], { lastLine: true }));
     B.push(DX.para(DX.rich('HR, heart rate; RPE, rating of perceived exertion.', { i: true, sz: 11 }), { after: 6 }));
-    B.push(DX.para(c.src === 'lactate' ? `Here is a figure showing how your lactate changed as you ${isRun ? 'ran faster' : 'rode harder'} across the stages. Your first (LT1) and second (LT2) lactate thresholds are shown.` : 'Here is a figure showing how your breathing changed relative to the oxygen you used and the carbon dioxide you breathed out. Your first (VT1) and second (VT2) ventilatory thresholds are shown.', { jc: 'both', keep: true }));
-    const png = c.src === 'lactate' ? await lactateFigure(c.se, c.res) : await gasFigure();
-    B.push(DX.picture(doc, png, 600, c.src === 'lactate' ? 400 : 380, 14, { frame: true }));
-    B.push(DX.para(DX.rich(c.src === 'lactate' ? 'LT1, lactate threshold 1; LT2, lactate threshold 2' : 'VT1, ventilatory threshold 1; VT2, ventilatory threshold 2; VE, ventilation; VO₂, oxygen uptake; VCO₂, carbon dioxide output', { i: true, sz: 11 })));
+    // figures: by default the one that matches the thresholds used; the Reports form can add or remove either
+    const fg = repFigs(c.hasLac).client;
+    if (fg.lac && c.hasLac) {
+      B.push(DX.para(`Here is a figure showing how your lactate changed as you ${isRun ? 'ran faster' : 'rode harder'} across the stages. Your first (LT1) and second (LT2) lactate thresholds are shown.`, { jc: 'both', keep: true }));
+      B.push(DX.picture(doc, await lactateFigure(c.se, c.res), 600, 400, 14, { frame: true }));
+      B.push(DX.para(DX.rich('LT1, lactate threshold 1; LT2, lactate threshold 2', { i: true, sz: 11 })));
+    }
+    if (fg.gas) {
+      B.push(DX.para('Here is a figure showing how your breathing changed relative to the oxygen you used and the carbon dioxide you breathed out. Your first (VT1) and second (VT2) ventilatory thresholds are shown.', { jc: 'both', keep: true }));
+      B.push(DX.picture(doc, await gasFigure(), 600, 380, 14, { frame: true }));
+      B.push(DX.para(DX.rich('VT1, ventilatory threshold 1; VT2, ventilatory threshold 2; VE, ventilation; VO₂, oxygen uptake; VCO₂, carbon dioxide output', { i: true, sz: 11 })));
+    }
     const pk = D.peak.vo2kg, mx = S.proto.max ? 'VO₂max' : 'VO₂peak';
     B.push(DX.para('', { after: 0 }), DX.heading(mx));
     B.push(DX.para(pk ? `Your ${S.proto.max ? 'maximum' : 'peak'} rate of oxygen uptake (${mx}) was ${pk.value.toFixed(1)} ml/kg/min.` : 'Oxygen uptake was not available.', { jc: 'both' }));
@@ -3250,29 +3275,34 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     tests.forEach(t => {
       B.push(DX.para('', { after: 0 }), DX.heading('Stages' + (tests.length > 1 ? ' – ' + t.replace(/_/g, ' ') : '')));
       const rows = [{ ...H, cells: [`${I ? I.label : 'Intensity'} (${u})`, 'VO₂ (L/min)', 'VO₂ (mL/kg/min)', 'HR (bpm)', 'RER', 'VE (L/min)', 'Lactate (mmol/L)', 'RPE'].map(x => ({ text: x, sz: 9 })) }];
-      R.stages.filter(r => r.test === t).forEach((r, i) => { const lr = (lacBy[t] || [])[i] || {}; rows.push({ fill: alt(i), cells: [v(r.intensity, u === 'W' ? 0 : 1), v(r.vo2_L_min, 2), v(r.vo2_mL_kg_min, 1), v(r.hr_bpm, 0), v(r.rer, 2), v(r.ve_L_min, 1), F(lr.la) ? (+lr.la).toFixed(1) : '–', F(lr.rpe) ? String(lr.rpe) : (r.rpe !== '' && r.rpe !== undefined ? String(r.rpe) : '–')].map(x => ({ text: x, sz: 9 })) }); });
+      R.stages.filter(r => r.test === t).forEach((r, i) => { const lr = (lacBy[t] || []).find(x => x.i === i) || {}; rows.push({ fill: alt(i), cells: [v(r.intensity, u === 'W' ? 0 : 1), v(r.vo2_L_min, 2), v(r.vo2_mL_kg_min, 1), v(r.hr_bpm, 0), v(r.rer, 2), v(r.ve_L_min, 1), F(lr.la) ? (+lr.la).toFixed(1) : '–', F(lr.rpe) ? String(lr.rpe) : (r.rpe !== '' && r.rpe !== undefined ? String(r.rpe) : '–')].map(x => ({ text: x, sz: 9 })) }); });
       B.push(DX.table(rows, [1250, 1150, 1250, 1050, 950, 1150, 1250, 900], { lastLine: true }));
     });
     // figures
-    const figs = [];
-    if (pr.type === 'incremental' && D.inc) figs.push(['Ventilatory equivalents against time, with VT1 and VT2.', await gasFigure(600, 360), 600, 360]);
-    for (const se of lacSeries()) { const res = lacAnalyse(se); if (res.fit) figs.push([`Lactate against ${I.unit === 'W' ? 'power' : 'speed'}${lacSeries().length > 1 ? ' (' + se.name + ')' : ''}, with LT1 and LT2 (${LM.FITS[lacSet().fit].toLowerCase()}).`, await lactateFigure(se, res, 600, 360), 600, 360]); }
+    const figs = [], fg = repFigs(true).research;
+    if (fg.gas && pr.type === 'incremental' && D.inc) figs.push(['Ventilatory equivalents against time, with VT1 and VT2.', await gasFigure(600, 360), 600, 360]);
+    if (fg.lac) for (const se of lacSeries()) { const res = lacAnalyse(se); if (res.fit) figs.push([`Lactate against ${I.unit === 'W' ? 'power' : 'speed'}${lacSeries().length > 1 ? ' (' + se.name + ')' : ''}, with LT1 and LT2 (${LM.FITS[lacSet().fit].toLowerCase()}).`, await lactateFigure(se, res, 600, 360), 600, 360]); }
     if (figs.length) { B.push(DX.para('', { after: 0 }), DX.heading('Figures')); figs.forEach(([cap, png, w, h]) => { B.push(DX.picture(doc, png, w, h, 15)); B.push(DX.para(DX.rich(cap, { i: true, sz: 10 }), { jc: 'center' })); }); }
     const warn = (S.checks || []).filter(x => x.level === 'warn'); if (warn.length) { B.push(DX.para('', { after: 0 }), DX.heading('Data checks')); warn.forEach(x => B.push(DX.para('! ' + x.text, { jc: 'both' }))); }
     B.push(DX.para('', { after: 0 }), DX.heading('Methods')); B.push(DX.para(methodsText(), { jc: 'both' })); B.push(DX.para(DX.rich(CAVEAT, { i: true, sz: 9 })));
     return DX.pack(doc, { title: 'Exercise test report – ' + m.name, creator: 'Lab CPET tool', a4: true });
   }
+  // Which figures go in each report. Until a box is ticked or unticked, the client report gets the figure that matches its thresholds and the research report gets every figure.
+  function repFigs(hasLac) { const f = repInfo().figs || {}, src = repInfo().src === 'gas' || !hasLac ? 'gas' : 'lactate', pick = (k, d) => (f[k] === undefined ? d : !!f[k]); return { client: { gas: pick('cGas', src === 'gas'), lac: pick('cLac', src === 'lactate') }, research: { gas: pick('rGas', true), lac: pick('rLac', true) } }; }
   function reportsHTML() {
     const rep = repInfo(), inc = S.proto.type === 'incremental' && S.D.inc && S.I, se = inc ? lacSeries()[0] : null, hasLac = se && lacAnalyse(se).fit;
     const f = (id, lab, val, w) => `<label class="f"><span>${lab}</span><input id="${id}" value="${esc(val || '')}" ${w ? `style="width:${w}"` : ''}></label>`;
     return `<div class="form">${f('rTitle', 'Report heading', rep.title)}${f('rTester', 'Tester', rep.tester)}${f('rDob', 'Date of birth', rep.dob)}${f('rHt', 'Height (cm)', rep.height)}
         <label class="f"><span>Thresholds in the client report</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''}>Gas (VT1, VT2)</option></select></label>
         <label class="f" style="grid-column:span 2"><span>Protocol (as written in the report)</span><textarea id="rProt" rows="2">${esc(rep.protocol || (inc ? protocolText() : ''))}</textarea></label></div>
+      ${(() => { const fg = repFigs(!!hasLac), bx = (k, on, lab, dis) => `<label class="chk"><input type="checkbox" data-rfig="${k}" ${on && !dis ? 'checked' : ''} ${dis ? 'disabled' : ''}>${lab}</label>`, gasL = 'Breathing chart (VE/VO₂ and VE/VCO₂ against time, with VT1 and VT2)', lacL = 'Lactate curve (with LT1 and LT2)', anyLac = lacUsed();
+        return `<div class="tools"><span>Figures in the client report:</span>${bx('cGas', fg.client.gas, gasL, !inc)}${bx('cLac', fg.client.lac, lacL, !hasLac)}</div><div class="tools"><span>Figures in the research report:</span>${bx('rGas', fg.research.gas, gasL, !inc)}${bx('rLac', fg.research.lac, lacL, !anyLac)}</div>`; })()}
       <div class="tools"><button class="primary" id="rClient" ${inc ? '' : 'disabled title="The client report is for incremental tests"'}>Client report (Word)</button><button id="rResearch">Research report (Word)</button><span class="hint" id="rMsg">${inc ? '' : 'The client report is for incremental tests.'}</span></div>`;
   }
   function bindReports() {
     const rep = repInfo(), on = (id, k, store) => { const el = $(id); if (el) el.onchange = () => { rep[k] = el.value; if (store) try { localStorage.setItem(store, el.value); } catch (e) { /* private window */ } }; };
     on('#rTitle', 'title', 'labcpet.reptitle'); on('#rTester', 'tester', 'labcpet.tester'); on('#rDob', 'dob'); on('#rHt', 'height'); on('#rProt', 'protocol'); on('#rSrc', 'src');
+    $$('[data-rfig]').forEach(el => (el.onchange = () => { rep.figs = Object.assign({}, rep.figs, { [el.dataset.rfig]: el.checked }); }));
     const go = async (fn, name) => { const msg = $('#rMsg'), un = results().thr.filter(r => r.status !== 'checked'); msg.textContent = 'Making the report…'; try { if (S.oxy && !S.oxy.done) await S.oxy.promise; const blob = await fn(); download(blob, stem() + name); msg.textContent = 'Report saved. Open it in Word to check and edit the wording.' + (un.length ? ` Note: ${un.map(r => r.threshold).join(', ')} ${un.length > 1 ? 'are' : 'is'} still the tool’s suggestion, not checked.` : ''); } catch (e) { console.error(e); msg.textContent = 'Could not make the report: ' + e.message; } };
     if ($('#rClient')) $('#rClient').onclick = () => go(clientReport, '_client_report.docx');
     $('#rResearch').onclick = () => go(researchReport, '_research_report.docx');
@@ -3425,7 +3455,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   }
   fillStartPresets();
   setupInfo();
-  window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse }, _rep: { clientReport, researchReport } };
+  window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse, rows: lacRows }, _rep: { clientReport, researchReport } };
 })();
 
 </script>

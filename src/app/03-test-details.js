@@ -81,7 +81,7 @@
       ${need ? '<p class="hint">This COSMED file has no power recording. Enter the steps here, or <button id="bAddLode">add the Lode file</button>. Times are from the start of the COSMED recording.</p>' : ''}
       <div class="form">
         <label class="f"><span>Unit</span><select id="plU"><option value="W">W (cycling)</option><option value="km/h">km/h (treadmill)</option></select></label>
-        ${fld('plWm', 'Warm-up length (min)', q.warmMin)}${fld('plWp', `Warm-up intensity (${uu}, optional)`, q.warmP)}
+        ${fld('plWm', 'Warm-up length (min, optional)', q.warmMin)}${fld('plWp', `Warm-up intensity (${uu}, optional)`, q.warmP)}
         ${fld('plS', `Starting intensity (${uu})`, q.startP)}${fld('plI', `Increment (${uu})`, q.inc)}${fld('plD', 'Stage length (min)', q.stageMin)}
         <label class="f"><span>Shorter stages at the end</span><select id="plHasSh"><option value="0">No</option><option value="1" ${F(q.switchP) || F(q.switchMin) ? 'selected' : ''}>Yes</option></select></label>
         ${fld('plSw', `Shorter stages started at (${uu})`, q.switchP)}${fld('plSd', 'Shorter stage length (min)', q.shortMin)}

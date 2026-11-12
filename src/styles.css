@@ -172,7 +172,10 @@ details.sub>summary{cursor:pointer;font-weight:600;font-size:.92rem;display:flex
 details.sub>summary .hint{font-weight:400}
 details.sub[open]>summary{margin-bottom:6px}
 /* threshold status */
-.tstat{display:inline-block;font-size:.72rem;font-weight:600;padding:1px 7px;border-radius:10px;vertical-align:middle;white-space:nowrap}
+.tstat{display:inline-block;font-size:.72rem;font-weight:600;padding:1px 7px;border-radius:10px;vertical-align:middle;max-width:100%}
+.stat{overflow-wrap:anywhere}
+.stat .tconf{margin:2px 0 0 0}
+.chart.sizable{resize:vertical;overflow:hidden;min-height:200px;max-height:900px}
 .tstat.sug{color:var(--warn);border:1px solid var(--warn)}
 .tstat.ok{color:#2f7d32;border:1px solid #2f7d32}
 .tconf{font-size:.72rem;padding:1px 8px;margin-left:4px;vertical-align:middle}

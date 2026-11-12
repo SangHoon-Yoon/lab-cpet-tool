@@ -39,7 +39,7 @@ threshold suggestions only assist; credit "created by SangHoon Yoon" and cite th
 
 ## Tests
 - Setup once: `npm install` then `npx playwright install chromium`. Python 3 is needed for `build.py`.
-- Everything: `npm test` (build, simulated files, unit tests, browser tests e2e … e2e25). Unit only: `npm run test:unit`.
+- Everything: `npm test` (build, simulated files, unit tests, browser tests e2e … e2e26). Unit only: `npm run test:unit`.
 - Paths come from `test/paths.js` (samples: `LABCPET_SAMPLES`, else `../lab-cpet-private/samples`, else `../samples`; downloads: `DL` or a temp folder).
 - Run the full set before sending a build; tests that read hidden boxes must be updated when the UI changes on purpose.
 - `test/oxy_ref.py` + `test/oxy_compare.js` compare with pyoxynet itself (needs Python with pyoxynet; optional).
