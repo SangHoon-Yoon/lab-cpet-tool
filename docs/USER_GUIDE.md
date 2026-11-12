@@ -2,7 +2,7 @@
 
 > This copy lives in the repository and is the one to keep up to date. (It began as a Claude Doc.)
 
-Version 0.25.1 · Created by SangHoon Yoon · Nov 4, 2026
+Version 0.25.2 · Created by SangHoon Yoon · Nov 4, 2026
 
 ## **Before you start**
 
@@ -211,7 +211,7 @@ Use the **Lactate** tab when blood lactate was taken during the test. Gas data a
 5. To compare with the gas data, the VT lines are drawn as dotted lines on the lactate chart. **Copy LT1 and LT2 to the gas charts** moves the VT lines to the lactate thresholds, and **Copy VT1 and VT2 here** does the opposite. Both use the VO₂–speed or VO₂–power regression.
 6. With a resting sample, the chart's first point is labelled **Baseline** on the x-axis (it is drawn one step before the first stage, as in lactater). The chart sits under the table, with LT1 and LT2 beside it. Drag the bar under the chart up or down to make it taller or shorter.
 7. The chart marks only the two methods the lines start at (Log-log for LT1 and ModDmax for LT2). Under **Methods marked on the chart**, tick any other method to mark its value too; **Reset to default** goes back to the two.
-8. Heart rate for each stage is filled in as the mean of the stage's last 30 seconds. Type over it if needed.
+8. Heart rate for each stage is filled in as the mean of the stage's last 30 seconds. Type over it if needed. The stage tables on the other tabs also use the last 30 seconds for heart rate, whatever window is chosen for the other variables.
 
 The methods are a JavaScript version of the open-source lactater R package by Felipe Mattioni Maturana, which Exphyslab also uses. On lactater’s example data, the tool gave the same values as Exphyslab for 12 of the 13 methods Exphyslab lists; Log-log was 0.1 W higher. Still check your own results against Exphyslab before relying on them.
 
@@ -222,7 +222,7 @@ On the **Summary** tab, open **Reports**.
 1. Check the report heading, tester, date of birth, height and the protocol text. The tester is remembered on your computer for next time.
 2. Each report has its own box. In the **Client report** box, choose whether it uses the lactate thresholds or the gas thresholds.
    In each box, tick the figures that report should include: the breathing chart (VE/VO₂ and VE/VCO₂ against time, with VT1 and VT2), the lactate curve (with LT1 and LT2) and the end-tidal CO₂ chart (PETCO₂ against time; off unless you tick it). Unless you change them, the client report gets the figure that matches its thresholds and the research report gets both.
-3. Click **Client report (Word)** for the 1–2 page clinic report in everyday language, with training zones, or **Research report (Word)** for peak values, thresholds, stage tables, figures and the methods paragraph.
+3. Click **Generate the client report (Word)** for the 1–2 page clinic report in everyday language, with training zones, or **Generate the research report (Word)** for peak values, thresholds, stage tables, figures and the methods paragraph.
 4. Open the file in Word and check the wording before sending it.
 
 The client report is only for incremental tests. If a threshold could not be found, the report says so and adjusts the zones.

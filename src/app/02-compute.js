@@ -26,14 +26,16 @@
     const flOx = set.outl.local ? fl : C.flagOutliers(g, Object.assign({}, defaults().outl, { limits: true })), R0ox = C.series(g, Array.from(flOx.flag, (f, i) => f === 0 && !out(g.t[i])), 'raw', 0);
     decorate(R0ox);
     const D = { fl, keep, X, ref, R0, R0ox, mode };
+    // Stage means over the chosen window, except heart rate, which is always the mean of the last 30 s (HR_WIN).
+    const sv = (st, win) => { const o = L.stageValues(R0, st, win, mass, mode); if (win > HR_WIN) o.m.hr = L.stageValues(R0, st, HR_WIN, mass, mode).m.hr; return o; };
     // Incremental test
     if (pr.type === 'incremental' && pr.inc) {
       const inc = pr.inc, t0 = F(set.inc.t0) ? set.inc.t0 : inc.t0 + (inc.none ? 0 : set.inc.skip || 0), t1 = F(set.inc.t1) ? set.inc.t1 : inc.t1;
       const sugg = L.suggestIncremental(ref, t0, t1, { noFinalSurge: !!pr.max });
-      const stages = inc.stages, values = stages.map(st => L.stageValues(R0, st, set.inc.stageWin, mass, mode));
+      const stages = inc.stages, values = stages.map(st => sv(st, set.inc.stageWin));
       const fit = L.intensityFit(values), rpe = L.stageRPE(g, stages);
       const peak = {}; ['vo2', 'vo2kg', 'vco2', 've', 'hr', 'rer'].forEach(k => (peak[k] = L.rollingPeak(R0, k, set.inc.peakWin, pr.max ? pr.max.t0 : t0, (pr.max ? pr.max.t1 : t1) + 1e-6)));
-      const maxValues = pr.max ? pr.max.stages.map(st => L.stageValues(R0, st, set.inc.stageWin, mass, mode)) : [], maxRpe = pr.max ? L.stageRPE(g, pr.max.stages) : {}, peak1 = pr.max ? L.rollingPeak(R0, 'vo2', set.inc.peakWin, t0, t1 + 1e-6) : null;
+      const maxValues = pr.max ? pr.max.stages.map(st => sv(st, set.inc.stageWin)) : [], maxRpe = pr.max ? L.stageRPE(g, pr.max.stages) : {}, peak1 = pr.max ? L.rollingPeak(R0, 'vo2', set.inc.peakWin, t0, t1 + 1e-6) : null;
       const atPeak = peak.vo2 ? { hr: L.meanInWindow(R0, 'hr', peak.vo2.t0, peak.vo2.t1), rer: L.meanInWindow(R0, 'rer', peak.vo2.t0, peak.vo2.t1) } : {};
       D.inc = { t0, t1, sugg, stages, values, maxValues, maxRpe, peak1, fit, rpe, peak, atPeak, map: sugg.map, effort: L.effortChecks(R0, g, inc, S.meta.age, pr.max ? maxValues : values, peak, pr.max ? maxRpe : rpe) };
     }
@@ -44,7 +46,7 @@
       const SM = pr.tests.map(T => T.steps.map(st => {
         const [a, b] = selAbs(T), lo = Math.max(st.t1 - set.st.regWin, a, st.t0), hi = Math.min(st.t1, b);
         if (hi - lo < 10) { const o = L.stageValues(R0, st, 0, mass, mode); o.outside = true; return o; }
-        const o = L.stageValues(R0, { p: st.p, t0: st.t0, t1: hi, dur: hi - st.t0, full: st.full }, hi - lo, mass, mode); o.dur = st.dur; o.used = [lo, hi]; return o;
+        const o = sv({ p: st.p, t0: st.t0, t1: hi, dur: hi - st.t0, full: st.full }, hi - lo); o.dur = st.dur; o.used = [lo, hi]; return o;
       }));
       const fits = SM.map(v => { const u = v.filter(q => q.full && F(q.m.vo2)); return u.length >= 3 ? C.linreg(u.map(q => q.m.vo2), u.map(q => q.p)) : null; });
       D.st = { A, SM, fits, sugg: C.suggestVT1(ref, Aref, pr, Math.min(120, stepLength()), i => inSelT(pr.tests[Aref.test[i]], ref.t[i])), rpe: pr.tests.map(T => L.stageRPE(g, T.steps)) };

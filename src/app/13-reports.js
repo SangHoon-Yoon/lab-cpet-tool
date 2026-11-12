@@ -165,16 +165,16 @@
       <div class="repcards">
         <div class="repcard"><h4>Client report</h4><p class="hint">${inc ? 'One or two pages in everyday language, with training zones.' : 'Only for incremental tests.'}</p>
           <div class="repsrc"><span>Thresholds from</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''}>Gas (VT1, VT2)</option></select></div>
-          ${figs('c', fg.client, !hasLac)}<button id="rClient" ${inc ? '' : 'disabled title="The client report is for incremental tests"'}>Make the client report (Word)</button></div>
+          ${figs('c', fg.client, !hasLac)}<button id="rClient" ${inc ? '' : 'disabled title="The client report is for incremental tests"'}>Generate the client report (Word)</button></div>
         <div class="repcard"><h4>Research report</h4><p class="hint">Peak values, thresholds with their status, stage tables and methods.</p>
-          ${figs('r', fg.research, !anyLac)}<button id="rResearch">Make the research report (Word)</button></div>
+          ${figs('r', fg.research, !anyLac)}<button id="rResearch">Generate the research report (Word)</button></div>
       </div><p class="hint" id="rMsg" style="margin:0"></p>`;
   }
   function bindReports() {
     const rep = repInfo(), on = (id, k, store) => { const el = $(id); if (el) el.onchange = () => { rep[k] = el.value; if (store) try { localStorage.setItem(store, el.value); } catch (e) { /* private window */ } }; };
     on('#rTitle', 'title', 'labcpet.reptitle'); on('#rTester', 'tester', 'labcpet.tester'); on('#rDob', 'dob'); on('#rHt', 'height'); on('#rProt', 'protocol'); if ($('#rSrc')) $('#rSrc').onchange = () => { rep.src = $('#rSrc').value; const fg = repFigs(true).client; [['cGas', fg.gas], ['cLac', fg.lac]].forEach(([k, v]) => { const el = $(`[data-rfig=${k}]`); if (el && !el.disabled) el.checked = v; }); };
     $$('[data-rfig]').forEach(el => (el.onchange = () => { rep.figs = Object.assign({}, rep.figs, { [el.dataset.rfig]: el.checked }); }));
-    const go = async (fn, name) => { const msg = $('#rMsg'), un = results().thr.filter(r => r.status !== 'checked'); msg.textContent = 'Making the report…'; try { if (S.oxy && !S.oxy.done) await S.oxy.promise; const blob = await fn(); download(blob, stem() + name); msg.textContent = 'Report saved. Open it in Word to check and edit the wording.' + (un.length ? ` Note: ${un.map(r => r.threshold).join(', ')} ${un.length > 1 ? 'are' : 'is'} still the tool’s suggestion, not checked.` : ''); } catch (e) { console.error(e); msg.textContent = 'Could not make the report: ' + e.message; } };
+    const go = async (fn, name) => { const msg = $('#rMsg'), un = results().thr.filter(r => r.status !== 'checked'); msg.textContent = 'Generating the report…'; try { if (S.oxy && !S.oxy.done) await S.oxy.promise; const blob = await fn(); download(blob, stem() + name); msg.textContent = 'Report saved. Open it in Word to check and edit the wording.' + (un.length ? ` Note: ${un.map(r => r.threshold).join(', ')} ${un.length > 1 ? 'are' : 'is'} still the tool’s suggestion, not checked.` : ''); } catch (e) { console.error(e); msg.textContent = 'Could not make the report: ' + e.message; } };
     if ($('#rClient')) $('#rClient').onclick = () => go(clientReport, '_client_report.docx');
     $('#rResearch').onclick = () => go(researchReport, '_research_report.docx');
   }

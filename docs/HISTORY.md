@@ -5,6 +5,7 @@ and small changes. The first stays 0 until the tool is ready for the whole lab. 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-11-13 | 0.25.2 | Heart rate in every stage table is the mean of the stage's last 30 s; report buttons say Generate |
 | 2026-11-13 | 0.25.1 | Lactate tab: chart height changed by dragging a bar under the chart, following the pointer; ticking methods no longer redraws the tab; "Reset to default"; the starting-method menus removed; stage heart rate is the mean of the last 30 s. Reports section laid out as a card for each report, each with its own figures |
 | 2026-11-13 | 0.25.0 | Lactate tab: chart under the table with LT1 and LT2 beside it; the chart marks only the two starting methods, with tick boxes for the others; arrow keys move up and down the table. Reports: optional end-tidal CO₂ (PETCO₂) figure; protocol text no longer reads an unfinished last stage as shorter stages. "Prolonged trial with step tests" renamed Durability test |
 | 2026-11-13 | 0.24.0 | Lactate tab: the settings above the charts work again (curve fit, baseline in the fit, starting methods, show every method); Enter moves down a row; Add a row stays in place above the table; no rows for shorter stages at the end; resting sample labelled Baseline on the x-axis; chart height can be changed. Reports: choose which figures go in each report. Threshold status wraps inside its box on narrow windows |
