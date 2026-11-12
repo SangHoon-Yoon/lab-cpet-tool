@@ -64,7 +64,7 @@
   const stepLength = () => (S.proto.pattern ? S.proto.pattern.stepDur : 240);
   const isWholeStage = () => !F(S.set.st.win) || S.set.st.win >= stepLength();
   const stWin = () => (isWholeStage() ? stepLength() + 15 : S.set.st.win); // a little extra, so a stage a fraction longer than planned stays whole
-  function recompute() { S.D = computeD(); S.checks = L.dataChecks(S); const lo = S.set.leaveOut || []; if (lo.length) S.checks.push({ level: 'info', text: `Left out by you: ${lo.map(([a, b]) => mmss(a) + '–' + mmss(b)).join(', ')} (${Math.round(lo.reduce((s, [a, b]) => s + b - a, 0))} s in all).` }); summaries(); render(); }
+  function recompute() { S.D = computeD(); S.checks = S.gas.blank ? [{ level: 'info', text: 'Lactate only: no gas file was loaded, so there are no gas data to check.' }] : L.dataChecks(S); const lo = S.set.leaveOut || []; if (lo.length) S.checks.push({ level: 'info', text: `Left out by you: ${lo.map(([a, b]) => mmss(a) + '–' + mmss(b)).join(', ')} (${Math.round(lo.reduce((s, [a, b]) => s + b - a, 0))} s in all).` }); summaries(); render(); }
   function avgParOf(set) { const a = set.avg; return a.mode === 'bin' ? a.bin : a.mode === 'ma' ? a.ma : a.mode === 'roll' ? a.roll : 0; }
   function avgLabel() { const a = S.set.avg, bxb = S.gas.kind === 'bxb'; return { raw: bxb ? 'breath-by-breath' : S.gas.avgWidth + '-s averages from the file', bin: a.bin + '-s bins', ma: a.ma + '-' + (bxb ? 'breath' : 'sample') + ' moving average', roll: a.roll + '-s rolling average' }[a.mode]; }
   const iLab = () => (S.I ? S.I.label + ' (' + S.I.unit + ')' : 'Intensity');

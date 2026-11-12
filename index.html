@@ -19,9 +19,23 @@
 
 <div class="wrap"><main>
   <section id="start">
+    <div class="choose" id="choose">
+      <h1>Start a test</h1>
+      <div class="chstep"><h2><b>1</b> Which test?</h2>
+        <div class="chcards" role="group" aria-label="Which test">
+          <button class="chcard" data-ch="test:inc" aria-pressed="false"><b>Incremental test</b><span>Stages that get harder until the end, for thresholds and VO₂peak</span></button>
+          <button class="chcard" data-ch="test:two" aria-pressed="false"><b>Submaximal test, then VO₂max test</b><span>Longer stages for thresholds, a short rest, then short stages to exhaustion</span></button>
+          <button class="chcard" data-ch="test:dur" aria-pressed="false"><b>Durability test</b><span>5-step tests before and after prolonged exercise</span></button>
+        </div></div>
+      <div class="chstep"><h2><b>2</b> Running or cycling?</h2>
+        <div class="chopts" role="group" aria-label="Running or cycling"><button data-ch="sport:run" aria-pressed="false">Running</button><button data-ch="sport:cycle" aria-pressed="false">Cycling</button></div></div>
+      <div class="chstep" id="chData"><h2><b>3</b> Which data do you have?</h2>
+        <div class="chopts" role="group" aria-label="Which data"><button data-ch="data:gas" aria-pressed="false">Gas only</button><button data-ch="data:both" aria-pressed="false">Gas and lactate</button><button data-ch="data:lac" aria-pressed="false">Lactate only</button></div></div>
+      <p class="hint" id="chMsg"></p>
+    </div>
     <div class="drop" id="drop">
-      <h1>Load a test</h1>
-      <p class="sub">Drop the files here. <b>Treadmill:</b> the COSMED export is enough, because it holds the speed. If a session was recorded as several COSMED files, add them all and they are joined by their clock times. <b>Cycling:</b> the COSMED export, plus the Lode export if you saved it. Without a Lode file, you can enter the power steps on the next screen. You can add a heart-rate file (Polar or Garmin CSV, TCX or GPX) if the COSMED did not record heart rate.</p>
+      <h2 class="droph"><b id="chN">4</b> Add the files</h2>
+      <p class="sub" id="dropSub"></p>
       <button class="primary" id="bPick">Choose files</button>
       <ul class="filelist" id="flist"></ul>
       <p class="msg" id="fmsg"></p>

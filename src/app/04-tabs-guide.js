@@ -1,7 +1,9 @@
   /* ---------------- Tabs ---------------- */
-  function tabs() { return [['protocol', 'Protocol'], ...(S.proto.type === 'incremental' ? [['incremental', S.proto.max ? 'Thresholds and VO₂max' : 'Thresholds and VO₂peak']] : [['steps', 'Step tests'], ...(F(S.proto.base) ? [['prolonged', 'Prolonged exercise']] : [])]), ['lactate', 'Lactate'], ['summary', 'Summary']]; }
+  // The data chosen on the start page for an incremental test: 'gas' hides the Lactate tab, 'lac' hides the gas thresholds tab (and, with no gas file, the Protocol tab).
+  const dataMode = () => (S.proto && S.proto.type === 'incremental' && S.set.data) || 'both', noGas = () => !!(S.gas && S.gas.blank);
+  function tabs() { const dm = dataMode(); return [...(noGas() ? [] : [['protocol', 'Protocol']]), ...(S.proto.type === 'incremental' ? (dm === 'lac' ? [] : [['incremental', S.proto.max ? 'Thresholds and VO₂max' : 'Thresholds and VO₂peak']]) : [['steps', 'Step tests'], ...(F(S.proto.base) ? [['prolonged', 'Prolonged exercise']] : [])]), ...(dm === 'gas' ? [] : [['lactate', 'Lactate']]), ['summary', 'Summary']]; }
   function buildTabs() {
-    const T = tabs(); if (!T.some(t => t[0] === S.view)) S.view = 'protocol';
+    const T = tabs(); if (!T.some(t => t[0] === S.view)) S.view = T[0][0];
     $('#tabs').innerHTML = T.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.view}">${l}</button>`).join('') + `<button class="gtog" id="gTog" aria-pressed="${guideOn()}" title="Step-by-step guidance through the analysis">Guided steps</button>`;
     $$('[data-tab]').forEach(b => (b.onclick = () => { S.view = b.dataset.tab; $$('[data-tab]').forEach(x => x.setAttribute('aria-selected', x === b)); render(); }));
     $('#gTog').onclick = () => { setGuide(!guideOn()); $('#gTog').setAttribute('aria-pressed', guideOn()); renderGuide(); };
@@ -38,17 +40,21 @@
   const setGuide = on => { try { localStorage.setItem('labcpet.guided', on ? 'on' : 'off'); } catch (e) { /* private window */ } };
   function guideSteps() {
     const pr = S.proto, inc = pr.type === 'incremental', openBox = id => () => { const b = $(id); if (b) { b.open = true; b.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
-    const st = [
+    const dm = dataMode(), first = noGas() ? 'lactate' : 'protocol';
+    const st = noGas() ? [{ tab: 'lactate', title: 'Enter the test details and stages', text: 'Open Test details. Type the name and body mass, then enter the stages under Incremental test steps and click Apply steps.', act: openBox('#dBox') }] : [
       { tab: 'protocol', title: 'Check the test details', text: 'Open Test details. Check the name, body mass and test type, and that the detected stages match your protocol. Anything marked ! under Data checks needs a look.', act: openBox('#dBox') },
       { tab: 'protocol', title: 'Look over the whole test', text: 'Look for mask leaks, gaps or odd values on the Protocol chart. To drop a stretch of noisy or wrong data, click Leave out a period and drag across it. To clean or smooth the data, open Data processing.' }
     ];
-    if (inc) st.push({ tab: 'incremental', title: 'Place the thresholds', text: 'Check the highlighted analysis window, then drag the VT1 and VT2 lines on the charts, or click Use next to a suggestion. Further down, the Oxynet models (two deep-learning models) give their own suggestions: click Use these lines on either chart to try them.' });
+    void first;
+    if (inc && dm === 'lac') { /* no gas thresholds */ }
+    else if (inc) st.push({ tab: 'incremental', title: 'Place the thresholds', text: 'Check the highlighted analysis window, then drag the VT1 and VT2 lines on the charts, or click Use next to a suggestion. Further down, the Oxynet models (two deep-learning models) give their own suggestions: click Use these lines on either chart to try them.' });
     else {
       st.push({ tab: 'steps', title: 'Place VT1 in each step test', text: 'Highlight the data to use in each test if needed, then drag the VT1 line on each test’s charts. Compare the tests stage by stage below.' });
       if (F(pr.base)) st.push({ tab: 'prolonged', title: 'Check the prolonged exercise', text: 'Read the summary and the values for each recording.' });
     }
-    st.push({ tab: 'lactate', title: 'Lactate, if taken', text: 'Type or paste the lactate values and check LT1 and LT2. Skip this step if no lactate was taken.' });
-    st.push({ tab: 'summary', title: 'Save, export and report', text: 'Check the thresholds table, then Save analysis, Export Excel, or make a Word report under Reports.', act: () => { const d = document.querySelector('details[data-fold=rep]'); if (d) { d.open = true; openFolds.add('rep'); } } });
+    if (dm === 'lac') st.push({ tab: 'lactate', title: 'Enter the lactate values', text: 'Type or paste the lactate values and check LT1 and LT2.' });
+    else if (dm !== 'gas') st.push({ tab: 'lactate', title: 'Lactate, if taken', text: 'Type or paste the lactate values and check LT1 and LT2. Skip this step if no lactate was taken.' });
+    st.push({ tab: 'summary', title: 'Save, export and report', text: 'Check the thresholds table, then Save analysis, Export Excel, or generate a Word report under Reports.', act: () => { const d = document.querySelector('details[data-fold=rep]'); if (d) { d.open = true; openFolds.add('rep'); } } });
     return st;
   }
   function renderGuide() {

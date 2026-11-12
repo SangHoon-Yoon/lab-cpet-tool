@@ -22,7 +22,7 @@
   }
   // Ventilatory equivalents against time with the VT lines, for reports without lactate and for the research report.
   const FIG_EQ = [[['eqo2', '#1F3864', 'VE/VO₂'], ['eqco2', '#E8336D', 'VE/VCO₂']], 'Ventilatory equivalent'], FIG_PET = [[['petco2', '#1F3864', 'PETCO₂']], 'End-tidal CO₂ (mmHg)'];
-  const petFigure = (w, h) => gasFigure(w, h, FIG_PET), hasPet = () => !!(S.D.X && S.D.X.v.petco2);
+  const petFigure = (w, h) => gasFigure(w, h, FIG_PET), hasPet = () => !!(S.D.X && S.D.X.v.petco2 && S.D.X.v.petco2.some(F));
   async function gasFigure(w = 600, h = 380, [series, ytitle] = FIG_EQ) {
     const D = S.D.inc, X = S.D.X, M = D.map, lo = D.t0, hi = S.proto.max ? S.proto.max.t1 : D.t1, ids = X.t.map((t, i) => i).filter(i => X.t[i] >= lo - 60 && X.t[i] <= hi + 30), shapes = [], ann = [];
     ['vt1', 'vt2'].forEach(q => { const v = incVT(q); if (!F(v)) return; const t = vtTime(M, v, q) / 60; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: t, x1: t, y0: 0, y1: 1, line: { color: '#E8323C', width: 2, dash: 'dash' } }); ann.push({ xref: 'x', yref: 'paper', x: t, y: 1.02, yanchor: 'bottom', showarrow: false, text: q.toUpperCase(), font: { color: '#E8323C', size: 14 } }); });
@@ -109,8 +109,8 @@
       B.push(DX.para(DX.rich('VT1, ventilatory threshold 1; VT2, ventilatory threshold 2; PETCO₂, end-tidal carbon dioxide pressure', { i: true, sz: 11 })));
     }
     const pk = D.peak.vo2kg, mx = S.proto.max ? 'VO₂max' : 'VO₂peak';
-    B.push(DX.para('', { after: 0 }), DX.heading(mx));
-    B.push(DX.para(pk ? `Your ${S.proto.max ? 'maximum' : 'peak'} rate of oxygen uptake (${mx}) was ${pk.value.toFixed(1)} ml/kg/min.` : 'Oxygen uptake was not available.', { jc: 'both' }));
+    if (!S.gas.blank) B.push(DX.para('', { after: 0 }), DX.heading(mx));
+    if (!S.gas.blank) B.push(DX.para(pk ? `Your ${S.proto.max ? 'maximum' : 'peak'} rate of oxygen uptake (${mx}) was ${pk.value.toFixed(1)} ml/kg/min.` : 'Oxygen uptake was not available.', { jc: 'both' }));
     return DX.pack(doc, { title: (rep.title || 'Report') + ' – ' + m.name, creator: rep.tester || 'Lab CPET tool', a4: true });
   }
   async function researchReport() {
@@ -153,19 +153,19 @@
     return DX.pack(doc, { title: 'Exercise test report – ' + m.name, creator: 'Lab CPET tool', a4: true });
   }
   // Which figures go in each report. Until a box is ticked or unticked, the client report gets the figure that matches its thresholds and the research report gets every figure.
-  function repFigs(hasLac) { const f = repInfo().figs || {}, src = repInfo().src === 'gas' || !hasLac ? 'gas' : 'lactate', pick = (k, d) => (f[k] === undefined ? d : !!f[k]); return { client: { gas: pick('cGas', src === 'gas'), lac: pick('cLac', src === 'lactate'), pet: pick('cPet', false) }, research: { gas: pick('rGas', true), lac: pick('rLac', true), pet: pick('rPet', false) } }; }
+  function repFigs(hasLac) { const f = repInfo().figs || {}, noG = !!(S.gas && S.gas.blank), src = !noG && (repInfo().src === 'gas' || !hasLac) ? 'gas' : 'lactate', pick = (k, d) => (f[k] === undefined ? d : !!f[k]); return { client: { gas: !noG && pick('cGas', src === 'gas'), lac: pick('cLac', src === 'lactate'), pet: pick('cPet', false) }, research: { gas: !noG && pick('rGas', true), lac: pick('rLac', true), pet: pick('rPet', false) } }; }
   function reportsHTML() {
     const rep = repInfo(), inc = S.proto.type === 'incremental' && S.D.inc && S.I, se = inc ? lacSeries()[0] : null, hasLac = se && lacAnalyse(se).fit;
     const f = (id, lab, val) => `<label>${lab}<input id="${id}" value="${esc(val || '')}"></label>`;
-    const fg = repFigs(!!hasLac), noPet = !inc || !hasPet(), anyLac = lacUsed();
+    const fg = repFigs(!!hasLac), noPet = !inc || !hasPet(), anyLac = lacUsed(), noG = !!S.gas.blank;
     const bx = (k, on, lab, dis, why) => `<label class="chk" ${dis ? `title="${why}"` : ''}><input type="checkbox" data-rfig="${k}" ${on && !dis ? 'checked' : ''} ${dis ? 'disabled' : ''}>${lab}</label>`;
-    const figs = (pre, o, lacOff) => `<div class="replab">Figures to include</div><div class="repfigs">${bx(pre + 'Gas', o.gas, 'Breathing chart, with VT1 and VT2', !inc, 'For incremental tests')}${bx(pre + 'Lac', o.lac, 'Lactate curve, with LT1 and LT2', lacOff, 'Enter lactate values first')}${bx(pre + 'Pet', o.pet, 'End-tidal CO₂ chart, with VT1 and VT2', noPet, 'Needs PETCO₂ from an incremental test')}</div>`;
+    const figs = (pre, o, lacOff) => `<div class="replab">Figures to include</div><div class="repfigs">${bx(pre + 'Gas', o.gas, 'Breathing chart, with VT1 and VT2', !inc || noG, noG ? 'Needs gas data' : 'For incremental tests')}${bx(pre + 'Lac', o.lac, 'Lactate curve, with LT1 and LT2', lacOff, 'Enter lactate values first')}${bx(pre + 'Pet', o.pet, 'End-tidal CO₂ chart, with VT1 and VT2', noPet, 'Needs PETCO₂ from an incremental test')}</div>`;
     return `<div class="repform">${f('rTitle', 'Report heading', rep.title)}${f('rTester', 'Tester', rep.tester)}${f('rDob', 'Date of birth', rep.dob)}${f('rHt', 'Height (cm)', rep.height)}
         <label style="grid-column:1/-1">Protocol, as written in the report<textarea id="rProt" rows="2">${esc(rep.protocol || (inc ? protocolText() : ''))}</textarea></label></div>
       <div class="repcards">
         <div class="repcard"><h4>Client report</h4><p class="hint">${inc ? 'One or two pages in everyday language, with training zones.' : 'Only for incremental tests.'}</p>
-          <div class="repsrc"><span>Thresholds from</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''}>Gas (VT1, VT2)</option></select></div>
-          ${figs('c', fg.client, !hasLac)}<button id="rClient" ${inc ? '' : 'disabled title="The client report is for incremental tests"'}>Generate the client report (Word)</button></div>
+          <div class="repsrc"><span>Thresholds from</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''} ${S.gas.blank ? 'disabled' : ''}>Gas (VT1, VT2)</option></select></div>
+          ${figs('c', fg.client, !hasLac)}<button id="rClient" ${!inc ? 'disabled title="The client report is for incremental tests"' : noG && !hasLac ? 'disabled title="Enter the lactate values first"' : ''}>Generate the client report (Word)</button></div>
         <div class="repcard"><h4>Research report</h4><p class="hint">Peak values, thresholds with their status, stage tables and methods.</p>
           ${figs('r', fg.research, !anyLac)}<button id="rResearch">Generate the research report (Word)</button></div>
       </div><p class="hint" id="rMsg" style="margin:0"></p>`;

@@ -189,6 +189,16 @@ details.sub[open]>summary{margin-bottom:6px}
 .lacms label.chk{display:grid;grid-template-columns:auto 1fr auto;gap:6px}
 .lacside .tools{padding:6px 0 0}
 @media(max-width:820px){.lacrow{grid-template-columns:1fr}.lacside .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
+.choose{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px 10px;margin-bottom:12px}
+.choose h1{font-size:1.3rem;margin:0 0 10px}
+.chstep{margin:0 0 14px}
+.chstep h2,.droph{font-size:.95rem;margin:0 0 8px;font-weight:600;display:flex;align-items:center;gap:8px}
+.chstep h2 b,.droph b{display:inline-grid;place-items:center;width:1.5em;height:1.5em;border-radius:50%;border:1.5px solid var(--muted);font-size:.8rem;color:var(--muted)}
+.chcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
+.chcard{display:grid;gap:4px;text-align:left;padding:12px 14px;border-radius:8px;height:100%;align-content:start}
+.chcard b{font-size:.95rem}.chcard span{font-size:.8rem;color:var(--muted);font-weight:400;line-height:1.35}
+.chopts{display:flex;gap:8px;flex-wrap:wrap}.chopts button{padding:8px 18px}
+.droph{justify-content:center}
 .sizebar{height:14px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none}
 .sizebar span{width:56px;height:4px;border-radius:2px;background:var(--line)}
 .sizebar:hover span{background:var(--muted)}
@@ -232,9 +242,23 @@ details.sub[open]>summary{margin-bottom:6px}
 
 <div class="wrap"><main>
   <section id="start">
+    <div class="choose" id="choose">
+      <h1>Start a test</h1>
+      <div class="chstep"><h2><b>1</b> Which test?</h2>
+        <div class="chcards" role="group" aria-label="Which test">
+          <button class="chcard" data-ch="test:inc" aria-pressed="false"><b>Incremental test</b><span>Stages that get harder until the end, for thresholds and VO₂peak</span></button>
+          <button class="chcard" data-ch="test:two" aria-pressed="false"><b>Submaximal test, then VO₂max test</b><span>Longer stages for thresholds, a short rest, then short stages to exhaustion</span></button>
+          <button class="chcard" data-ch="test:dur" aria-pressed="false"><b>Durability test</b><span>5-step tests before and after prolonged exercise</span></button>
+        </div></div>
+      <div class="chstep"><h2><b>2</b> Running or cycling?</h2>
+        <div class="chopts" role="group" aria-label="Running or cycling"><button data-ch="sport:run" aria-pressed="false">Running</button><button data-ch="sport:cycle" aria-pressed="false">Cycling</button></div></div>
+      <div class="chstep" id="chData"><h2><b>3</b> Which data do you have?</h2>
+        <div class="chopts" role="group" aria-label="Which data"><button data-ch="data:gas" aria-pressed="false">Gas only</button><button data-ch="data:both" aria-pressed="false">Gas and lactate</button><button data-ch="data:lac" aria-pressed="false">Lactate only</button></div></div>
+      <p class="hint" id="chMsg"></p>
+    </div>
     <div class="drop" id="drop">
-      <h1>Load a test</h1>
-      <p class="sub">Drop the files here. <b>Treadmill:</b> the COSMED export is enough, because it holds the speed. If a session was recorded as several COSMED files, add them all and they are joined by their clock times. <b>Cycling:</b> the COSMED export, plus the Lode export if you saved it. Without a Lode file, you can enter the power steps on the next screen. You can add a heart-rate file (Polar or Garmin CSV, TCX or GPX) if the COSMED did not record heart rate.</p>
+      <h2 class="droph"><b id="chN">4</b> Add the files</h2>
+      <p class="sub" id="dropSub"></p>
       <button class="primary" id="bPick">Choose files</button>
       <ul class="filelist" id="flist"></ul>
       <p class="msg" id="fmsg"></p>
@@ -1903,7 +1927,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.25.2', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.26.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -1939,13 +1963,31 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   /* ---------------- Files ---------------- */
   const fileIn = $('#fileIn');
   $('#bPick').onclick = () => { fileIn.accept = '.xlsx,.xls,.csv,.tcx,.gpx,.json'; fileIn.click(); };
-  $('#bLoad').onclick = () => { S.pending = []; listFiles(); $('#app').hidden = true; $('#start').hidden = false; fillStartPresets(); };
+  $('#bLoad').onclick = () => { S.pending = []; drawChoice(); $('#app').hidden = true; $('#start').hidden = false; fillStartPresets(); };
   $('#bOpen').onclick = () => { fileIn.accept = '.json'; fileIn.click(); };
   fileIn.onchange = () => { addFiles([...fileIn.files]); fileIn.value = ''; };
   const drop = $('#drop');
   ['dragenter', 'dragover'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
   drop.addEventListener('drop', ev => addFiles([...ev.dataTransfer.files]));
+
+  /* The choices on the start page: which test, running or cycling, and (incremental tests) which data.
+     All are optional: with nothing chosen the tool works the test out from the file, as before. The last choices are remembered in this browser. */
+  const CH = (() => { try { return JSON.parse(localStorage.getItem('labcpet.choice') || '{}'); } catch (e) { return {}; } })();
+  function drawChoice() {
+    $$('[data-ch]').forEach(b => { const [k, v] = b.dataset.ch.split(':'); b.setAttribute('aria-pressed', CH[k] === v); });
+    const inc = !CH.test || CH.test === 'inc' || CH.test === 'two'; $('#chData').hidden = !inc; $('#chN').textContent = inc ? '4' : '3';
+    const lac = inc && CH.data === 'lac', run = CH.sport === 'run', cyc = CH.sport === 'cycle';
+    const tread = '<b>Running:</b> the COSMED export is enough when it holds the treadmill speed. Without speed, you enter the stages on the next screen.', bike = '<b>Cycling:</b> the COSMED export, plus the Lode export if you saved it. Without power, you enter the stages on the next screen.';
+    $('#dropSub').innerHTML = lac ? 'No gas file is needed: click <b>Continue</b> and type the stages and lactate values. If you have the COSMED export, add it and the heart rate and RPE of each stage are filled in for you.'
+      : `Drop the files here. ${run ? tread : cyc ? bike : tread + ' ' + bike}${CH.test === 'dur' ? ' If the session was recorded as several COSMED files, add them all and they are joined by their clock times.' : ''} You can add a heart-rate file (Polar or Garmin CSV, TCX or GPX) if the COSMED did not record heart rate.`;
+    $('#chMsg').textContent = CH.test ? '' : 'You can also skip these and add the files: the tool then works the test out from the file.';
+    listFiles();
+  }
+  $('#choose').addEventListener('click', ev => { const b = ev.target.closest('[data-ch]'); if (!b) return; const [k, v] = b.dataset.ch.split(':'); if (CH[k] === v) delete CH[k]; else CH[k] = v; try { localStorage.setItem('labcpet.choice', JSON.stringify(CH)); } catch (e) { /* private window */ } drawChoice(); });
+  const lacNoFile = () => CH.data === 'lac' && (!CH.test || CH.test === 'inc' || CH.test === 'two');
+  // Lactate only, with no gas file: an empty recording, so the stages can be typed and the Lactate tab and client report work as usual.
+  function blankGas() { const n = 720, t = Array.from({ length: n }, (x, i) => (i + 1) * 15), nan = () => Array(n).fill(NaN), v = {}; ['vo2', 'vco2', 've', 'hr', 'rer', 'eqo2', 'eqco2', 'peto2', 'petco2', 'rf', 'vt'].forEach(k => (v[k] = nan())); return { kind: 'avg', avgWidth: 15, t, v, has: Object.keys(v), markers: [], aux: { speed: nan(), grade: nan(), power: nan(), phase: Array(n).fill(''), speedUnit: '' }, meta: {}, blank: true }; }
 
   async function addFiles(files) {
     for (const f of files) {
@@ -1971,7 +2013,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   const exampleWB = () => P.readWorkbook(XLSX.write(window.LabExample.workbook(XLSX), { type: 'array', bookType: 'xlsx' }));
   $('#bExample').onclick = () => {
     S.pending = [{ name: window.LabExample.fileName, kind: 'cosmed', status: 'ok', obj: P.parseCosmed(exampleWB()), err: '' }];
-    $('#sPreset').value = ''; $('#bGo').disabled = false; $('#bGo').onclick();
+    $('#sPreset').value = ''; begin({ test: 'inc', sport: 'cycle', data: 'both' });
     const st = S.proto.inc && !S.proto.inc.none ? S.proto.inc.stages : [];
     S.set.lac = Object.assign({}, S.set.lac || {}, { series: { inc: { base: { la: window.LabExample.lactate(0) }, rows: Object.fromEntries(st.map((q, i) => { const pr = st[i - 1], part = i === st.length - 1 && pr && q.dur < 0.9 * pr.dur; return [i, { la: window.LabExample.lactate(part ? pr.p + (q.p - pr.p) * q.dur / pr.dur : q.p) }]; })) } } });
     H.steps = []; H.at = -1; H.saved = null; checkpoint(); // the Lactate tab reads these values when it is opened
@@ -1985,28 +2027,41 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     $('#flist').innerHTML = S.pending.map((it, i) => `<li><span class="pill ${it.status === 'ok' ? 'ok' : it.status === 'bad' ? 'bad' : 'warn'}">${K[it.kind] || it.kind}</span><b>${esc(it.name)}</b><span class="hint">${esc(it.status === 'bad' ? it.err : it.desc || '')}</span><button type="button" class="rm" data-rm="${i}" title="Remove this file" aria-label="Remove ${esc(it.name)}">×</button></li>`).join('');
     const ok = S.pending.filter(i => i.status === 'ok'), cos = ok.filter(i => i.kind === 'cosmed');
     let msg = '', blocked = false;
-    if (S.pending.length && !cos.length) msg = 'Add the COSMED export.';
+    const noFile = lacNoFile() && !cos.length && !S.pending.some(i => i.status !== 'ok');
+    if (noFile) msg = S.pending.length ? 'Continue to type the stages and lactate values.' : '';
+    else if (S.pending.length && !cos.length) msg = 'Add the COSMED export.';
     else if (cos.length > 1) { const j = L.joinCosmed(cos.map(i => ({ gas: i.obj, name: i.name })), P.cosmedStartEpoch); msg = j.problem || (j.gas.files ? `${j.gas.files.length} COSMED files will be joined into one session by their clock times: ${j.gas.files.map(f => mmss(f.start)).join(', ')}.` : j.note); blocked = !!j.problem; }
     else if (cos.length && !ok.some(i => i.kind === 'lode') && !L.speedChanges(cos[0].obj)) msg = 'This file has no usable speed or power. Add the Lode export if you have it, or continue and enter the power steps on the next screen.';
     $('#fmsg').textContent = msg;
-    $('#bGo').disabled = !cos.length || blocked;
+    $('#bGo').disabled = (!cos.length && !noFile) || blocked; $('#bGo').textContent = noFile ? 'Continue without a gas file' : 'Continue';
   }
-  $('#bGo').onclick = () => {
+  $('#bGo').onclick = () => begin(CH);
+  function begin(ch) {
     const ok = S.pending.filter(i => i.status === 'ok'), cos = ok.filter(i => i.kind === 'cosmed');
-    S.gas = L.joinCosmed(cos.map(i => ({ gas: i.obj, name: i.name })), P.cosmedStartEpoch).gas;
+    S.gas = cos.length ? L.joinCosmed(cos.map(i => ({ gas: i.obj, name: i.name })), P.cosmedStartEpoch).gas : blankGas();
     const lo = ok.find(i => i.kind === 'lode'); S.lode = lo ? lo.obj : null;
     const h = ok.find(i => i.kind === 'hr'); S.hr = h ? h.obj : null;
     S.set = defaults(); S.picks = { inc: {}, tests: {} }; S.oxy = null; S.oxyCache = {}; S.meta = {}; S.view = 'protocol';
+    // the start-page choices
+    const inc = !ch.test || ch.test === 'inc' || ch.test === 'two';
+    if (ch.test) S.set.type = { inc: 'incremental', two: 'two', dur: 'prolonged' }[ch.test];
+    if (ch.sport) S.set.sport = ch.sport;
+    S.set.data = inc && ch.data ? ch.data : 'both';
+    if (S.gas.blank) { S.set.data = 'lac'; S.set.type = 'incremental'; S.view = 'lactate'; }
+    if (ch.sport) { const av = L.availableIntensity(S.gas, S.lode), want = ch.sport === 'run' ? ['speed'] : ['lode', 'power']; S.set.source = av.find(a => want.includes(a)) || null; }
     const pre = presetList().find(x => x.name === $('#sPreset').value); if (pre) { applyPresetTo(pre); try { localStorage.setItem('labcpet.lastPreset', pre.name); } catch (e) { /* private window */ } }
     start();
+    if (S.gas.blank) $('#dBox').open = true;
     if (pre) toast(`Preset “${pre.name}” applied`);
-  };
+    else if (ch.sport && S.I && !S.I.plan && (S.I.mode === 'cycling') !== (ch.sport === 'cycle')) toast(`You chose ${ch.sport === 'cycle' ? 'cycling' : 'running'}, but the file holds ${S.I.mode === 'cycling' ? 'cycling power' : 'treadmill speed'}. Check Test details.`);
+  }
 
+  drawChoice();
   function start() {
     S._exMode = false;
     const g = S.gas, m = g.meta, lm = (S.lode && S.lode.meta) || {};
     S.meta = Object.assign({
-      name: [m.firstName || lm.firstName, m.lastName || lm.lastName].map(x => String(x || '').trim()).filter(Boolean).join(' ') || 'Participant',
+      name: [m.firstName || lm.firstName, m.lastName || lm.lastName].map(x => String(x || '').trim()).filter(Boolean).join(' ') || (g.blank ? '' : 'Participant'),
       date: m.testDate || '', sex: /^f/i.test(m.sex || lm.sex || '') ? 'F' : /^m/i.test(m.sex || lm.sex || '') ? 'M' : '',
       mass: F(m.mass) ? m.mass : lm.mass, age: m.age, studyId: m.id ? String(m.id) : ''
     }, S.meta);
@@ -2096,7 +2151,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   const stepLength = () => (S.proto.pattern ? S.proto.pattern.stepDur : 240);
   const isWholeStage = () => !F(S.set.st.win) || S.set.st.win >= stepLength();
   const stWin = () => (isWholeStage() ? stepLength() + 15 : S.set.st.win); // a little extra, so a stage a fraction longer than planned stays whole
-  function recompute() { S.D = computeD(); S.checks = L.dataChecks(S); const lo = S.set.leaveOut || []; if (lo.length) S.checks.push({ level: 'info', text: `Left out by you: ${lo.map(([a, b]) => mmss(a) + '–' + mmss(b)).join(', ')} (${Math.round(lo.reduce((s, [a, b]) => s + b - a, 0))} s in all).` }); summaries(); render(); }
+  function recompute() { S.D = computeD(); S.checks = S.gas.blank ? [{ level: 'info', text: 'Lactate only: no gas file was loaded, so there are no gas data to check.' }] : L.dataChecks(S); const lo = S.set.leaveOut || []; if (lo.length) S.checks.push({ level: 'info', text: `Left out by you: ${lo.map(([a, b]) => mmss(a) + '–' + mmss(b)).join(', ')} (${Math.round(lo.reduce((s, [a, b]) => s + b - a, 0))} s in all).` }); summaries(); render(); }
   function avgParOf(set) { const a = set.avg; return a.mode === 'bin' ? a.bin : a.mode === 'ma' ? a.ma : a.mode === 'roll' ? a.roll : 0; }
   function avgLabel() { const a = S.set.avg, bxb = S.gas.kind === 'bxb'; return { raw: bxb ? 'breath-by-breath' : S.gas.avgWidth + '-s averages from the file', bin: a.bin + '-s bins', ma: a.ma + '-' + (bxb ? 'breath' : 'sample') + ' moving average', roll: a.roll + '-s rolling average' }[a.mode]; }
   const iLab = () => (S.I ? S.I.label + ' (' + S.I.unit + ')' : 'Intensity');
@@ -2140,7 +2195,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       </div>
       <div class="form">
         <label class="f"><span>Exercise and intensity data</span><select id="mSrc" ${av.length > 1 ? '' : 'disabled'}>${av.length ? av.map(a => `<option value="${a}">${srcName[a]}</option>`).join('') : '<option>None found</option>'}</select></label>
-        <label class="f"><span>Test type</span><select id="mType"><option value="incremental">Incremental test</option><option value="two">Incremental test, then a VO₂max phase</option><option value="prolonged">Durability test (step tests before and after prolonged exercise)</option></select></label>
+        <label class="f"><span>Test type</span><select id="mType" ${S.gas.blank ? 'disabled' : ''}><option value="incremental">Incremental test</option><option value="two">Submaximal test, then a VO₂max test</option><option value="prolonged">Durability test (step tests before and after prolonged exercise)</option></select></label>
         ${I && I.source === 'lode' ? `<label class="f"><span>Lode time offset (s)</span><input type="number" step="1" id="mOff" value="${set.offset}"></label>` : ''}
         ${S.hr ? `<label class="f"><span>Heart-rate offset (s)</span><input type="number" step="1" id="mHR" value="${set.hrOffset}"></label>` : ''}
       </div>
@@ -2162,7 +2217,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     bindPresets();
     bindPlan();
     // A clear prompt when the file has no power or speed: the steps must be entered (or the Lode file added) for stage and power results.
-    const ns = $('#needSteps'); ns.innerHTML = !S.I && pr.type === 'incremental' && !set.blocks ? `<div class="needsteps"><p><b>No power or speed in this file.</b> Enter the incremental test steps to get stages and power results, or add the Lode file.</p><button class="primary" id="nsGo">Enter the incremental test steps</button><button id="nsLode">Add the Lode file</button></div>` : '';
+    const ns = $('#needSteps'); ns.innerHTML = !S.I && pr.type === 'incremental' && !set.blocks ? (S.gas.blank ? `<div class="needsteps"><p><b>Lactate only, with no gas file.</b> Enter the test's stages first; the Lactate tab then has a row for each stage.</p><button class="primary" id="nsGo">Enter the stages</button></div>` : `<div class="needsteps"><p><b>No power or speed in this file.</b> Enter the incremental test steps to get stages and power results, or add the Lode file.</p><button class="primary" id="nsGo">Enter the incremental test steps</button><button id="nsLode">Add the Lode file</button></div>`) : '';
+    $('#qBox').hidden = !!S.gas.blank;
     if ($('#nsLode')) $('#nsLode').onclick = () => { S.addLode = true; fileIn.accept = '.xlsx,.xls'; fileIn.click(); };
     if ($('#nsGo')) $('#nsGo').onclick = () => { $('#dBox').open = true; const pd = $('#planD'); if (pd) { pd.open = true; pd.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(() => { const f = pd.querySelector('input'); if (f) f.focus(); }, 400); } };
     $('#mSex').value = m.sex || ''; if (av.length) $('#mSrc').value = set.source; $('#mType').value = pr.max ? 'two' : pr.type;
@@ -2199,12 +2255,12 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     return out.join('; ');
   }
   // The usual incremental test: warm-up, longer stages, then shorter stages to failure.
-  function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, switchP: NaN, shortMin: last.shortMin || 1, endMin: +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
+  function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = S.set.sport ? (S.set.sport === 'run' ? 'km/h' : 'W') : last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, switchP: NaN, shortMin: last.shortMin || 1, endMin: S.gas.blank ? NaN : +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
   function planForm() {
     const set = S.set, q = set.plan || planDefaults(), need = !S.I, show = need && !set.plan, val = v => (F(v) ? v : ''), uu = q.unit === 'W' ? 'W' : 'km/h', fld = (id, lab, v, extra) => `<label class="f"><span>${lab}</span><input type="number" step="any" id="${id}" value="${val(v)}" ${extra || ''}></label>`;
     return `<details class="adv" id="planD" ${show ? 'open' : ''}><summary>${set.plan ? `Change the entered steps <span class="hint">(applied: ${+set.plan.startP} ${set.plan.unit === 'W' ? 'W' : 'km/h'}, +${+set.plan.inc} every ${+set.plan.stageMin} min)</span>` : S.lode || S.I && !S.I.plan ? 'Replace the detected stages with entered ones' : 'Enter the incremental test steps'}</summary><div class="plan ${need ? 'need' : ''}" style="margin-top:8px">
       <h4>Incremental test steps</h4>
-      ${need ? '<p class="hint">This COSMED file has no power recording. Enter the steps here, or <button id="bAddLode">add the Lode file</button>. Times are from the start of the COSMED recording.</p>' : ''}
+      ${S.gas.blank ? '<p class="hint">Enter the stages as they were run. Times are from the start of the first stage (or of the warm-up, if you enter one). <b>Test ended at</b> is the time the last stage stopped, so an unfinished last stage is counted correctly.</p>' : need ? '<p class="hint">This COSMED file has no power recording. Enter the steps here, or <button id="bAddLode">add the Lode file</button>. Times are from the start of the COSMED recording.</p>' : ''}
       <div class="form">
         <label class="f"><span>Unit</span><select id="plU"><option value="W">W (cycling)</option><option value="km/h">km/h (treadmill)</option></select></label>
         ${fld('plWm', 'Warm-up length (min, optional)', q.warmMin)}${fld('plWp', `Warm-up intensity (${uu}, optional)`, q.warmP)}
@@ -2237,7 +2293,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   }
   function protoSummary(stageTxt) {
     const pr = S.proto;
-    if (!S.I) return '<p class="hint">Gas data only. No power or speed has been entered yet.</p>';
+    if (!S.I) return S.gas.blank ? '<p class="hint">Lactate only, with no gas file. No stages have been entered yet.</p>' : '<p class="hint">Gas data only. No power or speed has been entered yet.</p>';
     if (pr.type === 'incremental') return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} incremental test${pr.max ? ', then a separate VO₂max phase. Threshold stages' : '. Stages'}: ${esc(stageTxt)}${S.set.blocks || S.set.plan ? ' (entered by hand)' : ''}.</p>`;
     const tests = (pr.allTests || []).map((T, i) => `<label class="chk"><input type="checkbox" data-ex="${Math.round(T.t0)}" ${S.set.excluded.includes(Math.round(T.t0)) ? '' : 'checked'}>${L.testName(pr, i)}: ${mmss(T.t0)}–${mmss(T.t1)}, ${T.steps.map(s => +s.p.toFixed(1)).join(', ')} ${S.I.unit}${T.complete ? '' : ' (partial)'}</label>`).join('<br>');
     setTimeout(() => $$('[data-ex]').forEach(el => (el.onchange = () => { const k = +el.dataset.ex, a = S.set.excluded; if (el.checked) a.splice(a.indexOf(k), 1); else a.push(k); rebuild(); buildTabs(); recompute(); })), 0);
@@ -2267,18 +2323,21 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   function summaries() {
     const pr = S.proto, I = S.I, m = S.meta;
     $('#who').textContent = [m.studyId, m.name, m.date].filter(Boolean).join(' · ');
-    const what = !I ? 'Gas data only, no power entered' : (I.mode === 'cycling' ? 'Cycling' : 'Treadmill') + ' · ' + (pr.type === 'incremental' ? 'Incremental' + (pr.max ? ', threshold and VO₂max phases' : pr.inc && !pr.inc.ramp && pr.inc.stages.length ? ', ' + pr.inc.stages.length + ' stages' : '') : pr.tests.length + ' step test' + (pr.tests.length === 1 ? '' : 's'));
+    const what = S.gas.blank && !I ? 'Lactate only, no stages entered yet' : !I ? 'Gas data only, no power entered' : (I.mode === 'cycling' ? 'Cycling' : 'Treadmill') + ' · ' + (pr.type === 'incremental' ? 'Incremental' + (pr.max ? ', threshold and VO₂max phases' : pr.inc && !pr.inc.ramp && pr.inc.stages.length ? ', ' + pr.inc.stages.length + ' stages' : '') : pr.tests.length + ' step test' + (pr.tests.length === 1 ? '' : 's'));
     const nw = (S.checks || []).filter(c => c.level === 'warn').length;
     $('#dSum').textContent = what + (F(m.mass) ? ' · ' + m.mass + ' kg' : '') + (nw ? ` · ${nw} check${nw > 1 ? 's' : ''} to review` : ' · checks passed');
     const fl = S.D.fl.flag, n = fl.length, f = fl.filter(x => x === 1 || x === 2).length;
     $('#qSum').textContent = `${avgLabel()} · ${f} of ${n} flagged, ${S.set.outl.remove ? 'removed' : 'kept'}`;
+    if (S.gas.blank) $('#dSum').textContent = what + (F(m.mass) ? ' · ' + m.mass + ' kg' : '');
     drawChecks();
   }
 
   /* ---------------- Tabs ---------------- */
-  function tabs() { return [['protocol', 'Protocol'], ...(S.proto.type === 'incremental' ? [['incremental', S.proto.max ? 'Thresholds and VO₂max' : 'Thresholds and VO₂peak']] : [['steps', 'Step tests'], ...(F(S.proto.base) ? [['prolonged', 'Prolonged exercise']] : [])]), ['lactate', 'Lactate'], ['summary', 'Summary']]; }
+  // The data chosen on the start page for an incremental test: 'gas' hides the Lactate tab, 'lac' hides the gas thresholds tab (and, with no gas file, the Protocol tab).
+  const dataMode = () => (S.proto && S.proto.type === 'incremental' && S.set.data) || 'both', noGas = () => !!(S.gas && S.gas.blank);
+  function tabs() { const dm = dataMode(); return [...(noGas() ? [] : [['protocol', 'Protocol']]), ...(S.proto.type === 'incremental' ? (dm === 'lac' ? [] : [['incremental', S.proto.max ? 'Thresholds and VO₂max' : 'Thresholds and VO₂peak']]) : [['steps', 'Step tests'], ...(F(S.proto.base) ? [['prolonged', 'Prolonged exercise']] : [])]), ...(dm === 'gas' ? [] : [['lactate', 'Lactate']]), ['summary', 'Summary']]; }
   function buildTabs() {
-    const T = tabs(); if (!T.some(t => t[0] === S.view)) S.view = 'protocol';
+    const T = tabs(); if (!T.some(t => t[0] === S.view)) S.view = T[0][0];
     $('#tabs').innerHTML = T.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.view}">${l}</button>`).join('') + `<button class="gtog" id="gTog" aria-pressed="${guideOn()}" title="Step-by-step guidance through the analysis">Guided steps</button>`;
     $$('[data-tab]').forEach(b => (b.onclick = () => { S.view = b.dataset.tab; $$('[data-tab]').forEach(x => x.setAttribute('aria-selected', x === b)); render(); }));
     $('#gTog').onclick = () => { setGuide(!guideOn()); $('#gTog').setAttribute('aria-pressed', guideOn()); renderGuide(); };
@@ -2315,17 +2374,21 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   const setGuide = on => { try { localStorage.setItem('labcpet.guided', on ? 'on' : 'off'); } catch (e) { /* private window */ } };
   function guideSteps() {
     const pr = S.proto, inc = pr.type === 'incremental', openBox = id => () => { const b = $(id); if (b) { b.open = true; b.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
-    const st = [
+    const dm = dataMode(), first = noGas() ? 'lactate' : 'protocol';
+    const st = noGas() ? [{ tab: 'lactate', title: 'Enter the test details and stages', text: 'Open Test details. Type the name and body mass, then enter the stages under Incremental test steps and click Apply steps.', act: openBox('#dBox') }] : [
       { tab: 'protocol', title: 'Check the test details', text: 'Open Test details. Check the name, body mass and test type, and that the detected stages match your protocol. Anything marked ! under Data checks needs a look.', act: openBox('#dBox') },
       { tab: 'protocol', title: 'Look over the whole test', text: 'Look for mask leaks, gaps or odd values on the Protocol chart. To drop a stretch of noisy or wrong data, click Leave out a period and drag across it. To clean or smooth the data, open Data processing.' }
     ];
-    if (inc) st.push({ tab: 'incremental', title: 'Place the thresholds', text: 'Check the highlighted analysis window, then drag the VT1 and VT2 lines on the charts, or click Use next to a suggestion. Further down, the Oxynet models (two deep-learning models) give their own suggestions: click Use these lines on either chart to try them.' });
+    void first;
+    if (inc && dm === 'lac') { /* no gas thresholds */ }
+    else if (inc) st.push({ tab: 'incremental', title: 'Place the thresholds', text: 'Check the highlighted analysis window, then drag the VT1 and VT2 lines on the charts, or click Use next to a suggestion. Further down, the Oxynet models (two deep-learning models) give their own suggestions: click Use these lines on either chart to try them.' });
     else {
       st.push({ tab: 'steps', title: 'Place VT1 in each step test', text: 'Highlight the data to use in each test if needed, then drag the VT1 line on each test’s charts. Compare the tests stage by stage below.' });
       if (F(pr.base)) st.push({ tab: 'prolonged', title: 'Check the prolonged exercise', text: 'Read the summary and the values for each recording.' });
     }
-    st.push({ tab: 'lactate', title: 'Lactate, if taken', text: 'Type or paste the lactate values and check LT1 and LT2. Skip this step if no lactate was taken.' });
-    st.push({ tab: 'summary', title: 'Save, export and report', text: 'Check the thresholds table, then Save analysis, Export Excel, or make a Word report under Reports.', act: () => { const d = document.querySelector('details[data-fold=rep]'); if (d) { d.open = true; openFolds.add('rep'); } } });
+    if (dm === 'lac') st.push({ tab: 'lactate', title: 'Enter the lactate values', text: 'Type or paste the lactate values and check LT1 and LT2.' });
+    else if (dm !== 'gas') st.push({ tab: 'lactate', title: 'Lactate, if taken', text: 'Type or paste the lactate values and check LT1 and LT2. Skip this step if no lactate was taken.' });
+    st.push({ tab: 'summary', title: 'Save, export and report', text: 'Check the thresholds table, then Save analysis, Export Excel, or generate a Word report under Reports.', act: () => { const d = document.querySelector('details[data-fold=rep]'); if (d) { d.open = true; openFolds.add('rep'); } } });
     return st;
   }
   function renderGuide() {
@@ -3006,7 +3069,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     };
     tiles();
     // copy between lactate and gas thresholds
-    $('#lcp' + si).innerHTML = se.fit ? `<button id="lcpTo${si}" ${res.fit ? '' : 'disabled'}>Copy LT1 and LT2 to the gas charts</button><button id="lcpFrom${si}">Copy ${se.vtLines.map(q => q.toUpperCase()).join(' and ')} here</button><span class="hint" id="lcpM${si}">Copies through this test’s VO₂–${u === 'km/h' ? 'speed' : 'power'} regression.</span>` : '<span class="hint">Copying between lactate and gas thresholds needs a VO₂–intensity regression from at least three stages.</span>';
+    $('#lcp' + si).innerHTML = se.fit ? `<button id="lcpTo${si}" ${res.fit ? '' : 'disabled'}>Copy LT1 and LT2 to the gas charts</button><button id="lcpFrom${si}">Copy ${se.vtLines.map(q => q.toUpperCase()).join(' and ')} here</button><span class="hint" id="lcpM${si}">Copies through this test’s VO₂–${u === 'km/h' ? 'speed' : 'power'} regression.</span>` : (S.gas.blank ? '' : '<span class="hint">Copying between lactate and gas thresholds needs a VO₂–intensity regression from at least three stages.</span>');
     if (se.fit) {
       $('#lcpTo' + si).onclick = () => { const done = []; ['lt1', 'lt2'].forEach(q => { const p = ltVal(se, res, q); if (!F(p)) return; se.setVT(q.replace('lt', 'vt'), (p - se.fit.b) / se.fit.m, 'Lactate ' + q.toUpperCase()); done.push(q.toUpperCase()); }); $('#lcpM' + si).textContent = done.length ? `${done.join(' and ')} copied to the gas charts as ${done.map(x => x.replace('L', 'V')).join(' and ')}.` : 'Nothing to copy yet.'; summaries(); vLactate(); };
       $('#lcpFrom' + si).onclick = () => { const done = []; se.vtLines.forEach(q => { const v = se.vt(q); if (!F(v)) return; setLT(se.key, q.replace('vt', 'lt'), Math.round((se.fit.m * v + se.fit.b) * 100) / 100, 'Gas ' + q.toUpperCase()); done.push(q.toUpperCase()); }); summaries(); vLactate(); const m = $('#lcpM' + si); if (m) m.textContent = done.length ? `${done.join(' and ')} copied here.` : 'Nothing to copy yet.'; };
@@ -3147,6 +3210,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     const ox = oxUsed ? ` Suggestions from the Oxynet open-source models (pyoxynet; CNN and LSTM) were also available to the researcher, run on ${oxyName()} with flagged outlier breaths left out${fromOx.length ? `, and ${fromOx.map(e => `the ${e[1].replace('Oxynet ', '')} suggestion was used for ${e[0].toUpperCase()}`).join(' and ')}` : ''} (Zignoli et al., 2022; Keir et al., 2026).` : '';
     const gas = `Gas exchange was recorded with a COSMED metabolic cart (${bxb ? 'breath-by-breath export' : g.avgWidth + '-s average export'}) and displayed as ${avgT}. ${set.outl.remove ? `Breaths more than ${set.outl.nsd} SD from their local mean were removed.` : ''}`.trim();
     const eq = I && I.mode === 'cycling' ? ' Gross efficiency was calculated as external power divided by metabolic power (Brouwer, 1957).' : I ? ' Running economy was calculated as stage-end VO₂ per kilogram per kilometre.' : '';
+    if (g.blank) return `No gas exchange was recorded.${I ? ` The stages (${I.label.toLowerCase()} and length) were entered by the researcher.` : ''}`;
     if (pr.type === 'incremental') return `${gas} ${pr.max ? `Thresholds came from the longer stages. After a recovery block, VO₂max was the highest ${set.inc.peakWin}-s rolling mean during the shorter stages to failure.` : `VO₂peak was the highest ${set.inc.peakWin}-s rolling mean.`} ${I ? `Stage values were the mean of the last ${set.inc.stageWin} s of each stage${set.inc.stageWin > 30 ? ' (heart rate: the last 30 s)' : ''}. ` : ''}VT1 and VT2 were identified visually from V-slope, ventilatory equivalents and end-tidal gases, starting from two-line breakpoint suggestions.${I ? ` ${I.label} at each threshold was estimated from the linear regression of stage-end VO₂ on ${I.label.toLowerCase()}.` : ''}${skipped}${entered}${ox}${eq}${tool}`;
     const selList = S.proto ? S.proto.tests.map((T, i) => { const r = testSel(T); return r ? `${L.testName(S.proto, i)} ${(r[0] / 60).toFixed(2)}–${(r[1] / 60).toFixed(2)} min` : null; }).filter(Boolean) : [];
     const selM = selList.length ? ` Only data within a chosen time from the start of each step test were used (${selList.join('; ')}; other tests used all data).` : '';
@@ -3172,7 +3236,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     $('#views').innerHTML = `
       ${S.proto.type === 'incremental' && S.D.inc && S.D.inc.peak.vo2 ? `<div class="stats"><div class="stat key"><b>${fx(S.D.inc.peak.vo2.value, 2)} L/min</b><span>${S.proto.max ? 'VO₂max' : 'VO₂peak'}</span><small>${S.D.inc.peak.vo2kg ? fx(S.D.inc.peak.vo2kg.value, 1) + ' mL/kg/min' : ''}</small></div></div>` : ''}
       <p class="caveat"><b>A tool to help, not to rely on.</b> ${CAVEAT.replace(/^This tool helps with the analysis but should not be relied on alone\. /, '')}</p>
-      <h2 class="row">Thresholds</h2>${(() => { const u = R.thr.filter(r => r.status !== 'checked'); return u.length ? `<p class="warnline">${u.length} threshold${u.length > 1 ? 's are' : ' is'} still the tool’s suggestion: ${u.map(r => r.threshold + ' (' + r.test.replace(/_/g, ' ') + ')').join(', ')}. Check ${u.length > 1 ? 'them' : 'it'} on ${u.length > 1 ? 'their tabs' : 'its tab'}, then move or confirm ${u.length > 1 ? 'them' : 'it'}.</p>` : ''; })()}<div class="panel"><div class="tblwrap"><table><tr>${names.map(n => `<th>${n}</th>`).join('')}</tr>${R.thr.map(r => `<tr>${cols.map(c => `<td>${c === 'status' ? statusBadge(r.status === 'checked') : esc(r[c] === '' ? '–' : r[c])}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length}">None yet.</td></tr>`}</table></div></div>
+      <h2 class="row">Thresholds</h2>${(() => { const u = R.thr.filter(r => r.status !== 'checked'); return u.length ? `<p class="warnline">${u.length} threshold${u.length > 1 ? 's are' : ' is'} still the tool’s suggestion: ${u.map(r => r.threshold + ' (' + r.test.replace(/_/g, ' ') + ')').join(', ')}. Check ${u.length > 1 ? 'them' : 'it'} on ${u.length > 1 ? 'their tabs' : 'its tab'}, then move or confirm ${u.length > 1 ? 'them' : 'it'}.</p>` : ''; })()}<div class="panel"><div class="tblwrap"><table><tr>${names.map(n => `<th>${n}</th>`).join('')}</tr>${R.thr.map(r => `<tr>${cols.map(c => `<td>${c === 'status' ? statusBadge(r.status === 'checked') : esc((v => (v === '' || v === undefined ? '–' : v))(c === 'intensity_regression' && r[c] === '' ? r.intensity_stage : r[c]))}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length}">None yet.</td></tr>`}</table></div></div>
       ${fold('rep', 'Reports', 'Word files for a client or for research', reportsHTML())}
       ${fold('chk', 'Data checks', (() => { const w = (S.checks || []).filter(c => c.level === 'warn').length; return w ? `${w} to look at` : 'nothing to look at'; })(), '<ul class="checks" id="chk2"></ul>')}
       ${fold('meth', 'Methods paragraph', 'to copy into a paper', '<div class="methods" id="meth"></div><div class="tools"><button id="cpM">Copy</button><span class="hint" id="cpS"></span></div>')}
@@ -3208,7 +3272,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   }
   // Ventilatory equivalents against time with the VT lines, for reports without lactate and for the research report.
   const FIG_EQ = [[['eqo2', '#1F3864', 'VE/VO₂'], ['eqco2', '#E8336D', 'VE/VCO₂']], 'Ventilatory equivalent'], FIG_PET = [[['petco2', '#1F3864', 'PETCO₂']], 'End-tidal CO₂ (mmHg)'];
-  const petFigure = (w, h) => gasFigure(w, h, FIG_PET), hasPet = () => !!(S.D.X && S.D.X.v.petco2);
+  const petFigure = (w, h) => gasFigure(w, h, FIG_PET), hasPet = () => !!(S.D.X && S.D.X.v.petco2 && S.D.X.v.petco2.some(F));
   async function gasFigure(w = 600, h = 380, [series, ytitle] = FIG_EQ) {
     const D = S.D.inc, X = S.D.X, M = D.map, lo = D.t0, hi = S.proto.max ? S.proto.max.t1 : D.t1, ids = X.t.map((t, i) => i).filter(i => X.t[i] >= lo - 60 && X.t[i] <= hi + 30), shapes = [], ann = [];
     ['vt1', 'vt2'].forEach(q => { const v = incVT(q); if (!F(v)) return; const t = vtTime(M, v, q) / 60; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: t, x1: t, y0: 0, y1: 1, line: { color: '#E8323C', width: 2, dash: 'dash' } }); ann.push({ xref: 'x', yref: 'paper', x: t, y: 1.02, yanchor: 'bottom', showarrow: false, text: q.toUpperCase(), font: { color: '#E8323C', size: 14 } }); });
@@ -3295,8 +3359,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       B.push(DX.para(DX.rich('VT1, ventilatory threshold 1; VT2, ventilatory threshold 2; PETCO₂, end-tidal carbon dioxide pressure', { i: true, sz: 11 })));
     }
     const pk = D.peak.vo2kg, mx = S.proto.max ? 'VO₂max' : 'VO₂peak';
-    B.push(DX.para('', { after: 0 }), DX.heading(mx));
-    B.push(DX.para(pk ? `Your ${S.proto.max ? 'maximum' : 'peak'} rate of oxygen uptake (${mx}) was ${pk.value.toFixed(1)} ml/kg/min.` : 'Oxygen uptake was not available.', { jc: 'both' }));
+    if (!S.gas.blank) B.push(DX.para('', { after: 0 }), DX.heading(mx));
+    if (!S.gas.blank) B.push(DX.para(pk ? `Your ${S.proto.max ? 'maximum' : 'peak'} rate of oxygen uptake (${mx}) was ${pk.value.toFixed(1)} ml/kg/min.` : 'Oxygen uptake was not available.', { jc: 'both' }));
     return DX.pack(doc, { title: (rep.title || 'Report') + ' – ' + m.name, creator: rep.tester || 'Lab CPET tool', a4: true });
   }
   async function researchReport() {
@@ -3339,19 +3403,19 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     return DX.pack(doc, { title: 'Exercise test report – ' + m.name, creator: 'Lab CPET tool', a4: true });
   }
   // Which figures go in each report. Until a box is ticked or unticked, the client report gets the figure that matches its thresholds and the research report gets every figure.
-  function repFigs(hasLac) { const f = repInfo().figs || {}, src = repInfo().src === 'gas' || !hasLac ? 'gas' : 'lactate', pick = (k, d) => (f[k] === undefined ? d : !!f[k]); return { client: { gas: pick('cGas', src === 'gas'), lac: pick('cLac', src === 'lactate'), pet: pick('cPet', false) }, research: { gas: pick('rGas', true), lac: pick('rLac', true), pet: pick('rPet', false) } }; }
+  function repFigs(hasLac) { const f = repInfo().figs || {}, noG = !!(S.gas && S.gas.blank), src = !noG && (repInfo().src === 'gas' || !hasLac) ? 'gas' : 'lactate', pick = (k, d) => (f[k] === undefined ? d : !!f[k]); return { client: { gas: !noG && pick('cGas', src === 'gas'), lac: pick('cLac', src === 'lactate'), pet: pick('cPet', false) }, research: { gas: !noG && pick('rGas', true), lac: pick('rLac', true), pet: pick('rPet', false) } }; }
   function reportsHTML() {
     const rep = repInfo(), inc = S.proto.type === 'incremental' && S.D.inc && S.I, se = inc ? lacSeries()[0] : null, hasLac = se && lacAnalyse(se).fit;
     const f = (id, lab, val) => `<label>${lab}<input id="${id}" value="${esc(val || '')}"></label>`;
-    const fg = repFigs(!!hasLac), noPet = !inc || !hasPet(), anyLac = lacUsed();
+    const fg = repFigs(!!hasLac), noPet = !inc || !hasPet(), anyLac = lacUsed(), noG = !!S.gas.blank;
     const bx = (k, on, lab, dis, why) => `<label class="chk" ${dis ? `title="${why}"` : ''}><input type="checkbox" data-rfig="${k}" ${on && !dis ? 'checked' : ''} ${dis ? 'disabled' : ''}>${lab}</label>`;
-    const figs = (pre, o, lacOff) => `<div class="replab">Figures to include</div><div class="repfigs">${bx(pre + 'Gas', o.gas, 'Breathing chart, with VT1 and VT2', !inc, 'For incremental tests')}${bx(pre + 'Lac', o.lac, 'Lactate curve, with LT1 and LT2', lacOff, 'Enter lactate values first')}${bx(pre + 'Pet', o.pet, 'End-tidal CO₂ chart, with VT1 and VT2', noPet, 'Needs PETCO₂ from an incremental test')}</div>`;
+    const figs = (pre, o, lacOff) => `<div class="replab">Figures to include</div><div class="repfigs">${bx(pre + 'Gas', o.gas, 'Breathing chart, with VT1 and VT2', !inc || noG, noG ? 'Needs gas data' : 'For incremental tests')}${bx(pre + 'Lac', o.lac, 'Lactate curve, with LT1 and LT2', lacOff, 'Enter lactate values first')}${bx(pre + 'Pet', o.pet, 'End-tidal CO₂ chart, with VT1 and VT2', noPet, 'Needs PETCO₂ from an incremental test')}</div>`;
     return `<div class="repform">${f('rTitle', 'Report heading', rep.title)}${f('rTester', 'Tester', rep.tester)}${f('rDob', 'Date of birth', rep.dob)}${f('rHt', 'Height (cm)', rep.height)}
         <label style="grid-column:1/-1">Protocol, as written in the report<textarea id="rProt" rows="2">${esc(rep.protocol || (inc ? protocolText() : ''))}</textarea></label></div>
       <div class="repcards">
         <div class="repcard"><h4>Client report</h4><p class="hint">${inc ? 'One or two pages in everyday language, with training zones.' : 'Only for incremental tests.'}</p>
-          <div class="repsrc"><span>Thresholds from</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''}>Gas (VT1, VT2)</option></select></div>
-          ${figs('c', fg.client, !hasLac)}<button id="rClient" ${inc ? '' : 'disabled title="The client report is for incremental tests"'}>Generate the client report (Word)</button></div>
+          <div class="repsrc"><span>Thresholds from</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''} ${S.gas.blank ? 'disabled' : ''}>Gas (VT1, VT2)</option></select></div>
+          ${figs('c', fg.client, !hasLac)}<button id="rClient" ${!inc ? 'disabled title="The client report is for incremental tests"' : noG && !hasLac ? 'disabled title="Enter the lactate values first"' : ''}>Generate the client report (Word)</button></div>
         <div class="repcard"><h4>Research report</h4><p class="hint">Peak values, thresholds with their status, stage tables and methods.</p>
           ${figs('r', fg.research, !anyLac)}<button id="rResearch">Generate the research report (Word)</button></div>
       </div><p class="hint" id="rMsg" style="margin:0"></p>`;

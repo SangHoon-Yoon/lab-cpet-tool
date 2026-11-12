@@ -30,6 +30,8 @@ threshold suggestions only assist; credit "created by SangHoon Yoon" and cite th
 - `VERSION` in app.js: minor for features, patch for fixes. Bump with each release.
 - Instructions/notes on tabs go in (i) pop-ups: mark an element `data-info="<target id>"`.
 - Undo: state = `S.set` + `S.picks`, checkpointed after each click/change/keyup (keep new state in those two objects).
+- Start-page choices: `S.set.type`, `S.set.sport` ('run' | 'cycle') and `S.set.data` ('gas' | 'lac' | 'both'; `dataMode()` decides the tabs). All optional: with none, the test is worked out from the file. Lactate only with no gas file uses an empty recording (`S.gas.blank`, made by `blankGas()` in 01-files) so the usual pipeline still runs.
+- Settings objects are filled in place (`lacSet()`, `repInfo()`): never replace them with a copy, or forms holding the old object stop working.
 - Left-out periods (`S.set.leaveOut`, seconds) drop breaths in computeD, so every tab and protocol respects them.
 - Oxynet input always excludes flagged outlier breaths (min-max scaling is fragile to single extreme breaths).
 - Threshold status: a line is "checked" only when an explicit pick exists (moved, typed, method chosen, or Confirm). `statusOf(source)` gives the export status.
@@ -39,7 +41,7 @@ threshold suggestions only assist; credit "created by SangHoon Yoon" and cite th
 
 ## Tests
 - Setup once: `npm install` then `npx playwright install chromium`. Python 3 is needed for `build.py`.
-- Everything: `npm test` (build, simulated files, unit tests, browser tests e2e … e2e26). Unit only: `npm run test:unit`.
+- Everything: `npm test` (build, simulated files, unit tests, browser tests e2e … e2e27). Unit only: `npm run test:unit`.
 - Paths come from `test/paths.js` (samples: `LABCPET_SAMPLES`, else `../lab-cpet-private/samples`, else `../samples`; downloads: `DL` or a temp folder).
 - Run the full set before sending a build; tests that read hidden boxes must be updated when the UI changes on purpose.
 - `test/oxy_ref.py` + `test/oxy_compare.js` compare with pyoxynet itself (needs Python with pyoxynet; optional).

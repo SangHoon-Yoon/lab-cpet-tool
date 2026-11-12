@@ -2,7 +2,7 @@
 
 > This copy lives in the repository and is the one to keep up to date. (It began as a Claude Doc.)
 
-Version 0.25.2 · Created by SangHoon Yoon · Nov 4, 2026
+Version 0.26.0 · Created by SangHoon Yoon · Nov 4, 2026
 
 ## **Before you start**
 
@@ -15,6 +15,16 @@ Open https://sanghoon-yoon.github.io/lab-cpet-tool/, or save `lab-cpet-tool.html
 **A tool to help, not to rely on.** Suggested thresholds and fits only assist you. Always look at the data yourself, place and check every threshold, and confirm results against your usual method.
 
 **Use it online or try an example.** Open https://sanghoon-yoon.github.io/lab-cpet-tool/ for the latest version. With no file at hand, click **Try an example test** on the start page: a simulated incremental cycling test (not a real person) with lactate already filled in. **Download the example file** gives the same test as a COSMED-style Excel file.
+
+**The start page.** Three short questions come before the files. Click an answer to choose it, and click it again to clear it. Your last answers are remembered on your computer.
+
+1. **Which test?** Incremental test; Submaximal test, then VO₂max test; or Durability test (5-step tests before and after prolonged exercise).
+2. **Running or cycling?**
+3. **Which data do you have?** (incremental tests only) Gas only, Gas and lactate, or Lactate only. Gas only hides the Lactate tab. Lactate only hides the gas thresholds tab.
+
+Then add the files and click **Continue**. You can also skip the questions and just add the files: the tool then works the test out from the file, and shows every tab. If the file does not match your answer (for example you chose running but the file holds cycling power), the tool tells you.
+
+**Lactate only, with no gas file.** Choose **Lactate only** and click **Continue without a gas file**. In **Test details**, type the name, then enter the stages under **Incremental test steps** (starting speed or power, increment, stage length, and the time the test ended) and click **Apply steps**. The **Lactate** tab then has a row for each stage: type the lactate, heart rate and RPE values. The Summary tab gives the thresholds and both reports. If you do have the COSMED export, add it instead: heart rate and RPE (from the Marker column) are then filled in for each stage.
 
 **Which guide do I follow?**
 
