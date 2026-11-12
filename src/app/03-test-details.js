@@ -14,7 +14,7 @@
       </div>
       <div class="form">
         <label class="f"><span>Exercise and intensity data</span><select id="mSrc" ${av.length > 1 ? '' : 'disabled'}>${av.length ? av.map(a => `<option value="${a}">${srcName[a]}</option>`).join('') : '<option>None found</option>'}</select></label>
-        <label class="f"><span>Test type</span><select id="mType"><option value="incremental">Incremental test</option><option value="two">Incremental test, then a VO₂max phase</option><option value="prolonged">Prolonged trial with step tests</option></select></label>
+        <label class="f"><span>Test type</span><select id="mType"><option value="incremental">Incremental test</option><option value="two">Incremental test, then a VO₂max phase</option><option value="prolonged">Durability test (step tests before and after prolonged exercise)</option></select></label>
         ${I && I.source === 'lode' ? `<label class="f"><span>Lode time offset (s)</span><input type="number" step="1" id="mOff" value="${set.offset}"></label>` : ''}
         ${S.hr ? `<label class="f"><span>Heart-rate offset (s)</span><input type="number" step="1" id="mHR" value="${set.hrOffset}"></label>` : ''}
       </div>
@@ -115,7 +115,7 @@
     if (pr.type === 'incremental') return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} incremental test${pr.max ? ', then a separate VO₂max phase. Threshold stages' : '. Stages'}: ${esc(stageTxt)}${S.set.blocks || S.set.plan ? ' (entered by hand)' : ''}.</p>`;
     const tests = (pr.allTests || []).map((T, i) => `<label class="chk"><input type="checkbox" data-ex="${Math.round(T.t0)}" ${S.set.excluded.includes(Math.round(T.t0)) ? '' : 'checked'}>${L.testName(pr, i)}: ${mmss(T.t0)}–${mmss(T.t1)}, ${T.steps.map(s => +s.p.toFixed(1)).join(', ')} ${S.I.unit}${T.complete ? '' : ' (partial)'}</label>`).join('<br>');
     setTimeout(() => $$('[data-ex]').forEach(el => (el.onchange = () => { const k = +el.dataset.ex, a = S.set.excluded; if (el.checked) a.splice(a.indexOf(k), 1); else a.push(k); rebuild(); buildTabs(); recompute(); })), 0);
-    return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} prolonged trial. Steady work: ${F(pr.base) ? iVal(pr.base) : 'none found'}${pr.ttf && pr.maot ? `; work ends at ${mmss(pr.ttf)}; all-out test at ${mmss(pr.maot.t0)}` : ''}.${pr.pauses.length ? ' ' + pr.pauses.length + ' pause(s).' : ''} ${tests ? 'Tick the step tests to include:' : 'No step tests found.'}</p>${tests ? `<div class="hint">${tests}</div>` : ''}`;
+    return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} durability test. Steady work: ${F(pr.base) ? iVal(pr.base) : 'none found'}${pr.ttf && pr.maot ? `; work ends at ${mmss(pr.ttf)}; all-out test at ${mmss(pr.maot.t0)}` : ''}.${pr.pauses.length ? ' ' + pr.pauses.length + ' pause(s).' : ''} ${tests ? 'Tick the step tests to include:' : 'No step tests found.'}</p>${tests ? `<div class="hint">${tests}</div>` : ''}`;
   }
   function drawChecks() { const el = $('#chk'); if (!el || !S.checks) return; const ic = { ok: '✓', warn: '!', info: 'i' }; el.innerHTML = S.checks.map(c => `<li class="${c.level}"><span class="ic" aria-hidden="true">${ic[c.level]}</span><span>${esc(c.text)}</span></li>`).join(''); const w = S.checks.filter(c => c.level === 'warn').length, sm = $('#chkSum'); if (sm) sm.textContent = w ? `${w} to look at` : 'all passed'; }
 

@@ -5,6 +5,7 @@ and small changes. The first stays 0 until the tool is ready for the whole lab. 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-11-13 | 0.25.0 | Lactate tab: chart under the table with LT1 and LT2 beside it; the chart marks only the two starting methods, with tick boxes for the others; arrow keys move up and down the table. Reports: optional end-tidal CO₂ (PETCO₂) figure; protocol text no longer reads an unfinished last stage as shorter stages. "Prolonged trial with step tests" renamed Durability test |
 | 2026-11-13 | 0.24.0 | Lactate tab: the settings above the charts work again (curve fit, baseline in the fit, starting methods, show every method); Enter moves down a row; Add a row stays in place above the table; no rows for shorter stages at the end; resting sample labelled Baseline on the x-axis; chart height can be changed. Reports: choose which figures go in each report. Threshold status wraps inside its box on narrow windows |
 | 2026-11-11 | 0.23.4 | "What to look for" reference charts at VT1 and VT2 (schematic, from the simulated model, based on Keir et al. 2022); example model refined (VE/VCO2, PETCO2 and PETO2 change before VT1, lactate flat until VT1); analysis-window chart framed |
 | 2026-11-11 | 0.22.0 | Try an example test (simulated incremental cycling test with lactate; not a real person) and download the example file; "a tool to help, not to rely on" caveat on the start page, Summary, footer, research report and README |

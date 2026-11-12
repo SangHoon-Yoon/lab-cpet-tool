@@ -21,18 +21,20 @@
       ax => ({ xaxis: ax(isRun ? 'Running speed (km/h)' : 'Power (W)', lacTicks(res)), yaxis: ax('Lactate (mmol/L)', { rangemode: 'tozero' }), shapes, annotations: ann, margin: { l: 64, r: 16, t: 36, b: 56 } }), w, h);
   }
   // Ventilatory equivalents against time with the VT lines, for reports without lactate and for the research report.
-  async function gasFigure(w = 600, h = 380) {
+  const FIG_EQ = [[['eqo2', '#1F3864', 'VE/VO₂'], ['eqco2', '#E8336D', 'VE/VCO₂']], 'Ventilatory equivalent'], FIG_PET = [[['petco2', '#1F3864', 'PETCO₂']], 'End-tidal CO₂ (mmHg)'];
+  const petFigure = (w, h) => gasFigure(w, h, FIG_PET), hasPet = () => !!(S.D.X && S.D.X.v.petco2);
+  async function gasFigure(w = 600, h = 380, [series, ytitle] = FIG_EQ) {
     const D = S.D.inc, X = S.D.X, M = D.map, lo = D.t0, hi = S.proto.max ? S.proto.max.t1 : D.t1, ids = X.t.map((t, i) => i).filter(i => X.t[i] >= lo - 60 && X.t[i] <= hi + 30), shapes = [], ann = [];
     ['vt1', 'vt2'].forEach(q => { const v = incVT(q); if (!F(v)) return; const t = vtTime(M, v, q) / 60; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: t, x1: t, y0: 0, y1: 1, line: { color: '#E8323C', width: 2, dash: 'dash' } }); ann.push({ xref: 'x', yref: 'paper', x: t, y: 1.02, yanchor: 'bottom', showarrow: false, text: q.toUpperCase(), font: { color: '#E8323C', size: 14 } }); });
-    const tr = [['eqo2', '#1F3864', 'VE/VO₂'], ['eqco2', '#E8336D', 'VE/VCO₂']].filter(([k]) => X.v[k]).map(([k, c, n]) => ({ x: ids.map(i => X.t[i] / 60), y: ids.map(i => X.v[k][i]), mode: 'markers', marker: { size: 6, color: c }, name: n }));
-    return figPNG(tr, ax => ({ showlegend: true, legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,.8)' }, xaxis: ax('Time (min)'), yaxis: ax('Ventilatory equivalent'), shapes, annotations: ann, margin: { l: 64, r: 16, t: 36, b: 56 } }), w, h);
+    const tr = series.filter(([k]) => X.v[k]).map(([k, c, n]) => ({ x: ids.map(i => X.t[i] / 60), y: ids.map(i => X.v[k][i]), mode: 'markers', marker: { size: 6, color: c }, name: n }));
+    return figPNG(tr, ax => ({ showlegend: series.length > 1, legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,.8)' }, xaxis: ax('Time (min)'), yaxis: ax(ytitle), shapes, annotations: ann, margin: { l: 64, r: 16, t: 36, b: 56 } }), w, h);
   }
   const ordinal = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : n % 10] || 'th');
   const interpAt = (xs, ys, x) => { const P = xs.map((v, i) => [v, ys[i]]).filter(q => F(q[0]) && F(q[1])).sort((a, b) => a[0] - b[0]); if (P.length < 2 || !F(x)) return NaN; if (x <= P[0][0]) return P[0][1]; if (x >= P.at(-1)[0]) return P.at(-1)[1]; for (let i = 1; i < P.length; i++) if (x <= P[i][0]) return P[i - 1][1] + (P[i][1] - P[i - 1][1]) * (x - P[i - 1][0]) / (P[i][0] - P[i - 1][0]); return NaN; };
   function protocolText() {
     const pr = S.proto, I = S.I; if (!I || !pr.inc || pr.inc.none) return '';
     const st = pr.inc.stages, u = I.unit, dur = st.map(q => Math.round(q.dur / 60)), inc = st.length > 1 ? +C.median(st.slice(1).map((q, i) => q.p - st[i].p)).toFixed(2) : NaN, long = Math.round(C.median(st.filter(q => q.full).map(q => q.dur)) / 60) || Math.round(st[0].dur / 60);
-    const shortI = st.findIndex((q, i) => i > 0 && q.full && q.dur < 0.8 * st[0].dur);
+    const shortI = st.findIndex((q, i) => i > 0 && i < st.length - 1 && q.full && q.dur < 0.8 * long * 60);
     let a = shortI > 0 ? `${long} min stages, then ${Math.round(st[shortI].dur / 60)} min stages from ${st[shortI].p} ${u}` : `${long} min stages`;
     if (pr.max) a = `${long} min stages, then a VO₂max test of ${Math.round(pr.max.stages[0].dur / 60)} min stages`;
     const g = S.gas.aux && S.gas.aux.grade ? C.quant(S.gas.aux.grade.filter(F), 0.5) : NaN; void dur;
@@ -101,6 +103,11 @@
       B.push(DX.picture(doc, await gasFigure(), 600, 380, 14, { frame: true }));
       B.push(DX.para(DX.rich('VT1, ventilatory threshold 1; VT2, ventilatory threshold 2; VE, ventilation; VO₂, oxygen uptake; VCO₂, carbon dioxide output', { i: true, sz: 11 })));
     }
+    if (fg.pet && hasPet()) {
+      B.push(DX.para('Here is a figure showing the carbon dioxide in the last part of each breath out (end-tidal CO₂). It rises early in the test, levels off, and falls once breathing speeds up past your second threshold. Your first (VT1) and second (VT2) ventilatory thresholds are shown.', { jc: 'both', keep: true }));
+      B.push(DX.picture(doc, await petFigure(600, 380), 600, 380, 14, { frame: true }));
+      B.push(DX.para(DX.rich('VT1, ventilatory threshold 1; VT2, ventilatory threshold 2; PETCO₂, end-tidal carbon dioxide pressure', { i: true, sz: 11 })));
+    }
     const pk = D.peak.vo2kg, mx = S.proto.max ? 'VO₂max' : 'VO₂peak';
     B.push(DX.para('', { after: 0 }), DX.heading(mx));
     B.push(DX.para(pk ? `Your ${S.proto.max ? 'maximum' : 'peak'} rate of oxygen uptake (${mx}) was ${pk.value.toFixed(1)} ml/kg/min.` : 'Oxygen uptake was not available.', { jc: 'both' }));
@@ -138,6 +145,7 @@
     // figures
     const figs = [], fg = repFigs(true).research;
     if (fg.gas && pr.type === 'incremental' && D.inc) figs.push(['Ventilatory equivalents against time, with VT1 and VT2.', await gasFigure(600, 360), 600, 360]);
+    if (fg.pet && pr.type === 'incremental' && D.inc && hasPet()) figs.push(['End-tidal CO₂ pressure (PETCO₂) against time, with VT1 and VT2.', await petFigure(600, 360), 600, 360]);
     if (fg.lac) for (const se of lacSeries()) { const res = lacAnalyse(se); if (res.fit) figs.push([`Lactate against ${I.unit === 'W' ? 'power' : 'speed'}${lacSeries().length > 1 ? ' (' + se.name + ')' : ''}, with LT1 and LT2 (${LM.FITS[lacSet().fit].toLowerCase()}).`, await lactateFigure(se, res, 600, 360), 600, 360]); }
     if (figs.length) { B.push(DX.para('', { after: 0 }), DX.heading('Figures')); figs.forEach(([cap, png, w, h]) => { B.push(DX.picture(doc, png, w, h, 15)); B.push(DX.para(DX.rich(cap, { i: true, sz: 10 }), { jc: 'center' })); }); }
     const warn = (S.checks || []).filter(x => x.level === 'warn'); if (warn.length) { B.push(DX.para('', { after: 0 }), DX.heading('Data checks')); warn.forEach(x => B.push(DX.para('! ' + x.text, { jc: 'both' }))); }
@@ -145,15 +153,15 @@
     return DX.pack(doc, { title: 'Exercise test report – ' + m.name, creator: 'Lab CPET tool', a4: true });
   }
   // Which figures go in each report. Until a box is ticked or unticked, the client report gets the figure that matches its thresholds and the research report gets every figure.
-  function repFigs(hasLac) { const f = repInfo().figs || {}, src = repInfo().src === 'gas' || !hasLac ? 'gas' : 'lactate', pick = (k, d) => (f[k] === undefined ? d : !!f[k]); return { client: { gas: pick('cGas', src === 'gas'), lac: pick('cLac', src === 'lactate') }, research: { gas: pick('rGas', true), lac: pick('rLac', true) } }; }
+  function repFigs(hasLac) { const f = repInfo().figs || {}, src = repInfo().src === 'gas' || !hasLac ? 'gas' : 'lactate', pick = (k, d) => (f[k] === undefined ? d : !!f[k]); return { client: { gas: pick('cGas', src === 'gas'), lac: pick('cLac', src === 'lactate'), pet: pick('cPet', false) }, research: { gas: pick('rGas', true), lac: pick('rLac', true), pet: pick('rPet', false) } }; }
   function reportsHTML() {
     const rep = repInfo(), inc = S.proto.type === 'incremental' && S.D.inc && S.I, se = inc ? lacSeries()[0] : null, hasLac = se && lacAnalyse(se).fit;
     const f = (id, lab, val, w) => `<label class="f"><span>${lab}</span><input id="${id}" value="${esc(val || '')}" ${w ? `style="width:${w}"` : ''}></label>`;
     return `<div class="form">${f('rTitle', 'Report heading', rep.title)}${f('rTester', 'Tester', rep.tester)}${f('rDob', 'Date of birth', rep.dob)}${f('rHt', 'Height (cm)', rep.height)}
         <label class="f"><span>Thresholds in the client report</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''}>Gas (VT1, VT2)</option></select></label>
         <label class="f" style="grid-column:span 2"><span>Protocol (as written in the report)</span><textarea id="rProt" rows="2">${esc(rep.protocol || (inc ? protocolText() : ''))}</textarea></label></div>
-      ${(() => { const fg = repFigs(!!hasLac), bx = (k, on, lab, dis) => `<label class="chk"><input type="checkbox" data-rfig="${k}" ${on && !dis ? 'checked' : ''} ${dis ? 'disabled' : ''}>${lab}</label>`, gasL = 'Breathing chart (VE/VO₂ and VE/VCO₂ against time, with VT1 and VT2)', lacL = 'Lactate curve (with LT1 and LT2)', anyLac = lacUsed();
-        return `<div class="tools"><span>Figures in the client report:</span>${bx('cGas', fg.client.gas, gasL, !inc)}${bx('cLac', fg.client.lac, lacL, !hasLac)}</div><div class="tools"><span>Figures in the research report:</span>${bx('rGas', fg.research.gas, gasL, !inc)}${bx('rLac', fg.research.lac, lacL, !anyLac)}</div>`; })()}
+      ${(() => { const fg = repFigs(!!hasLac), bx = (k, on, lab, dis) => `<label class="chk"><input type="checkbox" data-rfig="${k}" ${on && !dis ? 'checked' : ''} ${dis ? 'disabled' : ''}>${lab}</label>`, gasL = 'Breathing chart (VE/VO₂ and VE/VCO₂ against time, with VT1 and VT2)', lacL = 'Lactate curve (with LT1 and LT2)', petL = 'End-tidal CO₂ (PETCO₂ against time, with VT1 and VT2)', noPet = !inc || !hasPet(), anyLac = lacUsed();
+        return `<div class="tools"><span>Figures in the client report:</span>${bx('cGas', fg.client.gas, gasL, !inc)}${bx('cLac', fg.client.lac, lacL, !hasLac)}${bx('cPet', fg.client.pet, petL, noPet)}</div><div class="tools"><span>Figures in the research report:</span>${bx('rGas', fg.research.gas, gasL, !inc)}${bx('rLac', fg.research.lac, lacL, !anyLac)}${bx('rPet', fg.research.pet, petL, noPet)}</div>`; })()}
       <div class="tools"><button class="primary" id="rClient" ${inc ? '' : 'disabled title="The client report is for incremental tests"'}>Client report (Word)</button><button id="rResearch">Research report (Word)</button><span class="hint" id="rMsg">${inc ? '' : 'The client report is for incremental tests.'}</span></div>`;
   }
   function bindReports() {

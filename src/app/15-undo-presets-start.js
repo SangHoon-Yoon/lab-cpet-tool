@@ -34,7 +34,7 @@
   const presetSave = list => { try { localStorage.setItem('labcpet.presets', JSON.stringify(list)); return true; } catch (e) { return false; } };
   function presetFromCurrent(name) {
     const s = S.set, pick = (o, ks) => Object.fromEntries(ks.filter(k => o && o[k] !== undefined).map(k => [k, structuredClone(o[k])])), rep = S.meta.rep || {};
-    return { name, made: new Date().toISOString().slice(0, 10), version: VERSION, set: { type: s.type, plan: s.plan ? structuredClone(s.plan) : null, oxyWin: s.oxyWin, avg: structuredClone(s.avg), outl: pick(s.outl, ['local', 'nsd', 'remove', 'show']), inc: pick(s.inc, ['stageWin', 'peakWin', 'skip', 'x']), st: pick(s.st, ['meas', 'win', 'regWin', 'vt2', 'cmp']), per: structuredClone(s.per), lac: s.lac ? pick(s.lac, ['fit', 'baseline', 'restrain', 'lt1', 'lt2', 'show']) : undefined }, report: pick(rep, ['title', 'protocol', 'src']) };
+    return { name, made: new Date().toISOString().slice(0, 10), version: VERSION, set: { type: s.type, plan: s.plan ? structuredClone(s.plan) : null, oxyWin: s.oxyWin, avg: structuredClone(s.avg), outl: pick(s.outl, ['local', 'nsd', 'remove', 'show']), inc: pick(s.inc, ['stageWin', 'peakWin', 'skip', 'x']), st: pick(s.st, ['meas', 'win', 'regWin', 'vt2', 'cmp']), per: structuredClone(s.per), lac: s.lac ? pick(s.lac, ['fit', 'baseline', 'restrain', 'lt1', 'lt2', 'showM']) : undefined }, report: pick(rep, ['title', 'protocol', 'src']) };
   }
   // Put a preset into S.set and S.meta. Entered steps are used only when the files have no power or speed.
   function applyPresetTo(pre) {
