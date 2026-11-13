@@ -62,12 +62,12 @@ let fail=0;const ok=(c,m)=>{console.log((c?'  ok ':'  FAIL ')+m);if(!c)fail++;};
  const rs=await pg.evaluate(()=>LabApp.S.proto.inc.rests);ok(rs.length===1&&Math.abs(rs[0][1]-rs[0][0]-30)<4,'dragging across the end of a stage adds a 30-s rest '+JSON.stringify(rs));
  await pg.screenshot({path:out+'zz_edit.png',fullPage:true});
  p=await at((rs[0][0]+rs[0][1])/2,null);await pg.mouse.move(p.x,p.y);await pg.waitForTimeout(100);ok(await cur()==='pointer','pointer shows a hand over a rest');
- await pg.mouse.down();await pg.mouse.up();await pg.waitForTimeout(1200);ok(await pg.evaluate(()=>(LabApp.S.proto.inc.rests||[]).length)===0&&await pg.evaluate(()=>LabApp.S.proto.inc.stages.length)===9,'clicking the rest removes it');
+ await pg.mouse.down();await pg.mouse.up();await pg.waitForTimeout(500);await pg.keyboard.press('Delete');await pg.waitForTimeout(1200);ok(await pg.evaluate(()=>(LabApp.S.proto.inc.rests||[]).length)===0&&await pg.evaluate(()=>LabApp.S.proto.inc.stages.length)===9,'clicking the rest selects it and Delete removes it');
  // ⌘ + scroll changes a stage's length by 5 s; plain scroll does not
  const s4=await pg.evaluate(()=>LabApp.S.proto.inc.stages[4]),s5b=await pg.evaluate(()=>LabApp.S.proto.inc.stages[5].t0);
  p=await at(s4.t0+60,null);await pg.mouse.move(p.x,p.y);await pg.mouse.wheel(0,-40);await pg.waitForTimeout(800);ok(Math.round(await pg.evaluate(()=>LabApp.S.proto.inc.stages[4].dur))===Math.round(s4.dur),'plain scrolling leaves the stage alone');
  await pg.keyboard.down('Meta');for(let k=0;k<2;k++){await pg.mouse.wheel(0,-25);await pg.waitForTimeout(60);}await pg.keyboard.up('Meta');await pg.waitForTimeout(1500);
- const w=await pg.evaluate(()=>[LabApp.S.proto.inc.stages[4].dur,LabApp.S.proto.inc.stages[5].t0]);ok(Math.abs(w[0]-(s4.dur+10))<1.5&&Math.abs(w[1]-(s5b+10))<1.5,'⌘ + scroll up twice: stage 5 is 10 s longer and the next stages move along '+JSON.stringify([s4.dur,w]));
+ const w=await pg.evaluate(()=>[LabApp.S.set.stages.list[4].dur,LabApp.S.set.stages.list[5].t0]);const want=(Math.floor(s4.dur/5+1e-6)+2)*5;ok(Math.abs(w[0]-want)<0.01&&Math.abs(w[1]-(s5b+want-s4.dur))<0.6,'⌘ + scroll up twice: stage 5 first rounds to 5 s, then +5 s ('+s4.dur.toFixed(1)+' → '+w[0]+'), later stages move along');
  // click a stage to select it, then delete it
  p=await at(s4.t0+60,null);await pg.mouse.click(p.x,p.y);await pg.waitForTimeout(400);ok(!(await pg.$eval('#stsel',e=>e.hidden)),'clicking a stage selects it and offers Delete');
  await pg.click('#stDel');await pg.waitForTimeout(1200);ok(await pg.evaluate(()=>LabApp.S.set.stages.list.length)===8,'Delete stage removes it');
@@ -84,14 +84,31 @@ let fail=0;const ok=(c,m)=>{console.log((c?'  ok ':'  FAIL ')+m);if(!c)fail++;};
  // ⌥ also works, with small trackpad-like steps
  const s3=await pg.evaluate(()=>LabApp.S.proto.inc.stages[3]);p=await at(s3.t0+60,null);await pg.mouse.move(p.x,p.y);
  await pg.keyboard.down('Alt');for(let k=0;k<12;k++){await pg.mouse.wheel(0,-5);await pg.waitForTimeout(16);}await pg.keyboard.up('Alt');await pg.waitForTimeout(1500);
- const a3=await pg.evaluate(()=>LabApp.S.proto.inc.stages[3].dur);ok(Math.abs(a3-(s3.dur+10))<1.5,'⌥ + small scroll steps: stage 4 is 10 s longer '+[s3.dur,a3]);
+ const a3=await pg.evaluate(()=>LabApp.S.proto.inc.stages[3].dur);ok(a3%5===0&&a3>s3.dur&&a3-s3.dur<=10,'⌥ + small scroll steps: stage 4 is 10 s longer '+[s3.dur,a3]);
  // arrow keys on a selected stage
  const s2b=await pg.evaluate(()=>LabApp.S.proto.inc.stages[2]);p=await at(s2b.t0+40,null);await pg.mouse.click(p.x,p.y);await pg.waitForTimeout(400);
  await pg.keyboard.press('ArrowLeft');await pg.keyboard.press('ArrowUp');await pg.waitForTimeout(1500);
- const k2=await pg.evaluate(()=>LabApp.S.proto.inc.stages[2]);ok(Math.abs(k2.dur-(s2b.dur-5))<1.5&&k2.p===s2b.p+5,'arrow keys: ← 5 s shorter, ↑ 5 W more '+JSON.stringify([s2b.dur,s2b.p,k2.dur,k2.p]));
+ const k2=await pg.evaluate(()=>LabApp.S.proto.inc.stages[2]);ok(k2.dur%5===0&&k2.dur<s2b.dur&&s2b.dur-k2.dur<=5&&k2.p===s2b.p+5,'arrow keys: ← 5 s shorter, ↑ 5 W more '+JSON.stringify([s2b.dur,s2b.p,k2.dur,k2.p]));
  // ⌘ + scroll over a time in the table
  const t0v=await pg.$eval('[data-st="dur:1"]',e=>e.value);await pg.hover('[data-st="dur:1"]');await pg.keyboard.down('Meta');for(let k=0;k<5;k++){await pg.mouse.wheel(0,-5);await pg.waitForTimeout(16);}await pg.keyboard.up('Meta');await pg.waitForTimeout(1500);
  const t1v=await pg.$eval('[data-st="dur:1"]',e=>e.value);ok(t1v!==t0v,'⌘ + scroll over a length in the table changes it: '+t0v+' → '+t1v);
+ // hover gives the length; a rest is selected by a click, then removed from its bar
+ await pg.click('#stReset');await pg.waitForTimeout(1200);
+ const SL=()=>pg.evaluate(()=>LabApp._stRows());
+ let L0=await SL();p=await at(L0[1].t0+50,null);await pg.mouse.move(p.x,p.y);await pg.waitForTimeout(150);
+ const hv=await pg.$eval('#stpop',e=>e.textContent);ok(/^Stage 2: \d:\d\d at /.test(hv),'hover over a stage shows its length: '+hv.split('\n')[0]);
+ let q2=await at(L0[6].t0+L0[6].dur-30,null),e2=await at(L0[6].t0+L0[6].dur,null);await pg.mouse.move(q2.x,q2.y);await pg.mouse.down();await pg.mouse.move(e2.x,e2.y,{steps:4});await pg.mouse.up();await pg.waitForTimeout(1200);
+ const rr=await pg.evaluate(()=>LabApp.S.proto.inc.rests[0]);p=await at((rr[0]+rr[1])/2,null);await pg.mouse.move(p.x,p.y);await pg.waitForTimeout(150);ok(/^Rest after stage 7: 0:3\d/.test(await pg.$eval('#stpop',e=>e.textContent)),'hover over a rest shows its length: '+(await pg.$eval('#stpop',e=>e.textContent)).split('\n')[0]);
+ await pg.mouse.click(p.x,p.y);await pg.waitForTimeout(400);ok(await pg.evaluate(()=>LabApp.S.proto.inc.rests.length)===1&&/Rest after stage 7/.test(await pg.$eval('#stsel',e=>e.hidden?'':e.textContent)),'clicking a rest selects it (not removed yet)');
+ await pg.keyboard.press('ArrowRight');await pg.waitForTimeout(1300);const rr2=await pg.evaluate(()=>LabApp.S.proto.inc.rests[0]);ok((rr2[1]-rr2[0])%5<0.6&&rr2[1]-rr2[0]>rr[1]-rr[0],'→ makes the selected rest longer, to a round 5 s: '+(rr[1]-rr[0])+' → '+(rr2[1]-rr2[0]));
+ await pg.click('#stDel');await pg.waitForTimeout(1200);ok(await pg.evaluate(()=>(LabApp.S.proto.inc.rests||[]).length)===0,'Remove rest removes it');
+ // pinch (Ctrl + scroll) zooms around the selected stage
+ const s4z=(await SL())[4];p=await at(s4z.t0+60,null);await pg.mouse.click(p.x,p.y);await pg.waitForTimeout(400);
+ const far=await at(s4z.t0+600,null),rz0=await pg.evaluate(()=>document.getElementById('stc')._fullLayout.xaxis.range.slice());await pg.mouse.move(far.x,far.y);
+ await pg.keyboard.down('Control');for(let k=0;k<4;k++){await pg.mouse.wheel(0,-20);await pg.waitForTimeout(40);}await pg.keyboard.up('Control');await pg.waitForTimeout(600);
+ const rz1=await pg.evaluate(()=>document.getElementById("stc")._fullLayout.xaxis.range.slice()),cz=(s4z.t0+s4z.dur/2)/60,fr=r=>(cz-r[0])/(r[1]-r[0]);
+ ok(rz1[1]-rz1[0]<(rz0[1]-rz0[0])*0.8&&Math.abs(fr(rz1)-fr(rz0))<0.02,'pinch zooms in around the selected stage, which stays in place on the chart');
+ await pg.keyboard.press('Escape');await pg.click('[data-sz=all]');await pg.waitForTimeout(300);
  // locked: a hint instead of editing
  await pg.click('#stLock');await pg.waitForTimeout(500);p=await at(s2b.t0+40,null);await pg.mouse.click(p.x,p.y);await pg.waitForTimeout(200);ok(/Unlock to edit/.test(await pg.$eval('#stpop',e=>e.hidden?'':e.textContent)),'locked: clicking the chart says how to unlock');
  await pg.click('#stLock');await pg.waitForTimeout(400);

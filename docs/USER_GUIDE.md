@@ -2,7 +2,7 @@
 
 > This copy lives in the repository and is the one to keep up to date. (It began as a Claude Doc.)
 
-Version 0.29.0 · Created by SangHoon Yoon · Nov 4, 2026
+Version 0.30.0 · Created by SangHoon Yoon · Nov 4, 2026
 
 ## **Before you start**
 
@@ -42,7 +42,7 @@ Export breath-by-breath COSMED files when you can. They allow the most averaging
 | To do this | Do this |
 | --- | --- |
 | Choose what to see | Click the variable buttons above the chart (up to 6) |
-| Zoom in or out | Scroll over the chart, or choose the zoom tool at its top right and drag across a period |
+| Zoom in or out | Pinch on the trackpad (or hold Ctrl and scroll) over the chart, or choose the zoom tool at its top right and drag across a period. Plain scrolling scrolls the page. |
 | Move along the test | Choose the move tool and drag the chart, or drag the handles on the strip below it |
 | Jump to part of the test | Use the Go to buttons |
 | Go back to the whole test | Double-click the chart |
@@ -96,11 +96,11 @@ Click **Unlock to edit**. Then, on the chart (the pointer changes to show what w
 | Move where a stage starts or ends | Drag a red line. Where two stages meet, both change. | ↔ |
 | Change a stage's power or speed | Drag the top of the stage up or down. | ⇕ |
 | Add a rest | Drag across the part of a stage that was rest. | + |
-| Remove a rest | Click the grey rest. The stage before it takes up the time. | hand |
-| Make a stage or rest longer or shorter | Hold ⌘ or ⌥ (Ctrl or Alt on Windows) and scroll over it: 5 s per step, 1 s with Shift as well. The stages after it move along. The same works over a time in the table. | |
-| Select a stage | Click it. It is outlined in red and its row in the table is highlighted. Then ← → make it 5 s shorter or longer (1 s with Shift), ↑ ↓ change its power or speed, and **Delete stage** or the Delete key removes it. Esc clears the selection. | + |
+| See how long a stage or rest is | Hover over it (locked or unlocked). | |
+| Make a stage or rest longer or shorter | Hold ⌘ or ⌥ (Alt on Windows) and scroll over it. The first step rounds to a whole 5 s (for example 2:59 → 3:00), then each step is 5 s (1 s with Shift). The stages after it move along. The same works over a time in the table. | |
+| Select a stage or a rest | Click it. It is outlined in red, and a small bar above it gives its length with **Delete stage** or **Remove rest**. Then ← → change its length in 5 s steps (1 s with Shift), ↑ ↓ change a stage's power or speed, and the Delete key removes it. Esc clears the selection. When a rest is removed, the stage before it takes up the time. | + or hand |
 
-To zoom, use the **+** and **−** buttons above the chart, **Show all stages** (or the home button on the chart), or drag the handles of the strip under the chart. Plain scrolling scrolls the page, not the chart. Drag the bar under the chart to make it taller or shorter.
+To zoom, pinch on the trackpad (or hold Ctrl and scroll): the chart zooms around the selected stage or rest, or else around the pointer. You can also use the **+** and **−** buttons, **Show all stages** (or the home button on the chart), or the handles of the strip under the chart. Plain scrolling scrolls the page, not the chart. Drag the bar under the chart to make it taller or shorter.
 
 Or type in the table: times are minutes:seconds (or a number of minutes, such as 3 or 0.5), and changing a start, length or rest moves the stages after it by the same amount. Press Enter to move down a column. **Same for every stage** sets one length, one rest, or both, for every stage at once. **Add a stage** adds one after the last; × removes one.
 

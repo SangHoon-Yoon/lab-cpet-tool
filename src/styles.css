@@ -204,7 +204,7 @@ details.sub[open]>summary{margin-bottom:6px}
 .stT tbody tr.on td{background:var(--accent-soft)}
 #stc .modebar-container{z-index:5}#stc .modebar{opacity:1!important}
 .stzoom{margin:0 0 6px}.stzoom button[data-sz]{min-width:2.2em}
-.stpop{position:absolute;z-index:3;pointer-events:none;background:var(--fg);color:var(--bg);font-size:.75rem;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.stpop{position:absolute;z-index:3;pointer-events:none;white-space:pre-line!important;line-height:1.35;background:var(--fg);color:var(--bg);font-size:.75rem;padding:2px 7px;border-radius:4px;white-space:nowrap}
 .stside .tblwrap{max-height:340px;overflow:auto}
 .stT input{width:4.8em}.stT input[type=number]{width:5.5em}
 .stall{margin-top:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;display:grid;gap:4px;font-size:.85rem}

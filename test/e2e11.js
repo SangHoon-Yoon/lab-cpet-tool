@@ -8,7 +8,7 @@ const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
  const geo=pg=>pg.evaluate(()=>{const gd=document.getElementById('selC0');gd.scrollIntoView({block:'center'});const xa=gd._fullLayout.xaxis,r=gd.getBoundingClientRect();return{l:r.left+xa._offset,len:xa._length,x:m=>0,px:[...Array(25)].map((_,m)=>r.left+xa._offset+xa.l2p(m)),y:r.top+gd._fullLayout.margin.t+60,right:r.right};});
  let pg=await open(fl);
  const infos=async()=>pg.$$eval('#views .ib',x=>x.length);ok(await infos()>=1,'protocol tab has an (i) button');ok(await pg.$$eval('#views ul.notes',x=>x.length)===0,'protocol notes moved into a pop-up');
- await pg.click('#views .ib');await pg.waitForTimeout(150);const pt=await pg.$eval('#ipop',e=>!e.hidden&&e.innerText);ok(pt&&/Scroll to zoom/.test(pt),'pop-up shows the zoom help');await pg.mouse.click(5,5);await pg.waitForTimeout(100);ok(await pg.$eval('#ipop',e=>e.hidden),'click outside closes it');
+ await pg.click('#views .ib');await pg.waitForTimeout(150);const pt=await pg.$eval('#ipop',e=>!e.hidden&&e.innerText);ok(pt&&/Pinch on the trackpad/.test(pt),'pop-up shows the zoom help');await pg.mouse.click(5,5);await pg.waitForTimeout(100);ok(await pg.$eval('#ipop',e=>e.hidden),'click outside closes it');
  await pg.click('[data-tab=steps]');await pg.waitForTimeout(900);ok(await infos()>=3,'step tests tab has (i) buttons: '+await infos());ok(await pg.$$eval('#views ul.notes',x=>x.length)===0,'step notes moved');
  let g=await geo(pg);await pg.waitForTimeout(200);g=await geo(pg);
  // drag 4 -> 16 min, then let go outside the window: simulate by moving with no buttons

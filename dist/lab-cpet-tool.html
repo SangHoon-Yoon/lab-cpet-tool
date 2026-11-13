@@ -211,7 +211,7 @@ details.sub[open]>summary{margin-bottom:6px}
 .stT tbody tr.on td{background:var(--accent-soft)}
 #stc .modebar-container{z-index:5}#stc .modebar{opacity:1!important}
 .stzoom{margin:0 0 6px}.stzoom button[data-sz]{min-width:2.2em}
-.stpop{position:absolute;z-index:3;pointer-events:none;background:var(--fg);color:var(--bg);font-size:.75rem;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.stpop{position:absolute;z-index:3;pointer-events:none;white-space:pre-line!important;line-height:1.35;background:var(--fg);color:var(--bg);font-size:.75rem;padding:2px 7px;border-radius:4px;white-space:nowrap}
 .stside .tblwrap{max-height:340px;overflow:auto}
 .stT input{width:4.8em}.stT input[type=number]{width:5.5em}
 .stall{margin-top:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;display:grid;gap:4px;font-size:.85rem}
@@ -1982,7 +1982,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.29.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.30.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -2126,7 +2126,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     if (S.hr && !S.set.hrOffset) { const ce = P.cosmedStartEpoch(m); if (S.hr.start && ce) S.set.hrOffset = Math.round(S.hr.start - ce); }
     rebuild();
     S.align = L.alignment(S.gas, S.I);
-    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = false; $('#sBox').open = false; S._stUnlock = false; S._stX = null; S._stMsg = ''; S._stSel = null; S._stTemp = null; S._stVO2 = null;
+    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = false; $('#sBox').open = false; S._stUnlock = false; S._stX = null; S._stMsg = ''; S._stSel = null; S._stRest = null; S._stTemp = null; S._stVO2 = null;
     ['#bSave', '#bExport', '#bCsv'].forEach(b => ($(b).disabled = false));
     buildDetails(); buildProc(); buildTabs(); recompute();
     H.steps = []; H.at = -1; H.saved = null; checkpoint(); S.gStep = 0; renderGuide();
@@ -2367,7 +2367,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     $('#sForm').innerHTML = `
       <div class="tools sttools">${on ? '<button id="stLock" aria-pressed="true">Lock the stages</button>' : '<button id="stLock" class="primary">Unlock to edit</button>'}<button id="stReset" ${set.stages ? '' : 'disabled'}>Reset to original</button>${on ? '<button id="stAdd">Add a stage</button>' : ''}<span id="stI"></span><span class="hint" id="stMsg">${esc(S._stMsg || '')}${ov > 0 ? ` Stage ${ov + 1} starts before stage ${ov} ends.` : ''}</span></div>
       <ul class="notes" data-info="stI"><li>Times are from the start of the recording, as minutes:seconds (or a number of minutes, such as 3 or 0.5).</li><li>In the table, changing a start, length or rest moves the stages after it by the same amount. On the chart, moving an edge changes only the stages on either side of it.</li><li>Edited stages replace the ${lab.toLowerCase()} from the file or the entered steps on every tab. <b>Reset to original</b> goes back, and Ctrl+Z (⌘Z) undoes the last change.</li><li>Rests between stages (up to 2 min, stopped or slower) keep the stages as one test. They are shaded grey${S.proto.type === 'incremental' ? ', and left out of the threshold charts and peak values unless you untick that under Test details' : ''}.</li></ul>
-      <div class="stguide">${on ? `<b>Unlocked.</b> On the chart: <span class="k">↔</span> drag a red line to move a stage’s start or end · <span class="k">⇕</span> drag the top of a stage to change its ${lab.toLowerCase()} · <span class="k">+</span> drag across a stage to add a rest · click a stage to select it, then delete it · click a grey rest to remove it · hold <span class="k">${MOD}</span> (or <span class="k">${MOD2}</span>) and scroll over a stage, a rest or a time in the table to change it by 5 s · after clicking a stage, the arrow keys change it too (← → length, ↑ ↓ ${lab.toLowerCase()}). Or type in the table.` : `Check the stages against your protocol. To correct them, click <b>Unlock to edit</b>.`}</div>
+      <div class="stguide">${on ? `<b>Unlocked.</b> On the chart: <span class="k">↔</span> drag a red line to move a stage’s start or end · <span class="k">⇕</span> drag the top of a stage to change its ${lab.toLowerCase()} · <span class="k">+</span> drag across a stage to add a rest · click a stage or a grey rest to select it (then delete it, or use ← → for its length and ↑ ↓ for a stage’s ${lab.toLowerCase()}) · hold <span class="k">${MOD}</span>${IS_MAC ? ` (or <span class="k">${MOD2}</span>)` : ''} and scroll over a stage, a rest or a time in the table to change it in 5 s steps · pinch to zoom. Or type in the table.` : `Check the stages against your protocol. To correct them, click <b>Unlock to edit</b>.`}</div>
       <div class="stgrid"><div><div class="stzoom tools"><span>Zoom:</span><button data-sz="in" title="Zoom in" aria-label="Zoom in">+</button><button data-sz="out" title="Zoom out" aria-label="Zoom out">−</button><button data-sz="all">Show all stages</button><span class="hint">or drag the handles of the strip under the chart</span></div>
         <div class="stchartwrap" id="stcw"><div class="stchart" id="stc"></div><div class="stover" id="sto" hidden></div><div class="stpop" id="stpop" hidden></div><div class="stsel" id="stsel" hidden></div></div>
         <div class="sizebar" id="stsize" title="Drag up or down to change the chart's height" role="separator" aria-label="Drag to change the chart's height"><span></span></div></div>
@@ -2419,8 +2419,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     $$('[data-st]').forEach(el => (el.onwheel = ev => {
       if (!modHeld(ev)) return; ev.preventDefault(); const W = el._w = el._w || { acc: 0 }, n = notchesOf(W, ev); if (!n) return;
       const [k] = el.dataset.st.split(':'), u = stUnit();
-      if (k === 'p') { const stp = u === 'W' ? (ev.shiftKey ? 1 : 5) : (ev.shiftKey ? 0.1 : 0.5); el.value = +Math.max(stp, (parseFloat(el.value) || 0) - n * stp).toFixed(2); }
-      else { const v = parseT(el.value); if (!F(v)) return; el.value = mmss(Math.max(k === 'dur' ? 5 : 0, v - n * (ev.shiftKey ? 1 : 5))); }
+      if (k === 'p') { const stp = u === 'W' ? (ev.shiftKey ? 1 : 5) : (ev.shiftKey ? 0.1 : 0.5); el.value = Math.max(stp, stepN(parseFloat(el.value) || 0, -n, stp)); }
+      else { const v = parseT(el.value); if (!F(v)) return; el.value = mmss(Math.max(k === 'dur' ? 5 : 0, stepN(v, -n, ev.shiftKey ? 1 : 5))); }
       clearTimeout(W.t); W.t = setTimeout(() => el.onchange(), 600); // applied when the scrolling pauses
     }));
     const tb = $('.stT');
@@ -2435,8 +2435,20 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     void set; void rows; void on;
   }
   // The key held while scrolling to change a stage's or rest's length: ⌘ on a Mac, Ctrl elsewhere.
-  const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent), MOD = IS_MAC ? '⌘' : 'Ctrl', MOD2 = IS_MAC ? '⌥' : 'Alt';
-  const modHeld = ev => ev.altKey || (IS_MAC ? ev.metaKey : ev.ctrlKey);
+  // Ctrl + scroll is what a trackpad pinch sends, so it zooms; lengths use ⌘ or ⌥ on a Mac and Alt elsewhere.
+  const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent), MOD = IS_MAC ? '⌘' : 'Alt', MOD2 = IS_MAC ? '⌥' : 'Alt';
+  const modHeld = ev => !ev.ctrlKey && (ev.altKey || (IS_MAC && ev.metaKey));
+  // Steps of s seconds (or units) that land on round numbers: 179 → 180 → 185 going up, 179 → 175 → 170 going down.
+  const toStep = (v, dir, s) => { const k = v / s, on = Math.abs(k - Math.round(k)) < 1e-6; return (dir > 0 ? (on ? Math.round(k) + 1 : Math.ceil(k)) : (on ? Math.round(k) - 1 : Math.floor(k))) * s; };
+  const stepN = (v, n, s) => { let x = v; for (let k = 0; k < Math.abs(n); k++) x = toStep(x, Math.sign(n), s); return +x.toFixed(2); };
+  // One change to a stage's length, a rest's length or a stage's intensity, n steps up (n > 0) or down; later stages move along.
+  function stChange(r, what, i, n, fine) {
+    const u = stUnit(), q = r[i];
+    if (what === 'p') { const stp = u === 'W' ? (fine ? 1 : 5) : (fine ? 0.1 : 0.5); q.p = Math.max(stp, stepN(q.p, n, stp)); return `Stage ${i + 1}: ${(+q.p).toFixed(u === 'W' ? 0 : 1)} ${u}`; }
+    const s = fine ? 1 : 5;
+    if (what === 'rest') { const B = r[i + 1]; if (!B) return ''; const rest = B.t0 - (q.t0 + q.dur), nr = Math.max(0, stepN(rest, n, s)), d = nr - rest; r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + d).toFixed(1))); return `Rest after stage ${i + 1}: ${mmss(nr)}`; }
+    const nd = Math.max(5, stepN(q.dur, n, s)), d = nd - q.dur; q.dur = nd; r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + d).toFixed(1))); return `Stage ${i + 1}: ${mmss(nd)}`;
+  }
   // Scroll steps add up until they make one notch: a trackpad sends many small steps, a mouse wheel a few large ones.
   const notchesOf = (W, ev) => { W.acc += ev.deltaMode === 1 ? ev.deltaY * 20 : ev.deltaMode === 2 ? ev.deltaY * 400 : ev.deltaY; const n = Math.trunc(W.acc / 25); W.acc -= n * 25; return n; };
   const stDefaultX = rows => { const g = S.gas, tEnd = g.blank ? (rows.length ? rows.at(-1).t0 + rows.at(-1).dur + 120 : 1800) : g.t.at(-1); return [Math.max(0, (rows.length ? rows[0].t0 - 90 : 0) / 60), Math.min(tEnd, rows.length ? rows.at(-1).t0 + rows.at(-1).dur + 90 : tEnd) / 60]; };
@@ -2446,6 +2458,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     const gd = $('#stc'); if (!gd || !$('#sBox').open) return;
     const rows = tmp || stageList(), u = stUnit(), lab = u === 'W' ? 'Power' : 'Speed', on = !!S._stUnlock, g = S.gas, rs = stRests(rows), H = (S.set.view && S.set.view.stH) || 320;
     if (S._stSel !== undefined && S._stSel !== null && !rows[S._stSel]) S._stSel = null;
+    if (S._stRest !== undefined && S._stRest !== null && !rs.some(x => x[2] === S._stRest)) S._stRest = null;
     const xs = [], ys = []; rows.forEach((q, i) => { const e = q.t0 + q.dur, pv = rows[i - 1]; if (!pv || q.t0 > pv.t0 + pv.dur + 0.5) { xs.push(q.t0 / 60); ys.push(0); } xs.push(q.t0 / 60, e / 60); ys.push(q.p, q.p); const nx = rows[i + 1]; if (!nx || nx.t0 > e + 0.5) { xs.push(e / 60); ys.push(0); } });
     const tr = [{ x: xs, y: ys, mode: 'lines', type: 'scatter', line: { color: css('--power'), width: 2 }, fill: 'tozeroy', fillcolor: css('--powerfill'), hoverinfo: 'skip', name: lab }];
     if (!g.blank && g.v.vo2) { if (!S._stVO2 || S._stVO2.g !== g) { const keep = g.t.map((x, i) => F(g.v.vo2[i]) && g.v.vo2[i] > 0), Gs = C.series(g, keep, 'bin', g.kind === 'avg' ? g.avgWidth : 10); S._stVO2 = { g, x: Gs.t.map(t => t / 60), y: Gs.v.vo2 }; } tr.push({ x: S._stVO2.x, y: S._stVO2.y, yaxis: 'y2', mode: 'lines', type: 'scatter', line: { color: css('--ma'), width: 1.2 }, opacity: 0.55, hoverinfo: 'skip', name: 'VO₂' }); }
@@ -2454,6 +2467,10 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     rows.forEach((q, i) => ann.push({ x: (q.t0 + q.dur / 2) / 60, y: q.p, yanchor: 'bottom', showarrow: false, text: (+q.p).toFixed(u === 'W' ? 0 : 1), font: { size: 10, color: css('--fg') } }));
     const sel = on && S._stSel !== null && S._stSel !== undefined ? rows[S._stSel] : null;
     if (sel) shapes.push({ type: 'rect', xref: 'x', yref: 'y', x0: sel.t0 / 60, x1: (sel.t0 + sel.dur) / 60, y0: 0, y1: sel.p, fillcolor: css('--accent-soft'), line: { color: css('--accent'), width: 2 } });
+    const selR = on && S._stRest !== null && S._stRest !== undefined ? rs.find(x => x[2] === S._stRest) : null;
+    if (selR) shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: selR[0] / 60, x1: selR[1] / 60, y0: 0, y1: 1, fillcolor: css('--accent-soft'), line: { color: css('--accent'), width: 2 } });
+    // pinch zooms around what is selected, or else around the pointer
+    gd._zoomAt = () => (sel ? (sel.t0 + sel.dur / 2) / 60 : selR ? (selR[0] + selR[1]) / 120 : null);
     const edges = [];
     if (on) {
       rows.forEach((q, i) => { const e = q.t0 + q.dur, nx = rows[i + 1], pv = rows[i - 1];
@@ -2483,39 +2500,10 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     const xa = () => gd._fullLayout.xaxis, ya = () => gd._fullLayout.yaxis;
     const place = () => { const a = xa(), b = ya(); ov.style.left = a._offset + 'px'; ov.style.top = b._offset + 'px'; ov.style.width = a._length + 'px'; ov.style.height = b._length + 'px'; if (on) placeSel(); };
     gd._place = place;
-    if (!on) { // locked: no editing, only a reminder of how to start
-      $$('.stT tbody tr.on').forEach(tr => tr.classList.remove('on')); place(); ov.style.cursor = 'default';
-      const say = ev => { const r = ov.getBoundingClientRect(); pop.hidden = false; pop.textContent = 'Click Unlock to edit to change the stages'; pop.style.left = (xa()._offset + ev.clientX - r.left + 12) + 'px'; pop.style.top = (ya()._offset + ev.clientY - r.top - 26) + 'px'; };
-      ov.onpointermove = ev => { if (ev.buttons) return; pop.hidden = true; }; ov.onpointerleave = () => (pop.hidden = true);
-      ov.onpointerdown = ev => { if (!ev.button) say(ev); }; ov.onwheel = ev => { if (modHeld(ev)) { ev.preventDefault(); say(ev); } };
-      return;
-    }
-    const step = u === 'W' ? 1 : 0.1, snapP = v => Math.max(step, Math.round(v / step) * step);
+    const step = u === 'W' ? 1 : 0.1, snapP = v => Math.max(step, Math.round(v / step) * step), dpU = u === 'W' ? 0 : 1;
     const secAt = px => xa().p2l(px) * 60, pxAt = sec => xa().l2p(sec / 60), pyAt = v => ya().l2p(v);
-    // the selected stage gets a small bar with Delete above it
-    function placeSel() {
-      $$('.stT tbody tr').forEach((tr, k) => tr.classList.toggle('on', !!sel && k === S._stSel)); // the selected stage's row in the table too
-      if (!sel || tmp) { selBox.hidden = true; return; } const a = xa(), b = ya(), x = a._offset + a.l2p((sel.t0 + sel.dur / 2) / 60), y = b._offset + b.l2p(sel.p);
-      if (x < a._offset || x > a._offset + a._length) { selBox.hidden = true; return; }
-      selBox.hidden = false; selBox.innerHTML = `<span>Stage ${S._stSel + 1}</span><button id="stDel">Delete stage</button><button id="stUnsel" aria-label="Clear the selection" title="Clear the selection">×</button>`;
-      selBox.style.left = x + 'px'; selBox.style.top = Math.max(2, y - 40) + 'px';
-      $('#stDel').onclick = () => delSel(); $('#stUnsel').onclick = () => { S._stSel = null; drawStageChart(); };
-    }
-    function delSel() { const r = stageList(), i = S._stSel; if (i === null || i === undefined || !r[i]) return; r.splice(i, 1); S._stSel = null; S._stX = xa().range.slice(); setStages(r, `Stage ${i + 1} deleted. Drag an edge if the stages around it should close the gap.`); }
-    place();
-    if (!document._stKeys) { document._stKeys = true; document.addEventListener('keydown', e => {
-      if (!S._stUnlock || S._stSel === null || S._stSel === undefined || !['Delete', 'Backspace', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
-      const el = document.activeElement; if (el && /INPUT|TEXTAREA|SELECT/.test(el.tagName)) return; e.preventDefault();
-      if (e.key === 'Escape') { S._stSel = null; drawStageChart(); return; }
-      if (e.key === 'Delete' || e.key === 'Backspace') { const d = $('#stDel'); if (d) d.click(); return; }
-      // ← → length (5 s, 1 s with Shift; later stages move along) · ↑ ↓ power or speed (one step)
-      const r = (S._stTemp || stageList()).map(q => Object.assign({}, q)), i = S._stSel, q = r[i]; if (!q) return; const u = stUnit(), stp = u === 'W' ? (e.shiftKey ? 1 : 5) : (e.shiftKey ? 0.1 : 0.5);
-      let txt;
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const d = Math.max(5 - q.dur, (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 5)); q.dur = +(q.dur + d).toFixed(1); r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + d).toFixed(1))); txt = `Stage ${i + 1}: ${mmss(q.dur)}`; }
-      else { q.p = +Math.max(stp, q.p + (e.key === 'ArrowUp' ? stp : -stp)).toFixed(2); txt = `Stage ${i + 1}: ${(+q.p).toFixed(u === 'W' ? 0 : 1)} ${u}`; }
-      S._stTemp = r; drawStageChart(r); $('#stMsg').textContent = txt;
-      clearTimeout(S._stKeyT); S._stKeyT = setTimeout(() => { const fin = S._stTemp; S._stTemp = null; if (fin) setStages(fin, txt + '.'); }, 600);
-    }); }
+    const local = ev => { const r = ov.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+    const tip = (txt, px, py) => { if (!txt) { pop.hidden = true; return; } pop.hidden = false; pop.textContent = txt; pop.style.left = (xa()._offset + px + 14) + 'px'; pop.style.top = (ya()._offset + py - 12 - pop.offsetHeight) + 'px'; };
     function hit(px, py) {
       let best = null, d = 8; edges.forEach(e => { const q = Math.abs(pxAt(e.x) - px); if (q < d) { d = q; best = e; } });
       // inside a narrow rest, its edges need a closer pointer so the rest itself can still be clicked
@@ -2523,28 +2511,69 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       if (best && !(r && d > 2.5)) return { kind: 'edge', e: best };
       if (r) return { kind: 'rest', r };
       const i = rows.findIndex(q => s >= q.t0 && s <= q.t0 + q.dur); if (i < 0) return { kind: 'none' };
-      return Math.abs(py - pyAt(rows[i].p)) < 8 ? { kind: 'top', i } : { kind: 'cut', i };
+      return on && Math.abs(py - pyAt(rows[i].p)) < 8 ? { kind: 'top', i } : { kind: 'cut', i };
     }
-    const tips = { edge: 'Drag to move this edge', top: `Drag up or down to change the ${lab.toLowerCase()}`, cut: `Click to select · drag across to add a rest · ${MOD} + scroll: length`, rest: `Click to remove this rest · ${MOD} + scroll: length`, none: '' }, curs = { edge: 'ew-resize', top: 'ns-resize', cut: 'crosshair', rest: 'pointer', none: 'default' };
-    const local = ev => { const r = ov.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
-    const tip = (txt, px, py) => { if (!txt) { pop.hidden = true; return; } pop.hidden = false; pop.textContent = txt; pop.style.left = (xa()._offset + px + 12) + 'px'; pop.style.top = (ya()._offset + py - 26) + 'px'; };
-    ov.onpointermove = ev => { if (ov._drag) return; const [px, py] = local(ev), h = hit(px, py); ov.style.cursor = curs[h.kind]; tip(tips[h.kind], px, py); };
+    // What the pointer is over: its length first, then (when unlocked) what can be done there.
+    const info = h => h.kind === 'rest' ? `Rest after stage ${h.r[2] + 1}: ${mmss(h.r[1] - h.r[0])}` : h.kind === 'cut' || h.kind === 'top' ? `Stage ${h.i + 1}: ${mmss(rows[h.i].dur)} at ${(+rows[h.i].p).toFixed(dpU)} ${u}` : h.kind === 'edge' ? `Edge at ${mmss(h.e.x)}` : '';
+    const how = { edge: 'Drag to move it', top: `Drag up or down to change the ${lab.toLowerCase()}`, cut: `Click to select · drag across to add a rest · ${MOD} + scroll: length`, rest: `Click to select · ${MOD} + scroll: length`, none: '' };
+    const curs = { edge: 'ew-resize', top: 'ns-resize', cut: 'crosshair', rest: 'pointer', none: 'default' };
     ov.onpointerleave = () => { if (!ov._drag) pop.hidden = true; };
-    // ⌘ (Ctrl) + scroll over a stage or a rest: 5 s longer or shorter each notch (1 s with Shift). Later stages move along. Plain scrolling scrolls the page.
+    if (!on) { // locked: lengths on hover, and a reminder of how to start editing
+      $$('.stT tbody tr.on').forEach(tr => tr.classList.remove('on')); place();
+      ov.onpointermove = ev => { if (ev.buttons) return; const [px, py] = local(ev), h = hit(px, py); ov.style.cursor = 'default'; tip(info(h), px, py); };
+      ov.onpointerdown = ev => { if (ev.button) return; const [px, py] = local(ev); tip('Click Unlock to edit to change the stages', px, py); };
+      ov.onwheel = ev => { if (modHeld(ev)) { ev.preventDefault(); const [px, py] = local(ev); tip('Click Unlock to edit to change the stages', px, py); } };
+      return;
+    }
+    // A selected stage or rest gets a small bar above it.
+    function placeSel() {
+      $$('.stT tbody tr').forEach((tr, k) => tr.classList.toggle('on', !!sel && k === S._stSel)); // the selected stage's row in the table too
+      if ((!sel && !selR) || tmp) { selBox.hidden = true; return; }
+      const a = xa(), b = ya(), x = a._offset + a.l2p(gd._zoomAt()), y = sel ? b._offset + b.l2p(sel.p) : b._offset + 16;
+      if (x < a._offset || x > a._offset + a._length) { selBox.hidden = true; return; }
+      selBox.hidden = false;
+      selBox.innerHTML = sel ? `<span>Stage ${S._stSel + 1} · ${mmss(sel.dur)}</span><button id="stDel">Delete stage</button><button id="stUnsel" aria-label="Clear the selection" title="Clear the selection">×</button>`
+        : `<span>Rest after stage ${S._stRest + 1} · ${mmss(selR[1] - selR[0])}</span><button id="stDel">Remove rest</button><button id="stUnsel" aria-label="Clear the selection" title="Clear the selection">×</button>`;
+      selBox.style.left = x + 'px'; selBox.style.top = Math.max(2, y - 40) + 'px';
+      $('#stDel').onclick = () => delSel(); $('#stUnsel').onclick = () => { S._stSel = S._stRest = null; drawStageChart(); };
+    }
+    function delSel() {
+      const r = stageList(); S._stX = xa().range.slice();
+      if (S._stSel !== null && S._stSel !== undefined) { const i = S._stSel; if (!r[i]) return; r.splice(i, 1); S._stSel = null; return setStages(r, `Stage ${i + 1} deleted. Drag an edge if the stages around it should close the gap.`); }
+      if (S._stRest !== null && S._stRest !== undefined) { const i = S._stRest, A = r[i], B = r[i + 1]; if (!A || !B) return; S._stRest = null;
+        // the stage before the rest takes up its time (or, if both sides are the same stage, they join)
+        if (Math.abs(A.p - B.p) < step / 2) { A.dur = B.t0 + B.dur - A.t0; r.splice(i + 1, 1); } else A.dur = B.t0 - A.t0;
+        return setStages(r, `Rest after stage ${i + 1} removed.`); }
+    }
+    place();
+    if (!document._stKeys) { document._stKeys = true; document.addEventListener('keydown', e => {
+      const isS = S._stSel !== null && S._stSel !== undefined, isR = S._stRest !== null && S._stRest !== undefined;
+      if (!S._stUnlock || (!isS && !isR) || !['Delete', 'Backspace', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+      const el = document.activeElement; if (el && /INPUT|TEXTAREA|SELECT/.test(el.tagName)) return; e.preventDefault();
+      if (e.key === 'Escape') { S._stSel = S._stRest = null; drawStageChart(); return; }
+      if (e.key === 'Delete' || e.key === 'Backspace') { const d = $('#stDel'); if (d) d.click(); return; }
+      if (isR && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) return;
+      // ← → length of the stage or rest (5 s, 1 s with Shift) · ↑ ↓ the stage's power or speed
+      const r = (S._stTemp || stageList()).map(q => Object.assign({}, q)), i = isS ? S._stSel : S._stRest; if (!r[i]) return;
+      const n = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : -1, txt = stChange(r, isR ? 'rest' : e.key === 'ArrowUp' || e.key === 'ArrowDown' ? 'p' : 'dur', i, n, e.shiftKey);
+      S._stTemp = r; drawStageChart(r); $('#stMsg').textContent = txt;
+      clearTimeout(S._stKeyT); S._stKeyT = setTimeout(() => { const fin = S._stTemp; S._stTemp = null; if (fin) setStages(fin, txt + '.'); }, 600);
+    }); }
+    ov.onpointermove = ev => { if (ov._drag) return; const [px, py] = local(ev), h = hit(px, py); ov.style.cursor = curs[h.kind]; const a = info(h); tip(a ? a + (how[h.kind] ? '\n' + how[h.kind] : '') : '', px, py); };
+    // ⌘ or ⌥ + scroll over a stage or a rest: first to a round 5 s, then 5 s a step (1 s with Shift). Later stages move along. Plain scrolling scrolls the page.
     ov.onwheel = ev => {
       if (!modHeld(ev)) return;
       ev.preventDefault(); // with the key held, the page itself must not scroll or zoom
       const [px, py] = local(ev), h = hit(px, py); if (h.kind !== 'cut' && h.kind !== 'top' && h.kind !== 'rest') { tip(`Hold ${MOD} and scroll over a stage or a grey rest`, px, py); return; }
       const W = S._stWheel = S._stWheel || { acc: 0 }, notches = notchesOf(W, ev); if (!notches) return;
-      const r = (S._stTemp || stageList()).map(q => Object.assign({}, q)), d = -notches * (ev.shiftKey ? 1 : 5);
-      let txt = '';
-      if (h.kind === 'rest') { const i = h.r[2], A = r[i], B = r[i + 1], rest = B.t0 - (A.t0 + A.dur), nd = Math.max(-rest, d); r.slice(i + 1).forEach(q => (q.t0 = +(q.t0 + nd).toFixed(1))); txt = `Rest after stage ${i + 1}: ${mmss(rest + nd)}`; }
-      else { const i = h.i, q = r[i], nd = Math.max(5 - q.dur, d); q.dur = +(q.dur + nd).toFixed(1); r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + nd).toFixed(1))); txt = `Stage ${i + 1}: ${mmss(q.dur)}`; }
+      const r = (S._stTemp || stageList()).map(q => Object.assign({}, q)), txt = stChange(r, h.kind === 'rest' ? 'rest' : 'dur', h.kind === 'rest' ? h.r[2] : h.i, -notches, ev.shiftKey);
       S._stTemp = r; S._stX = xa().range.slice(); drawStageChart(r); tip(txt, px, py); $('#stMsg').textContent = txt;
       clearTimeout(W.t); W.t = setTimeout(() => { const fin = S._stTemp; S._stTemp = null; W.acc = 0; if (fin) setStages(fin, txt + '.'); }, 600);
     };
     ov.onpointerdown = ev => {
-      if (ev.button) return; ev.preventDefault(); const [px0, py0] = local(ev), h = hit(px0, py0); if (h.kind === 'none') { if (S._stSel !== null && S._stSel !== undefined) { S._stSel = null; drawStageChart(); } return; }
+      if (ev.button) return; ev.preventDefault(); const [px0, py0] = local(ev), h = hit(px0, py0);
+      if (h.kind === 'none') { if (sel || selR) { S._stSel = S._stRest = null; drawStageChart(); } return; }
+      if (h.kind === 'rest') { S._stRest = S._stRest === h.r[2] ? null : h.r[2]; S._stSel = null; S._stX = xa().range.slice(); pop.hidden = true; return drawStageChart(); } // a click selects the rest
       const r = stageList(), s0 = secAt(px0); ov.setPointerCapture(ev.pointerId); ov._drag = true; let val = null, raf = 0;
       const live = up => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; Plotly.relayout(gd, up); }); };
       let lo = 0, hi = Infinity;
@@ -2552,23 +2581,17 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       ov.onpointermove = m => {
         const [px, py] = local(m);
         if (h.kind === 'edge') { val = Math.round(Math.max(lo, Math.min(hi, secAt(px)))); live({ [`shapes[${h.e.k}].x0`]: val / 60, [`shapes[${h.e.k}].x1`]: val / 60 }); tip(mmss(val), px, py); }
-        else if (h.kind === 'top') { const q = r[h.i]; val = snapP(ya().p2l(py)); live({ [`shapes[${pv0 + 1}]`]: { type: 'line', xref: 'x', yref: 'y', x0: q.t0 / 60, x1: (q.t0 + q.dur) / 60, y0: val, y1: val, line: { color: css('--accent'), width: 2, dash: 'dot' }, visible: true } }); tip(`${(+val).toFixed(u === 'W' ? 0 : 1)} ${u}`, px, py); }
+        else if (h.kind === 'top') { const q = r[h.i]; val = snapP(ya().p2l(py)); live({ [`shapes[${pv0 + 1}]`]: { type: 'line', xref: 'x', yref: 'y', x0: q.t0 / 60, x1: (q.t0 + q.dur) / 60, y0: val, y1: val, line: { color: css('--accent'), width: 2, dash: 'dot' }, visible: true } }); tip(`${(+val).toFixed(dpU)} ${u}`, px, py); }
         else if (h.kind === 'cut' && Math.abs(px - px0) >= 3) { const a = Math.round(Math.min(s0, secAt(px))), b = Math.round(Math.max(s0, secAt(px))); val = [a, b]; live({ [`shapes[${pv0}].x0`]: a / 60, [`shapes[${pv0}].x1`]: b / 60, [`shapes[${pv0}].visible`]: true }); tip(`Rest ${mmss(b - a)}`, px, py); }
       };
       ov.onpointerup = () => {
         ov._drag = false; ov.onpointermove = null; ov.onpointerup = null; if (raf) cancelAnimationFrame(raf); pop.hidden = true;
         S._stX = xa().range.slice();
-        if (h.kind === 'rest') {
-          const [a, b, i] = h.r, A = r[i], B = r[i + 1];
-          if (A && B && Math.abs(A.p - B.p) < step / 2) { A.dur = B.t0 + B.dur - A.t0; r.splice(i + 1, 1); } else A.dur = B.t0 - A.t0;
-          return setStages(r, `Rest at ${mmss(a)}–${mmss(b)} removed.`);
-        }
-        if (val === null) { if (h.kind === 'cut' || h.kind === 'top') { S._stSel = S._stSel === h.i ? null : h.i; } return drawStageChart(); } // a click selects (or clears) the stage
+        if (val === null) { if (h.kind === 'cut' || h.kind === 'top') { S._stSel = S._stSel === h.i ? null : h.i; S._stRest = null; } return drawStageChart(); } // a click selects (or clears) the stage
         if (h.kind === 'edge') { const e = h.e; if (Math.abs(val - e.x) < 0.5) return drawStageChart(); if (e.a !== null) r[e.a].dur = +(val - r[e.a].t0).toFixed(1); if (e.b !== null) { const end = r[e.b].t0 + r[e.b].dur; r[e.b].t0 = val; r[e.b].dur = +(end - val).toFixed(1); } return setStages(r, `Stage edge moved to ${mmss(val)}.`); }
-        if (h.kind === 'top') { r[h.i].p = +val.toFixed(2); return setStages(r, `Stage ${h.i + 1} set to ${(+val).toFixed(u === 'W' ? 0 : 1)} ${u}.`); }
+        if (h.kind === 'top') { r[h.i].p = +val.toFixed(2); return setStages(r, `Stage ${h.i + 1} set to ${(+val).toFixed(dpU)} ${u}.`); }
         if (h.kind === 'cut') { const [a, b] = val; if (b - a < 3) return drawStageChart(); const out = []; r.forEach(q => { const e = q.t0 + q.dur; if (e <= a || q.t0 >= b) { out.push(q); return; } if (q.t0 < a - 0.5) out.push({ t0: q.t0, dur: a - q.t0, p: q.p }); if (e > b + 0.5) out.push({ t0: b, dur: e - b, p: q.p }); }); S._stSel = null; return setStages(out, `Rest added at ${mmss(a)}–${mmss(b)}.`); }
       };
-      if (h.kind === 'rest') ov.onpointermove = null;
     };
     window.addEventListener('resize', place, { once: true });
   }
@@ -2694,8 +2717,23 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   }
 
   /* ---------------- Plot helpers ---------------- */
-  const CFG = { responsive: true, displaylogo: false, displayModeBar: true, scrollZoom: true, showTips: false, doubleClick: false, modeBarButtons: [['pan2d', 'zoom2d', 'zoomIn2d', 'zoomOut2d', 'resetScale2d']] };
+  const CFG = { responsive: true, displaylogo: false, displayModeBar: true, scrollZoom: false, showTips: false, doubleClick: false, modeBarButtons: [['pan2d', 'zoom2d', 'zoomIn2d', 'zoomOut2d', 'resetScale2d']] };
   const FIGCFG = Object.assign({}, CFG, { modeBarButtons: [['resetScale2d']] }); // every figure has a home button that zooms all the way out
+  /* Pinch to zoom, on every chart. A trackpad pinch reaches the page as a scroll with Ctrl held (Safari sends gesture events instead).
+     Plain scrolling is left to scroll the page. The chart zooms in time around the pointer, or around the selected stage on the stage chart. */
+  const PZ = { x: 0, y: 0, scale: 1 };
+  function pinchZoom(gd, f, cx, cy) {
+    const fl = gd._fullLayout; if (!fl || !fl.xaxis || fl.xaxis.fixedrange) return;
+    const xa = fl.xaxis, box = gd.getBoundingClientRect(), r = xa.range.map(Number), at = gd._zoomAt && gd._zoomAt(), c = at !== null && at !== undefined ? at : xa.p2l(cx - box.left - xa._offset);
+    const up = { 'xaxis.range': [c - (c - r[0]) * f, c + (r[1] - c) * f] }, ya = fl.yaxis;
+    if (ya && !ya.fixedrange && cy !== undefined) { const v = ya.p2l(cy - box.top - ya._offset), q = ya.range.map(Number); up['yaxis.range'] = [v - (v - q[0]) * f, v + (q[1] - v) * f]; }
+    Plotly.relayout(gd, up);
+  }
+  const plotUnder = el => (el && el.closest ? (el.closest('#stcw') ? $('#stc') : el.closest('.js-plotly-plot')) : null);
+  document.addEventListener('wheel', ev => { if (!ev.ctrlKey) return; const gd = plotUnder(ev.target); if (!gd) return; ev.preventDefault(); pinchZoom(gd, Math.exp(Math.max(-50, Math.min(50, ev.deltaY)) * 0.012), ev.clientX, ev.clientY); }, { passive: false, capture: true });
+  document.addEventListener('mousemove', ev => { PZ.x = ev.clientX; PZ.y = ev.clientY; }, true);
+  document.addEventListener('gesturestart', ev => { if (plotUnder(ev.target)) { ev.preventDefault(); PZ.scale = 1; } }, { passive: false });
+  document.addEventListener('gesturechange', ev => { const gd = plotUnder(ev.target); if (!gd) return; ev.preventDefault(); pinchZoom(gd, PZ.scale / ev.scale, PZ.x, PZ.y); PZ.scale = ev.scale; }, { passive: false });
   function ax(title, extra) { return Object.assign({ showline: true, linecolor: css('--axis'), linewidth: 1.2, ticks: 'outside', tickcolor: css('--axis'), ticklen: 4, gridcolor: css('--grid'), zeroline: false, automargin: false, tickfont: { color: css('--muted'), size: 11 }, title: { text: title || '', font: { color: css('--fg'), size: 12 } } }, extra || {}); }
   function lay(extra) { return Object.assign({ paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { family: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif', color: css('--fg') }, dragmode: 'pan', hovermode: 'closest', margin: { l: 62, r: 16, t: 26, b: 48 }, showlegend: false }, extra || {}); }
   function robustRange(vals) { const v = vals.filter(F); if (!v.length) return undefined; const a = C.quant(v, .01), b = C.quant(v, .99), p = Math.max((b - a) * .1, Math.abs(b) * .01, 1e-3); return [a - p, b + p]; }
@@ -2726,7 +2764,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       <div class="panel"><div class="readout big" id="cur">Move over the chart to read every variable at one moment.</div>
         <div class="chartwrap" id="cwrap"><div class="chart" id="pv" style="height:${H}px"></div><div class="cursor" id="cline"></div><div class="zshade" id="zshade"></div>${szBtns}</div>
         <div class="readout" id="ro"></div></div>
-      <ul class="notes" data-info="pvInfo"><li>Each panel’s height can be changed by dragging its top or bottom edge.</li><li>To correct the stages, click <b>Edit stages</b>: the Stages block above opens, where you can edit them on its chart or in its table. Rests between stages are shaded grey.</li><li>To leave out noisy or wrong data, click <b>Leave out a period</b> and drag across the chart over it. The period is dropped from every calculation and chart on every tab, like a removed breath, and is listed in Data checks and the export. Click × on a period to put it back.</li><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
+      <ul class="notes" data-info="pvInfo"><li>Each panel’s height can be changed by dragging its top or bottom edge.</li><li>To correct the stages, click <b>Edit stages</b>: the Stages block above opens, where you can edit them on its chart or in its table. Rests between stages are shaded grey.</li><li>To leave out noisy or wrong data, click <b>Leave out a period</b> and drag across the chart over it. The period is dropped from every calculation and chart on every tab, like a removed breath, and is listed in Data checks and the export. Click × on a period to put it back.</li><li>Pinch on the trackpad (or hold Ctrl and scroll) to zoom in time, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
       ${I ? `<li>Shaded: test stages (blue)${pr.maot ? ', all-out test (red)' : ''}. The ${I.label.toLowerCase()} panel gives each stage’s ${I.label.toLowerCase()}, with RPE and any other COSMED markers above it.</li>` : ''}</ul>`;
     multiToggle('data-sv', vars, 6, () => vProtocol());
     const curAvg = set.avg.mode === 'raw' ? 'raw' : set.avg.mode + ':' + avgParOf(set);
@@ -3864,7 +3902,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   fillStartPresets();
   setupInfo();
   $('#sBox').addEventListener('toggle', () => { if ($('#sBox').open && S.D) drawStageChart(); });
-  window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse, rows: lacRows }, _rep: { clientReport, researchReport } };
+  window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse, rows: lacRows }, _stRows: () => stageList(), _rep: { clientReport, researchReport } };
 })();
 
 </script>

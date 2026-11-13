@@ -1,6 +1,21 @@
   /* ---------------- Plot helpers ---------------- */
-  const CFG = { responsive: true, displaylogo: false, displayModeBar: true, scrollZoom: true, showTips: false, doubleClick: false, modeBarButtons: [['pan2d', 'zoom2d', 'zoomIn2d', 'zoomOut2d', 'resetScale2d']] };
+  const CFG = { responsive: true, displaylogo: false, displayModeBar: true, scrollZoom: false, showTips: false, doubleClick: false, modeBarButtons: [['pan2d', 'zoom2d', 'zoomIn2d', 'zoomOut2d', 'resetScale2d']] };
   const FIGCFG = Object.assign({}, CFG, { modeBarButtons: [['resetScale2d']] }); // every figure has a home button that zooms all the way out
+  /* Pinch to zoom, on every chart. A trackpad pinch reaches the page as a scroll with Ctrl held (Safari sends gesture events instead).
+     Plain scrolling is left to scroll the page. The chart zooms in time around the pointer, or around the selected stage on the stage chart. */
+  const PZ = { x: 0, y: 0, scale: 1 };
+  function pinchZoom(gd, f, cx, cy) {
+    const fl = gd._fullLayout; if (!fl || !fl.xaxis || fl.xaxis.fixedrange) return;
+    const xa = fl.xaxis, box = gd.getBoundingClientRect(), r = xa.range.map(Number), at = gd._zoomAt && gd._zoomAt(), c = at !== null && at !== undefined ? at : xa.p2l(cx - box.left - xa._offset);
+    const up = { 'xaxis.range': [c - (c - r[0]) * f, c + (r[1] - c) * f] }, ya = fl.yaxis;
+    if (ya && !ya.fixedrange && cy !== undefined) { const v = ya.p2l(cy - box.top - ya._offset), q = ya.range.map(Number); up['yaxis.range'] = [v - (v - q[0]) * f, v + (q[1] - v) * f]; }
+    Plotly.relayout(gd, up);
+  }
+  const plotUnder = el => (el && el.closest ? (el.closest('#stcw') ? $('#stc') : el.closest('.js-plotly-plot')) : null);
+  document.addEventListener('wheel', ev => { if (!ev.ctrlKey) return; const gd = plotUnder(ev.target); if (!gd) return; ev.preventDefault(); pinchZoom(gd, Math.exp(Math.max(-50, Math.min(50, ev.deltaY)) * 0.012), ev.clientX, ev.clientY); }, { passive: false, capture: true });
+  document.addEventListener('mousemove', ev => { PZ.x = ev.clientX; PZ.y = ev.clientY; }, true);
+  document.addEventListener('gesturestart', ev => { if (plotUnder(ev.target)) { ev.preventDefault(); PZ.scale = 1; } }, { passive: false });
+  document.addEventListener('gesturechange', ev => { const gd = plotUnder(ev.target); if (!gd) return; ev.preventDefault(); pinchZoom(gd, PZ.scale / ev.scale, PZ.x, PZ.y); PZ.scale = ev.scale; }, { passive: false });
   function ax(title, extra) { return Object.assign({ showline: true, linecolor: css('--axis'), linewidth: 1.2, ticks: 'outside', tickcolor: css('--axis'), ticklen: 4, gridcolor: css('--grid'), zeroline: false, automargin: false, tickfont: { color: css('--muted'), size: 11 }, title: { text: title || '', font: { color: css('--fg'), size: 12 } } }, extra || {}); }
   function lay(extra) { return Object.assign({ paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { family: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif', color: css('--fg') }, dragmode: 'pan', hovermode: 'closest', margin: { l: 62, r: 16, t: 26, b: 48 }, showlegend: false }, extra || {}); }
   function robustRange(vals) { const v = vals.filter(F); if (!v.length) return undefined; const a = C.quant(v, .01), b = C.quant(v, .99), p = Math.max((b - a) * .1, Math.abs(b) * .01, 1e-3); return [a - p, b + p]; }
@@ -31,7 +46,7 @@
       <div class="panel"><div class="readout big" id="cur">Move over the chart to read every variable at one moment.</div>
         <div class="chartwrap" id="cwrap"><div class="chart" id="pv" style="height:${H}px"></div><div class="cursor" id="cline"></div><div class="zshade" id="zshade"></div>${szBtns}</div>
         <div class="readout" id="ro"></div></div>
-      <ul class="notes" data-info="pvInfo"><li>Each panel’s height can be changed by dragging its top or bottom edge.</li><li>To correct the stages, click <b>Edit stages</b>: the Stages block above opens, where you can edit them on its chart or in its table. Rests between stages are shaded grey.</li><li>To leave out noisy or wrong data, click <b>Leave out a period</b> and drag across the chart over it. The period is dropped from every calculation and chart on every tab, like a removed breath, and is listed in Data checks and the export. Click × on a period to put it back.</li><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
+      <ul class="notes" data-info="pvInfo"><li>Each panel’s height can be changed by dragging its top or bottom edge.</li><li>To correct the stages, click <b>Edit stages</b>: the Stages block above opens, where you can edit them on its chart or in its table. Rests between stages are shaded grey.</li><li>To leave out noisy or wrong data, click <b>Leave out a period</b> and drag across the chart over it. The period is dropped from every calculation and chart on every tab, like a removed breath, and is listed in Data checks and the export. Click × on a period to put it back.</li><li>Pinch on the trackpad (or hold Ctrl and scroll) to zoom in time, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
       ${I ? `<li>Shaded: test stages (blue)${pr.maot ? ', all-out test (red)' : ''}. The ${I.label.toLowerCase()} panel gives each stage’s ${I.label.toLowerCase()}, with RPE and any other COSMED markers above it.</li>` : ''}</ul>`;
     multiToggle('data-sv', vars, 6, () => vProtocol());
     const curAvg = set.avg.mode === 'raw' ? 'raw' : set.avg.mode + ':' + avgParOf(set);
