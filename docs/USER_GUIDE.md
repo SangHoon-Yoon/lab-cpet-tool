@@ -2,7 +2,7 @@
 
 > This copy lives in the repository and is the one to keep up to date. (It began as a Claude Doc.)
 
-Version 0.28.0 · Created by SangHoon Yoon · Nov 4, 2026
+Version 0.29.0 · Created by SangHoon Yoon · Nov 4, 2026
 
 ## **Before you start**
 
@@ -97,7 +97,10 @@ Click **Unlock to edit**. Then, on the chart (the pointer changes to show what w
 | Change a stage's power or speed | Drag the top of the stage up or down. | ⇕ |
 | Add a rest | Drag across the part of a stage that was rest. | + |
 | Remove a rest | Click the grey rest. The stage before it takes up the time. | hand |
-| Zoom in or out | Scroll over the chart. | |
+| Make a stage or rest longer or shorter | Hold ⌘ or ⌥ (Ctrl or Alt on Windows) and scroll over it: 5 s per step, 1 s with Shift as well. The stages after it move along. The same works over a time in the table. | |
+| Select a stage | Click it. It is outlined in red and its row in the table is highlighted. Then ← → make it 5 s shorter or longer (1 s with Shift), ↑ ↓ change its power or speed, and **Delete stage** or the Delete key removes it. Esc clears the selection. | + |
+
+To zoom, use the **+** and **−** buttons above the chart, **Show all stages** (or the home button on the chart), or drag the handles of the strip under the chart. Plain scrolling scrolls the page, not the chart. Drag the bar under the chart to make it taller or shorter.
 
 Or type in the table: times are minutes:seconds (or a number of minutes, such as 3 or 0.5), and changing a start, length or rest moves the stages after it by the same amount. Press Enter to move down a column. **Same for every stage** sets one length, one rest, or both, for every stage at once. **Add a stage** adds one after the last; × removes one.
 

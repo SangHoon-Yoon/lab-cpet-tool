@@ -63,6 +63,38 @@ let fail=0;const ok=(c,m)=>{console.log((c?'  ok ':'  FAIL ')+m);if(!c)fail++;};
  await pg.screenshot({path:out+'zz_edit.png',fullPage:true});
  p=await at((rs[0][0]+rs[0][1])/2,null);await pg.mouse.move(p.x,p.y);await pg.waitForTimeout(100);ok(await cur()==='pointer','pointer shows a hand over a rest');
  await pg.mouse.down();await pg.mouse.up();await pg.waitForTimeout(1200);ok(await pg.evaluate(()=>(LabApp.S.proto.inc.rests||[]).length)===0&&await pg.evaluate(()=>LabApp.S.proto.inc.stages.length)===9,'clicking the rest removes it');
+ // ⌘ + scroll changes a stage's length by 5 s; plain scroll does not
+ const s4=await pg.evaluate(()=>LabApp.S.proto.inc.stages[4]),s5b=await pg.evaluate(()=>LabApp.S.proto.inc.stages[5].t0);
+ p=await at(s4.t0+60,null);await pg.mouse.move(p.x,p.y);await pg.mouse.wheel(0,-40);await pg.waitForTimeout(800);ok(Math.round(await pg.evaluate(()=>LabApp.S.proto.inc.stages[4].dur))===Math.round(s4.dur),'plain scrolling leaves the stage alone');
+ await pg.keyboard.down('Meta');for(let k=0;k<2;k++){await pg.mouse.wheel(0,-25);await pg.waitForTimeout(60);}await pg.keyboard.up('Meta');await pg.waitForTimeout(1500);
+ const w=await pg.evaluate(()=>[LabApp.S.proto.inc.stages[4].dur,LabApp.S.proto.inc.stages[5].t0]);ok(Math.abs(w[0]-(s4.dur+10))<1.5&&Math.abs(w[1]-(s5b+10))<1.5,'⌘ + scroll up twice: stage 5 is 10 s longer and the next stages move along '+JSON.stringify([s4.dur,w]));
+ // click a stage to select it, then delete it
+ p=await at(s4.t0+60,null);await pg.mouse.click(p.x,p.y);await pg.waitForTimeout(400);ok(!(await pg.$eval('#stsel',e=>e.hidden)),'clicking a stage selects it and offers Delete');
+ await pg.click('#stDel');await pg.waitForTimeout(1200);ok(await pg.evaluate(()=>LabApp.S.set.stages.list.length)===8,'Delete stage removes it');
+ // zoom buttons and height
+ const r0=await pg.evaluate(()=>{const r=document.getElementById('stc')._fullLayout.xaxis.range;return r[1]-r[0];});await pg.click('[data-sz=in]');await pg.waitForTimeout(400);const r1=await pg.evaluate(()=>{const r=document.getElementById('stc')._fullLayout.xaxis.range;return r[1]-r[0];});ok(r1<r0*0.8,'zoom in button');
+ await pg.click('[data-sz=all]');await pg.waitForTimeout(400);
+ const hb=await (await pg.$('#stsize')).boundingBox(),h0=await pg.evaluate(()=>document.getElementById('stc').getBoundingClientRect().height);await pg.mouse.move(hb.x+hb.width/2,hb.y+7);await pg.mouse.down();await pg.mouse.move(hb.x+hb.width/2,hb.y+107,{steps:6});await pg.mouse.up();await pg.waitForTimeout(500);
+ ok(Math.abs(await pg.evaluate(()=>document.getElementById('stc').getBoundingClientRect().height)-(h0+100))<4,'dragging the bar makes the chart taller');
+ // the home button, clicked like a person would (pointer moved onto it), while unlocked
+ await pg.click('[data-sz=in]');await pg.click('[data-sz=in]');await pg.waitForTimeout(300);
+ const zr=await pg.evaluate(()=>{const r=document.getElementById('stc')._fullLayout.xaxis.range;return r[1]-r[0];});
+ await pg.click('#stc .modebar-btn');await pg.waitForTimeout(500);
+ const hr2=await pg.evaluate(()=>{const r=document.getElementById('stc')._fullLayout.xaxis.range;return r[1]-r[0];});ok(hr2>zr*2,'home button (unlocked) shows all the stages again '+[zr.toFixed(1),hr2.toFixed(1)]);
+ // ⌥ also works, with small trackpad-like steps
+ const s3=await pg.evaluate(()=>LabApp.S.proto.inc.stages[3]);p=await at(s3.t0+60,null);await pg.mouse.move(p.x,p.y);
+ await pg.keyboard.down('Alt');for(let k=0;k<12;k++){await pg.mouse.wheel(0,-5);await pg.waitForTimeout(16);}await pg.keyboard.up('Alt');await pg.waitForTimeout(1500);
+ const a3=await pg.evaluate(()=>LabApp.S.proto.inc.stages[3].dur);ok(Math.abs(a3-(s3.dur+10))<1.5,'⌥ + small scroll steps: stage 4 is 10 s longer '+[s3.dur,a3]);
+ // arrow keys on a selected stage
+ const s2b=await pg.evaluate(()=>LabApp.S.proto.inc.stages[2]);p=await at(s2b.t0+40,null);await pg.mouse.click(p.x,p.y);await pg.waitForTimeout(400);
+ await pg.keyboard.press('ArrowLeft');await pg.keyboard.press('ArrowUp');await pg.waitForTimeout(1500);
+ const k2=await pg.evaluate(()=>LabApp.S.proto.inc.stages[2]);ok(Math.abs(k2.dur-(s2b.dur-5))<1.5&&k2.p===s2b.p+5,'arrow keys: ← 5 s shorter, ↑ 5 W more '+JSON.stringify([s2b.dur,s2b.p,k2.dur,k2.p]));
+ // ⌘ + scroll over a time in the table
+ const t0v=await pg.$eval('[data-st="dur:1"]',e=>e.value);await pg.hover('[data-st="dur:1"]');await pg.keyboard.down('Meta');for(let k=0;k<5;k++){await pg.mouse.wheel(0,-5);await pg.waitForTimeout(16);}await pg.keyboard.up('Meta');await pg.waitForTimeout(1500);
+ const t1v=await pg.$eval('[data-st="dur:1"]',e=>e.value);ok(t1v!==t0v,'⌘ + scroll over a length in the table changes it: '+t0v+' → '+t1v);
+ // locked: a hint instead of editing
+ await pg.click('#stLock');await pg.waitForTimeout(500);p=await at(s2b.t0+40,null);await pg.mouse.click(p.x,p.y);await pg.waitForTimeout(200);ok(/Unlock to edit/.test(await pg.$eval('#stpop',e=>e.hidden?'':e.textContent)),'locked: clicking the chart says how to unlock');
+ await pg.click('#stLock');await pg.waitForTimeout(400);
  // the Protocol tab button opens the block, unlocked
  await pg.click('#stLock');await pg.evaluate(()=>{document.querySelector('#sBox').open=false;});await pg.click('[data-tab=protocol]');await pg.waitForTimeout(500);await pg.click('#stEdit');await pg.waitForTimeout(800);
  ok(await pg.$eval('#sBox',e=>e.open)&&await pg.$('[data-st]')!==null,'Edit stages on the Protocol tab opens the Stages block, unlocked');

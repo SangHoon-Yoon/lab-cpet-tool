@@ -129,8 +129,10 @@
     $('#sForm').innerHTML = `
       <div class="tools sttools">${on ? '<button id="stLock" aria-pressed="true">Lock the stages</button>' : '<button id="stLock" class="primary">Unlock to edit</button>'}<button id="stReset" ${set.stages ? '' : 'disabled'}>Reset to original</button>${on ? '<button id="stAdd">Add a stage</button>' : ''}<span id="stI"></span><span class="hint" id="stMsg">${esc(S._stMsg || '')}${ov > 0 ? ` Stage ${ov + 1} starts before stage ${ov} ends.` : ''}</span></div>
       <ul class="notes" data-info="stI"><li>Times are from the start of the recording, as minutes:seconds (or a number of minutes, such as 3 or 0.5).</li><li>In the table, changing a start, length or rest moves the stages after it by the same amount. On the chart, moving an edge changes only the stages on either side of it.</li><li>Edited stages replace the ${lab.toLowerCase()} from the file or the entered steps on every tab. <b>Reset to original</b> goes back, and Ctrl+Z (⌘Z) undoes the last change.</li><li>Rests between stages (up to 2 min, stopped or slower) keep the stages as one test. They are shaded grey${S.proto.type === 'incremental' ? ', and left out of the threshold charts and peak values unless you untick that under Test details' : ''}.</li></ul>
-      <div class="stguide">${on ? `<b>Unlocked.</b> On the chart: <span class="k">↔</span> drag a red line to move a stage’s start or end · <span class="k">⇕</span> drag the top of a stage to change its ${lab.toLowerCase()} · <span class="k">+</span> drag across a stage to add a rest · <span class="k">×</span> click a grey rest to remove it · scroll to zoom. Or type in the table.` : `Check the stages against your protocol. To correct them, click <b>Unlock to edit</b>.`}</div>
-      <div class="stgrid"><div class="stchartwrap" id="stcw"><div class="stchart" id="stc"></div><div class="stover" id="sto" hidden></div><div class="stpop" id="stpop" hidden></div></div>
+      <div class="stguide">${on ? `<b>Unlocked.</b> On the chart: <span class="k">↔</span> drag a red line to move a stage’s start or end · <span class="k">⇕</span> drag the top of a stage to change its ${lab.toLowerCase()} · <span class="k">+</span> drag across a stage to add a rest · click a stage to select it, then delete it · click a grey rest to remove it · hold <span class="k">${MOD}</span> (or <span class="k">${MOD2}</span>) and scroll over a stage, a rest or a time in the table to change it by 5 s · after clicking a stage, the arrow keys change it too (← → length, ↑ ↓ ${lab.toLowerCase()}). Or type in the table.` : `Check the stages against your protocol. To correct them, click <b>Unlock to edit</b>.`}</div>
+      <div class="stgrid"><div><div class="stzoom tools"><span>Zoom:</span><button data-sz="in" title="Zoom in" aria-label="Zoom in">+</button><button data-sz="out" title="Zoom out" aria-label="Zoom out">−</button><button data-sz="all">Show all stages</button><span class="hint">or drag the handles of the strip under the chart</span></div>
+        <div class="stchartwrap" id="stcw"><div class="stchart" id="stc"></div><div class="stover" id="sto" hidden></div><div class="stpop" id="stpop" hidden></div><div class="stsel" id="stsel" hidden></div></div>
+        <div class="sizebar" id="stsize" title="Drag up or down to change the chart's height" role="separator" aria-label="Drag to change the chart's height"><span></span></div></div>
         <div class="stside">${rows.length ? `<div class="tblwrap"><table class="stT"><thead><tr><th>Stage</th><th>Start</th><th>Length</th><th>Rest after</th><th>${lab} (${u})</th><th></th></tr></thead><tbody>${body}</tbody></table></div>` : `<p class="hint">${on ? 'Click <b>Add a stage</b>, or enter the steps below.' : 'No stages yet. Unlock to type them, or enter the steps below.'}</p>`}
         ${on && rows.length > 1 ? `<div class="stall"><b>Same for every stage</b><div class="tools"><label>Length <input type="text" id="stL" placeholder="${mmss(C.median(rows.slice(0, -1).map(q => q.dur)) || 180)}"></label><label>Rest after <input type="text" id="stR" placeholder="0:30"></label><button id="stAll">Apply</button></div><span class="hint">Fill one or both. The first start and the last stage’s length stay as they are.</span></div>` : ''}</div></div>
       ${planForm()}
@@ -176,6 +178,13 @@
       if (k === 'p') q.p = v; else if (k === 't0') shift(i, v - q.t0); else if (k === 'dur') { const d = v - q.dur; q.dur = v; shift(i + 1, d); } else if (k === 'rest' && r[i + 1]) shift(i + 1, q.t0 + q.dur + v - r[i + 1].t0);
       S._stFocus = el.dataset.st; setStages(r);
     }));
+    $$('[data-st]').forEach(el => (el.onwheel = ev => {
+      if (!modHeld(ev)) return; ev.preventDefault(); const W = el._w = el._w || { acc: 0 }, n = notchesOf(W, ev); if (!n) return;
+      const [k] = el.dataset.st.split(':'), u = stUnit();
+      if (k === 'p') { const stp = u === 'W' ? (ev.shiftKey ? 1 : 5) : (ev.shiftKey ? 0.1 : 0.5); el.value = +Math.max(stp, (parseFloat(el.value) || 0) - n * stp).toFixed(2); }
+      else { const v = parseT(el.value); if (!F(v)) return; el.value = mmss(Math.max(k === 'dur' ? 5 : 0, v - n * (ev.shiftKey ? 1 : 5))); }
+      clearTimeout(W.t); W.t = setTimeout(() => el.onchange(), 600); // applied when the scrolling pauses
+    }));
     const tb = $('.stT');
     if (tb) tb.onkeydown = ev => { if (ev.key !== 'Enter') return; const el = ev.target.closest('[data-st]'); if (!el) return; ev.preventDefault(); const [k, s] = el.dataset.st.split(':'); S._stFocus = `${k}:${+s + 1}`; el.blur(); setTimeout(() => { const n2 = $(`[data-st="${S._stFocus}"]`); if (n2) { n2.focus(); n2.select(); } }, 40); };
     if (S._stFocus) { const f = $(`[data-st="${S._stFocus}"]`); S._stFocus = null; if (f) setTimeout(() => { f.focus(); f.select(); }, 0); }
@@ -187,38 +196,88 @@
     };
     void set; void rows; void on;
   }
+  // The key held while scrolling to change a stage's or rest's length: ⌘ on a Mac, Ctrl elsewhere.
+  const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent), MOD = IS_MAC ? '⌘' : 'Ctrl', MOD2 = IS_MAC ? '⌥' : 'Alt';
+  const modHeld = ev => ev.altKey || (IS_MAC ? ev.metaKey : ev.ctrlKey);
+  // Scroll steps add up until they make one notch: a trackpad sends many small steps, a mouse wheel a few large ones.
+  const notchesOf = (W, ev) => { W.acc += ev.deltaMode === 1 ? ev.deltaY * 20 : ev.deltaMode === 2 ? ev.deltaY * 400 : ev.deltaY; const n = Math.trunc(W.acc / 25); W.acc -= n * 25; return n; };
+  const stDefaultX = rows => { const g = S.gas, tEnd = g.blank ? (rows.length ? rows.at(-1).t0 + rows.at(-1).dur + 120 : 1800) : g.t.at(-1); return [Math.max(0, (rows.length ? rows[0].t0 - 90 : 0) / 60), Math.min(tEnd, rows.length ? rows.at(-1).t0 + rows.at(-1).dur + 90 : tEnd) / 60]; };
   // The stage chart: power or speed as steps, VO₂ behind it, rests shaded. While unlocked, a transparent layer over the plot handles the editing.
-  function drawStageChart() {
+  // tmp: stages being changed by scrolling, drawn before they are applied.
+  function drawStageChart(tmp) {
     const gd = $('#stc'); if (!gd || !$('#sBox').open) return;
-    const rows = stageList(), u = stUnit(), lab = u === 'W' ? 'Power' : 'Speed', on = !!S._stUnlock, g = S.gas, rs = stRests(rows);
-    const tEnd = g.blank ? (rows.length ? rows.at(-1).t0 + rows.at(-1).dur + 120 : 1800) : g.t.at(-1);
+    const rows = tmp || stageList(), u = stUnit(), lab = u === 'W' ? 'Power' : 'Speed', on = !!S._stUnlock, g = S.gas, rs = stRests(rows), H = (S.set.view && S.set.view.stH) || 320;
+    if (S._stSel !== undefined && S._stSel !== null && !rows[S._stSel]) S._stSel = null;
     const xs = [], ys = []; rows.forEach((q, i) => { const e = q.t0 + q.dur, pv = rows[i - 1]; if (!pv || q.t0 > pv.t0 + pv.dur + 0.5) { xs.push(q.t0 / 60); ys.push(0); } xs.push(q.t0 / 60, e / 60); ys.push(q.p, q.p); const nx = rows[i + 1]; if (!nx || nx.t0 > e + 0.5) { xs.push(e / 60); ys.push(0); } });
     const tr = [{ x: xs, y: ys, mode: 'lines', type: 'scatter', line: { color: css('--power'), width: 2 }, fill: 'tozeroy', fillcolor: css('--powerfill'), hoverinfo: 'skip', name: lab }];
-    if (!g.blank && g.v.vo2) { const keep = g.t.map((x, i) => F(g.v.vo2[i]) && g.v.vo2[i] > 0), Gs = C.series(g, keep, 'bin', g.kind === 'avg' ? g.avgWidth : 10); tr.push({ x: Gs.t.map(t => t / 60), y: Gs.v.vo2, yaxis: 'y2', mode: 'lines', type: 'scatter', line: { color: css('--ma'), width: 1.2 }, opacity: 0.55, hoverinfo: 'skip', name: 'VO₂' }); }
+    if (!g.blank && g.v.vo2) { if (!S._stVO2 || S._stVO2.g !== g) { const keep = g.t.map((x, i) => F(g.v.vo2[i]) && g.v.vo2[i] > 0), Gs = C.series(g, keep, 'bin', g.kind === 'avg' ? g.avgWidth : 10); S._stVO2 = { g, x: Gs.t.map(t => t / 60), y: Gs.v.vo2 }; } tr.push({ x: S._stVO2.x, y: S._stVO2.y, yaxis: 'y2', mode: 'lines', type: 'scatter', line: { color: css('--ma'), width: 1.2 }, opacity: 0.55, hoverinfo: 'skip', name: 'VO₂' }); }
     const top = Math.max(1, ...rows.map(q => q.p)) * 1.25, shapes = [], ann = [];
     rs.forEach(([a, b]) => shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: a / 60, x1: b / 60, y0: 0, y1: 1, fillcolor: css('--restfill'), line: { width: 0 }, layer: 'below' }));
     rows.forEach((q, i) => ann.push({ x: (q.t0 + q.dur / 2) / 60, y: q.p, yanchor: 'bottom', showarrow: false, text: (+q.p).toFixed(u === 'W' ? 0 : 1), font: { size: 10, color: css('--fg') } }));
+    const sel = on && S._stSel !== null && S._stSel !== undefined ? rows[S._stSel] : null;
+    if (sel) shapes.push({ type: 'rect', xref: 'x', yref: 'y', x0: sel.t0 / 60, x1: (sel.t0 + sel.dur) / 60, y0: 0, y1: sel.p, fillcolor: css('--accent-soft'), line: { color: css('--accent'), width: 2 } });
     const edges = [];
     if (on) {
       rows.forEach((q, i) => { const e = q.t0 + q.dur, nx = rows[i + 1], pv = rows[i - 1];
         if (!pv || Math.abs(pv.t0 + pv.dur - q.t0) > 1) edges.push({ x: q.t0, a: null, b: i });
         edges.push({ x: e, a: i, b: nx && Math.abs(nx.t0 - e) <= 1 ? i + 1 : null }); });
-      edges.forEach(e => { e.k = shapes.length; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: e.x / 60, x1: e.x / 60, y0: 0, y1: 1, line: { color: css('--accent'), width: 2 } }); });
+      edges.forEach(e => { e.k = shapes.length; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: e.x / 60, x1: e.x / 60, y0: 0, y1: 1, line: { color: css('--accent'), width: 1.5 } }); });
     }
     const pv0 = shapes.length; shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: 0, x1: 0, y0: 0, y1: 1, fillcolor: css('--restfill'), line: { color: css('--accent'), width: 1, dash: 'dot' }, visible: false }, { type: 'line', xref: 'x', yref: 'y', x0: 0, x1: 0, y0: 0, y1: 0, line: { color: css('--accent'), width: 2, dash: 'dot' }, visible: false });
-    const x0 = S._stX || [Math.max(0, (rows.length ? rows[0].t0 - 90 : 0) / 60), Math.min(tEnd, rows.length ? rows.at(-1).t0 + rows.at(-1).dur + 90 : tEnd) / 60];
-    const hasV = tr.length > 1;
-    const L3 = lay({ height: 300, margin: { l: 56, r: hasV ? 56 : 14, t: 10, b: 42 }, dragmode: 'pan', showlegend: false, shapes, annotations: ann,
-      xaxis: ax('Time (min)', { range: x0 }), yaxis: ax(`${lab} (${u})`, { range: [0, top], fixedrange: true }) });
+    const xr = S._stX || stDefaultX(rows), hasV = tr.length > 1, end = Math.max(g.blank ? 0 : g.t.at(-1), rows.length ? rows.at(-1).t0 + rows.at(-1).dur + 120 : 0) / 60;
+    gd.style.height = H + 'px';
+    const L3 = lay({ height: H, margin: { l: 56, r: hasV ? 56 : 14, t: 34, b: 30 }, dragmode: on ? false : 'pan', showlegend: false, shapes, annotations: ann,
+      xaxis: ax('Time (min)', { range: xr, rangeslider: { visible: true, thickness: 0.1, range: [0, end], bgcolor: css('--bg'), bordercolor: css('--line'), borderwidth: 1 }, title: { text: 'Time (min)', font: { size: 12, color: css('--fg') }, standoff: 2 } }), yaxis: ax(`${lab} (${u})`, { range: [0, top], fixedrange: true }) });
     if (hasV) L3.yaxis2 = ax('VO₂ (L/min)', { overlaying: 'y', side: 'right', fixedrange: true, showgrid: false, rangemode: 'tozero', title: { text: 'VO₂ (L/min)', font: { size: 11, color: css('--muted') } } }); // only when there is VO₂: an empty second axis stops Plotly
-    try { Plotly.newPlot(gd, tr, L3, Object.assign({}, FIGCFG, { scrollZoom: true })); } catch (e) { console.error(e); return; } // a chart problem must never stop the rest of the page
-    gd.on('plotly_relayout', e => { if (e['xaxis.range[0]'] !== undefined) S._stX = [e['xaxis.range[0]'], e['xaxis.range[1]']]; else if (e['xaxis.autorange']) S._stX = null; });
-    const ov = $('#sto'), pop = $('#stpop'); ov.hidden = !on; if (!on) return;
+    const homeBtn = { name: 'Show all stages', icon: Plotly.Icons.home, click: () => { S._stX = null; Plotly.relayout(gd, { 'xaxis.range': stDefaultX(stageList()) }); } };
+    try { Plotly.react(gd, tr, L3, Object.assign({}, FIGCFG, { scrollZoom: false, displayModeBar: true, modeBarButtons: [[homeBtn]] })); } catch (e) { console.error(e); return; } // a chart problem must never stop the rest of the page
+    if (!gd._stOn) { gd._stOn = true; gd.on('plotly_relayout', e => { if (e['xaxis.range[0]'] !== undefined) S._stX = [e['xaxis.range[0]'], e['xaxis.range[1]']]; else if (Array.isArray(e['xaxis.range'])) S._stX = e['xaxis.range'].slice(); else if (e['xaxis.autorange']) S._stX = null; if (gd._place) gd._place(); }); }
+    // zoom buttons
+    const zoom = f => { const r = gd._fullLayout.xaxis.range, c = (r[0] + r[1]) / 2, h = (r[1] - r[0]) / 2 * f; S._stX = [Math.max(0, c - h), c + h]; Plotly.relayout(gd, { 'xaxis.range': S._stX.slice() }); };
+    $$('[data-sz]').forEach(b => (b.onclick = () => { const k = b.dataset.sz; if (k === 'in') zoom(1 / 1.6); else if (k === 'out') zoom(1.6); else homeBtn.click(); }));
+    // height: drag the bar under the chart
+    const bar = $('#stsize');
+    if (bar) bar.onpointerdown = ev => { ev.preventDefault(); bar.setPointerCapture(ev.pointerId); const y0 = ev.clientY, h0 = gd.getBoundingClientRect().height; let h = h0, raf = 0;
+      const apply = () => { raf = 0; gd.style.height = h + 'px'; Plotly.relayout(gd, { height: h }).then(() => gd._place && gd._place()); };
+      bar.onpointermove = e => { h = Math.round(Math.max(200, Math.min(900, h0 + e.clientY - y0))); if (!raf) raf = requestAnimationFrame(apply); };
+      bar.onpointerup = bar.onpointercancel = () => { bar.onpointermove = bar.onpointerup = bar.onpointercancel = null; if (raf) cancelAnimationFrame(raf); apply(); S.set.view.stH = h; }; };
+    const ov = $('#sto'), pop = $('#stpop'), selBox = $('#stsel'); ov.hidden = false; selBox.hidden = true;
     const xa = () => gd._fullLayout.xaxis, ya = () => gd._fullLayout.yaxis;
-    const place = () => { const a = xa(), b = ya(); ov.style.left = a._offset + 'px'; ov.style.top = b._offset + 'px'; ov.style.width = a._length + 'px'; ov.style.height = b._length + 'px'; };
-    place();
+    const place = () => { const a = xa(), b = ya(); ov.style.left = a._offset + 'px'; ov.style.top = b._offset + 'px'; ov.style.width = a._length + 'px'; ov.style.height = b._length + 'px'; if (on) placeSel(); };
+    gd._place = place;
+    if (!on) { // locked: no editing, only a reminder of how to start
+      $$('.stT tbody tr.on').forEach(tr => tr.classList.remove('on')); place(); ov.style.cursor = 'default';
+      const say = ev => { const r = ov.getBoundingClientRect(); pop.hidden = false; pop.textContent = 'Click Unlock to edit to change the stages'; pop.style.left = (xa()._offset + ev.clientX - r.left + 12) + 'px'; pop.style.top = (ya()._offset + ev.clientY - r.top - 26) + 'px'; };
+      ov.onpointermove = ev => { if (ev.buttons) return; pop.hidden = true; }; ov.onpointerleave = () => (pop.hidden = true);
+      ov.onpointerdown = ev => { if (!ev.button) say(ev); }; ov.onwheel = ev => { if (modHeld(ev)) { ev.preventDefault(); say(ev); } };
+      return;
+    }
     const step = u === 'W' ? 1 : 0.1, snapP = v => Math.max(step, Math.round(v / step) * step);
     const secAt = px => xa().p2l(px) * 60, pxAt = sec => xa().l2p(sec / 60), pyAt = v => ya().l2p(v);
+    // the selected stage gets a small bar with Delete above it
+    function placeSel() {
+      $$('.stT tbody tr').forEach((tr, k) => tr.classList.toggle('on', !!sel && k === S._stSel)); // the selected stage's row in the table too
+      if (!sel || tmp) { selBox.hidden = true; return; } const a = xa(), b = ya(), x = a._offset + a.l2p((sel.t0 + sel.dur / 2) / 60), y = b._offset + b.l2p(sel.p);
+      if (x < a._offset || x > a._offset + a._length) { selBox.hidden = true; return; }
+      selBox.hidden = false; selBox.innerHTML = `<span>Stage ${S._stSel + 1}</span><button id="stDel">Delete stage</button><button id="stUnsel" aria-label="Clear the selection" title="Clear the selection">×</button>`;
+      selBox.style.left = x + 'px'; selBox.style.top = Math.max(2, y - 40) + 'px';
+      $('#stDel').onclick = () => delSel(); $('#stUnsel').onclick = () => { S._stSel = null; drawStageChart(); };
+    }
+    function delSel() { const r = stageList(), i = S._stSel; if (i === null || i === undefined || !r[i]) return; r.splice(i, 1); S._stSel = null; S._stX = xa().range.slice(); setStages(r, `Stage ${i + 1} deleted. Drag an edge if the stages around it should close the gap.`); }
+    place();
+    if (!document._stKeys) { document._stKeys = true; document.addEventListener('keydown', e => {
+      if (!S._stUnlock || S._stSel === null || S._stSel === undefined || !['Delete', 'Backspace', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+      const el = document.activeElement; if (el && /INPUT|TEXTAREA|SELECT/.test(el.tagName)) return; e.preventDefault();
+      if (e.key === 'Escape') { S._stSel = null; drawStageChart(); return; }
+      if (e.key === 'Delete' || e.key === 'Backspace') { const d = $('#stDel'); if (d) d.click(); return; }
+      // ← → length (5 s, 1 s with Shift; later stages move along) · ↑ ↓ power or speed (one step)
+      const r = (S._stTemp || stageList()).map(q => Object.assign({}, q)), i = S._stSel, q = r[i]; if (!q) return; const u = stUnit(), stp = u === 'W' ? (e.shiftKey ? 1 : 5) : (e.shiftKey ? 0.1 : 0.5);
+      let txt;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const d = Math.max(5 - q.dur, (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 5)); q.dur = +(q.dur + d).toFixed(1); r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + d).toFixed(1))); txt = `Stage ${i + 1}: ${mmss(q.dur)}`; }
+      else { q.p = +Math.max(stp, q.p + (e.key === 'ArrowUp' ? stp : -stp)).toFixed(2); txt = `Stage ${i + 1}: ${(+q.p).toFixed(u === 'W' ? 0 : 1)} ${u}`; }
+      S._stTemp = r; drawStageChart(r); $('#stMsg').textContent = txt;
+      clearTimeout(S._stKeyT); S._stKeyT = setTimeout(() => { const fin = S._stTemp; S._stTemp = null; if (fin) setStages(fin, txt + '.'); }, 600);
+    }); }
     function hit(px, py) {
       let best = null, d = 8; edges.forEach(e => { const q = Math.abs(pxAt(e.x) - px); if (q < d) { d = q; best = e; } });
       // inside a narrow rest, its edges need a closer pointer so the rest itself can still be clicked
@@ -228,14 +287,26 @@
       const i = rows.findIndex(q => s >= q.t0 && s <= q.t0 + q.dur); if (i < 0) return { kind: 'none' };
       return Math.abs(py - pyAt(rows[i].p)) < 8 ? { kind: 'top', i } : { kind: 'cut', i };
     }
-    const tips = { edge: 'Drag to move this edge', top: `Drag up or down to change the ${lab.toLowerCase()}`, cut: 'Drag across to add a rest', rest: 'Click to remove this rest', none: '' }, curs = { edge: 'ew-resize', top: 'ns-resize', cut: 'crosshair', rest: 'pointer', none: 'default' };
+    const tips = { edge: 'Drag to move this edge', top: `Drag up or down to change the ${lab.toLowerCase()}`, cut: `Click to select · drag across to add a rest · ${MOD} + scroll: length`, rest: `Click to remove this rest · ${MOD} + scroll: length`, none: '' }, curs = { edge: 'ew-resize', top: 'ns-resize', cut: 'crosshair', rest: 'pointer', none: 'default' };
     const local = ev => { const r = ov.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
     const tip = (txt, px, py) => { if (!txt) { pop.hidden = true; return; } pop.hidden = false; pop.textContent = txt; pop.style.left = (xa()._offset + px + 12) + 'px'; pop.style.top = (ya()._offset + py - 26) + 'px'; };
     ov.onpointermove = ev => { if (ov._drag) return; const [px, py] = local(ev), h = hit(px, py); ov.style.cursor = curs[h.kind]; tip(tips[h.kind], px, py); };
     ov.onpointerleave = () => { if (!ov._drag) pop.hidden = true; };
-    ov.onwheel = ev => { ev.preventDefault(); const [px] = local(ev), c = xa().p2l(px), r = xa().range, f = ev.deltaY > 0 ? 1.2 : 1 / 1.2, nr = [c - (c - r[0]) * f, c + (r[1] - c) * f]; S._stX = nr; Plotly.relayout(gd, { 'xaxis.range': nr }); };
+    // ⌘ (Ctrl) + scroll over a stage or a rest: 5 s longer or shorter each notch (1 s with Shift). Later stages move along. Plain scrolling scrolls the page.
+    ov.onwheel = ev => {
+      if (!modHeld(ev)) return;
+      ev.preventDefault(); // with the key held, the page itself must not scroll or zoom
+      const [px, py] = local(ev), h = hit(px, py); if (h.kind !== 'cut' && h.kind !== 'top' && h.kind !== 'rest') { tip(`Hold ${MOD} and scroll over a stage or a grey rest`, px, py); return; }
+      const W = S._stWheel = S._stWheel || { acc: 0 }, notches = notchesOf(W, ev); if (!notches) return;
+      const r = (S._stTemp || stageList()).map(q => Object.assign({}, q)), d = -notches * (ev.shiftKey ? 1 : 5);
+      let txt = '';
+      if (h.kind === 'rest') { const i = h.r[2], A = r[i], B = r[i + 1], rest = B.t0 - (A.t0 + A.dur), nd = Math.max(-rest, d); r.slice(i + 1).forEach(q => (q.t0 = +(q.t0 + nd).toFixed(1))); txt = `Rest after stage ${i + 1}: ${mmss(rest + nd)}`; }
+      else { const i = h.i, q = r[i], nd = Math.max(5 - q.dur, d); q.dur = +(q.dur + nd).toFixed(1); r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + nd).toFixed(1))); txt = `Stage ${i + 1}: ${mmss(q.dur)}`; }
+      S._stTemp = r; S._stX = xa().range.slice(); drawStageChart(r); tip(txt, px, py); $('#stMsg').textContent = txt;
+      clearTimeout(W.t); W.t = setTimeout(() => { const fin = S._stTemp; S._stTemp = null; W.acc = 0; if (fin) setStages(fin, txt + '.'); }, 600);
+    };
     ov.onpointerdown = ev => {
-      if (ev.button) return; ev.preventDefault(); const [px0, py0] = local(ev), h = hit(px0, py0); if (h.kind === 'none') return;
+      if (ev.button) return; ev.preventDefault(); const [px0, py0] = local(ev), h = hit(px0, py0); if (h.kind === 'none') { if (S._stSel !== null && S._stSel !== undefined) { S._stSel = null; drawStageChart(); } return; }
       const r = stageList(), s0 = secAt(px0); ov.setPointerCapture(ev.pointerId); ov._drag = true; let val = null, raf = 0;
       const live = up => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; Plotly.relayout(gd, up); }); };
       let lo = 0, hi = Infinity;
@@ -244,7 +315,7 @@
         const [px, py] = local(m);
         if (h.kind === 'edge') { val = Math.round(Math.max(lo, Math.min(hi, secAt(px)))); live({ [`shapes[${h.e.k}].x0`]: val / 60, [`shapes[${h.e.k}].x1`]: val / 60 }); tip(mmss(val), px, py); }
         else if (h.kind === 'top') { const q = r[h.i]; val = snapP(ya().p2l(py)); live({ [`shapes[${pv0 + 1}]`]: { type: 'line', xref: 'x', yref: 'y', x0: q.t0 / 60, x1: (q.t0 + q.dur) / 60, y0: val, y1: val, line: { color: css('--accent'), width: 2, dash: 'dot' }, visible: true } }); tip(`${(+val).toFixed(u === 'W' ? 0 : 1)} ${u}`, px, py); }
-        else if (h.kind === 'cut') { const a = Math.round(Math.min(s0, secAt(px))), b = Math.round(Math.max(s0, secAt(px))); val = [a, b]; live({ [`shapes[${pv0}].x0`]: a / 60, [`shapes[${pv0}].x1`]: b / 60, [`shapes[${pv0}].visible`]: true }); tip(`Rest ${mmss(b - a)}`, px, py); }
+        else if (h.kind === 'cut' && Math.abs(px - px0) >= 3) { const a = Math.round(Math.min(s0, secAt(px))), b = Math.round(Math.max(s0, secAt(px))); val = [a, b]; live({ [`shapes[${pv0}].x0`]: a / 60, [`shapes[${pv0}].x1`]: b / 60, [`shapes[${pv0}].visible`]: true }); tip(`Rest ${mmss(b - a)}`, px, py); }
       };
       ov.onpointerup = () => {
         ov._drag = false; ov.onpointermove = null; ov.onpointerup = null; if (raf) cancelAnimationFrame(raf); pop.hidden = true;
@@ -254,10 +325,10 @@
           if (A && B && Math.abs(A.p - B.p) < step / 2) { A.dur = B.t0 + B.dur - A.t0; r.splice(i + 1, 1); } else A.dur = B.t0 - A.t0;
           return setStages(r, `Rest at ${mmss(a)}–${mmss(b)} removed.`);
         }
-        if (val === null) return drawStageChart();
+        if (val === null) { if (h.kind === 'cut' || h.kind === 'top') { S._stSel = S._stSel === h.i ? null : h.i; } return drawStageChart(); } // a click selects (or clears) the stage
         if (h.kind === 'edge') { const e = h.e; if (Math.abs(val - e.x) < 0.5) return drawStageChart(); if (e.a !== null) r[e.a].dur = +(val - r[e.a].t0).toFixed(1); if (e.b !== null) { const end = r[e.b].t0 + r[e.b].dur; r[e.b].t0 = val; r[e.b].dur = +(end - val).toFixed(1); } return setStages(r, `Stage edge moved to ${mmss(val)}.`); }
         if (h.kind === 'top') { r[h.i].p = +val.toFixed(2); return setStages(r, `Stage ${h.i + 1} set to ${(+val).toFixed(u === 'W' ? 0 : 1)} ${u}.`); }
-        if (h.kind === 'cut') { const [a, b] = val; if (b - a < 3) return drawStageChart(); const out = []; r.forEach(q => { const e = q.t0 + q.dur; if (e <= a || q.t0 >= b) { out.push(q); return; } if (q.t0 < a - 0.5) out.push({ t0: q.t0, dur: a - q.t0, p: q.p }); if (e > b + 0.5) out.push({ t0: b, dur: e - b, p: q.p }); }); return setStages(out, `Rest added at ${mmss(a)}–${mmss(b)}.`); }
+        if (h.kind === 'cut') { const [a, b] = val; if (b - a < 3) return drawStageChart(); const out = []; r.forEach(q => { const e = q.t0 + q.dur; if (e <= a || q.t0 >= b) { out.push(q); return; } if (q.t0 < a - 0.5) out.push({ t0: q.t0, dur: a - q.t0, p: q.p }); if (e > b + 0.5) out.push({ t0: b, dur: e - b, p: q.p }); }); S._stSel = null; return setStages(out, `Rest added at ${mmss(a)}–${mmss(b)}.`); }
       };
       if (h.kind === 'rest') ov.onpointermove = null;
     };

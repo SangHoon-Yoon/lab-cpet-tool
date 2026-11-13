@@ -1,6 +1,6 @@
 {
   "name": "lab-cpet-tool",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "description": "Browser-only tool for cardiopulmonary exercise test (CPET) analysis",
   "main": "dist/lab-cpet-tool.html",
   "scripts": {
