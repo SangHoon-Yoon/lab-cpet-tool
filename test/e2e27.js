@@ -34,7 +34,7 @@ let fail=0;const ok=(c,m)=>{console.log((c?'  ok ':'  FAIL ')+m);if(!c)fail++;};
  await pg.click('[data-lk="hr:0"]');for(const v of [120,131,142,151,160,169,177,184]){await pg.keyboard.type(String(v));await pg.keyboard.press('Enter');await pg.waitForTimeout(120);}
  await pg.waitForTimeout(500);const lt=await pg.evaluate(()=>LabApp.results().thr.map(x=>[x.threshold,x.intensity_stage,x.hr_bpm]));ok(lt.length===2&&lt[0][1]>11&&lt[1][1]>lt[0][1]&&lt[0][2]>120,'LT1 and LT2 with speed and typed heart rate: '+JSON.stringify(lt));
  await pg.screenshot({path:out+'zz_lac_only.png',fullPage:true});
- await pg.click('[data-tab=summary]');await pg.waitForTimeout(500);ok(/1[2-3]\.\d/.test(await pg.$eval('#views table',e=>e.innerText)),'summary shows the speed at LT');
+ await pg.click('[data-tab=summary]');await pg.waitForTimeout(500);ok(/1[2-5]\.\d/.test(await pg.$eval('#views table',e=>e.innerText)),'summary shows the speed at LT');
  await pg.evaluate(()=>{document.querySelector('details[data-fold=rep]').open=true;});await pg.waitForTimeout(300);
  ok(await pg.$eval('[data-rfig=cGas]',e=>e.disabled)&&await pg.$eval('[data-rfig=cLac]',e=>e.checked),'client report: lactate figure, no gas figure');
  for(const [btn,nm] of [['#rClient','client'],['#rResearch','research']]){const [d]=await Promise.all([pg.waitForEvent('download'),pg.click(btn)]);ok(fs.statSync(await d.path()).size>50000,nm+' report generated');await pg.waitForTimeout(300);}

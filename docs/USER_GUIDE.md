@@ -2,7 +2,7 @@
 
 > This copy lives in the repository and is the one to keep up to date. (It began as a Claude Doc.)
 
-Version 0.30.0 · Created by SangHoon Yoon · Nov 4, 2026
+Version 0.32.0 · Created by SangHoon Yoon · Nov 4, 2026
 
 ## **Before you start**
 
@@ -89,18 +89,22 @@ All times are from the start of the COSMED recording. Without these steps or a L
 
 Open the **Stages** block (under Test details). It shows the stages on a chart, with VO₂ drawn faintly behind them so you can see where each stage really started, and lists them in a table: start, length, rest after, and power or speed. The stages come from the file or from steps you entered.
 
-Click **Unlock to edit**. Then, on the chart (the pointer changes to show what will happen):
+Click **⛶ Full screen** to make the chart and table fill most of the window (Esc, the button, or a click on the dimmed page around it goes back). Everything works the same there.
 
-| To | Do this | Pointer |
-| --- | --- | --- |
-| Move where a stage starts or ends | Drag a red line. Where two stages meet, both change. | ↔ |
-| Change a stage's power or speed | Drag the top of the stage up or down. | ⇕ |
-| Add a rest | Drag across the part of a stage that was rest. | + |
-| See how long a stage or rest is | Hover over it (locked or unlocked). | |
-| Make a stage or rest longer or shorter | Hold ⌘ or ⌥ (Alt on Windows) and scroll over it. The first step rounds to a whole 5 s (for example 2:59 → 3:00), then each step is 5 s (1 s with Shift). The stages after it move along. The same works over a time in the table. | |
-| Select a stage or a rest | Click it. It is outlined in red, and a small bar above it gives its length with **Delete stage** or **Remove rest**. Then ← → change its length in 5 s steps (1 s with Shift), ↑ ↓ change a stage's power or speed, and the Delete key removes it. Esc clears the selection. When a rest is removed, the stage before it takes up the time. | + or hand |
+Click **Unlock to edit**. Then:
 
-To zoom, pinch on the trackpad (or hold Ctrl and scroll): the chart zooms around the selected stage or rest, or else around the pointer. You can also use the **+** and **−** buttons, **Show all stages** (or the home button on the chart), or the handles of the strip under the chart. Plain scrolling scrolls the page, not the chart. Drag the bar under the chart to make it taller or shorter.
+| To | Do this |
+| --- | --- |
+| Select a stage or a rest | Click it on the chart, or click its row in the table. It is outlined in red and its row is highlighted. |
+| Type its length (and a stage's power or speed) | Type in the bar that appears above the chart, then press Enter. The stages after it move along. |
+| Add a rest after a stage | Select the stage, then **Add rest after** (30 s; change it in the bar). |
+| Add a stage after a stage | Select the stage, then **Add stage after**. The stages after it move along. **Add a stage at the end** adds one after the last. |
+| Delete a stage or remove a rest | Select it, then **Delete** (or **Remove rest**), or press the Delete key. When a rest is removed, the stage before it takes up the time. |
+| Change the length in 5 s steps | With it selected, hold ⌘ or ⌥ (Alt on Windows) and scroll anywhere on the chart, or press ← →. The first step rounds to a whole 5 s (2:59 → 3:00), then each step is 5 s (1 s with Shift). With nothing selected, scroll over a stage or rest instead. ↑ ↓ change a stage's power or speed. |
+| Move where a stage starts or ends | Drag a red line (pointer ↔). Where two stages meet, both change. |
+| Change a stage's power or speed | Drag the top of the stage up or down (pointer ⇕). |
+| See how long a stage or rest is | Hover over it, locked or unlocked. |
+| Clear the selection | ×, Esc, or click an empty part of the chart. |
 
 Or type in the table: times are minutes:seconds (or a number of minutes, such as 3 or 0.5), and changing a start, length or rest moves the stages after it by the same amount. Press Enter to move down a column. **Same for every stage** sets one length, one rest, or both, for every stage at once. **Add a stage** adds one after the last; × removes one.
 
@@ -242,10 +246,10 @@ Use the **Lactate** tab when blood lactate was taken during the test. Gas data a
 1. Open the **Lactate** tab. There is one table for an incremental test, or one per step test.
 2. Type the resting lactate as the baseline, then the lactate at the end of each stage. Leave a stage empty if no sample was taken. Press **Enter** or the down arrow to move down a row, the up arrow to move up, and **Tab** to move across. Shorter stages at the end of a test (for example 1-min stages) get no row, because lactate is taken at the end of the longer stages; click **Add a row** (above the table) if you did take one. To paste from Excel, copy the lactate column (or lactate, heart rate and RPE together), click the first box to fill and paste. Speed or power, heart rate and RPE are filled in from the test, and you can change them. Use **Add a row** if a stage is missing.
 3. Choose the curve fit (3rd degree polynomial by default, as in Exphyslab), whether the baseline is part of the fit, and how much of the data the Log-log method uses (0.75 by default).
-4. The LT1 and LT2 lines start at Log-log and ModDmax. To change a threshold, drag its line, or open **Every method** and click **LT1** or **LT2** next to a method.
+4. The LT1 line starts at Bsln + 0.5 (the baseline plus 0.5 mmol/L; Log-log if no resting value was entered) and the LT2 line at ModDmax. To change a threshold, drag its line, or open **Every method** and click **LT1** or **LT2** next to the method you want.
 5. To compare with the gas data, the VT lines are drawn as dotted lines on the lactate chart. **Copy LT1 and LT2 to the gas charts** moves the VT lines to the lactate thresholds, and **Copy VT1 and VT2 here** does the opposite. Both use the VO₂–speed or VO₂–power regression.
 6. With a resting sample, the chart's first point is labelled **Baseline** on the x-axis (it is drawn one step before the first stage, as in lactater). The chart sits under the table, with LT1 and LT2 beside it. Drag the bar under the chart up or down to make it taller or shorter.
-7. The chart marks only the two methods the lines start at (Log-log for LT1 and ModDmax for LT2). Under **Methods marked on the chart**, tick any other method to mark its value too; **Reset to default** goes back to the two.
+7. The chart marks only the two methods the lines start at (Bsln + 0.5, or Log-log, for LT1; ModDmax for LT2). Under **Methods marked on the chart**, tick any other method to mark its value too; **Reset to default** goes back to the two.
 8. Heart rate for each stage is filled in as the mean of the stage's last 30 seconds. Type over it if needed. The stage tables on the other tabs also use the last 30 seconds for heart rate, whatever window is chosen for the other variables.
 
 The methods are a JavaScript version of the open-source lactater R package by Felipe Mattioni Maturana, which Exphyslab also uses. On lactater’s example data, the tool gave the same values as Exphyslab for 12 of the 13 methods Exphyslab lists; Log-log was 0.1 W higher. Still check your own results against Exphyslab before relying on them.

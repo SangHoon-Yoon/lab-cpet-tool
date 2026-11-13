@@ -109,7 +109,7 @@
     if (S.hr && !S.set.hrOffset) { const ce = P.cosmedStartEpoch(m); if (S.hr.start && ce) S.set.hrOffset = Math.round(S.hr.start - ce); }
     rebuild();
     S.align = L.alignment(S.gas, S.I);
-    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = false; $('#sBox').open = false; S._stUnlock = false; S._stX = null; S._stMsg = ''; S._stSel = null; S._stRest = null; S._stTemp = null; S._stVO2 = null;
+    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = false; $('#sBox').open = false; S._stUnlock = false; S._stX = null; S._stMsg = ''; S._stSel = null; S._stRest = null; S._stTemp = null; S._stFS = false; document.body.classList.remove('stfs-on'); S._stVO2 = null;
     ['#bSave', '#bExport', '#bCsv'].forEach(b => ($(b).disabled = false));
     buildDetails(); buildProc(); buildTabs(); recompute();
     H.steps = []; H.at = -1; H.saved = null; checkpoint(); S.gStep = 0; renderGuide();

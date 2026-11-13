@@ -4,7 +4,7 @@
   const LM = window.LabLactate;
   const LT_METHODS = ['Log-log', 'OBLA 2.0', 'OBLA 2.5', 'OBLA 3.0', 'OBLA 3.5', 'OBLA 4.0', 'Bsln + 0.5', 'Bsln + 1.0', 'Bsln + 1.5', 'Dmax', 'ModDmax', 'Exp-Dmax', 'Log-Poly-ModDmax', 'Log-Exp-ModDmax', 'LTP1', 'LTP2', 'LTratio'];
   // The lactate settings. Missing ones are filled in on the SAME object, so anything holding it keeps seeing later changes.
-  const lacSet = () => { const o = S.set.lac = S.set.lac || {}, d = { fit: 'poly3', baseline: false, restrain: 0.75, lt1: 'Log-log', lt2: 'ModDmax' }; Object.keys(d).forEach(k => { if (o[k] === undefined) o[k] = d[k]; }); o.series = o.series || {}; return o; };
+  const lacSet = () => { const o = S.set.lac = S.set.lac || {}, d = { fit: 'poly3', baseline: false, restrain: 0.75, lt1: 'Bsln + 0.5', lt2: 'ModDmax' }; Object.keys(d).forEach(k => { if (o[k] === undefined) o[k] = d[k]; }); o.series = o.series || {}; return o; };
   // Heart rate of a stage for the lactate table and the client report: the mean of its last 30 s.
   const HR_WIN = 30, stageHR = q => (S.D && S.D.R0 && F(q.t0) && F(q.t1) ? L.stageValues(S.D.R0, q, HR_WIN, S.meta.mass, S.D.mode).m.hr : NaN);
   // One series per lactate curve: the incremental test, or each step test. fit maps VO₂ (L/min) to intensity.
@@ -39,14 +39,18 @@
     res.n = use.length; res.hasBase = F(base.la); return res;
   }
   // Methods marked on the chart: the two starting methods (Log-log and ModDmax unless changed) until boxes are ticked beside the chart.
-  const lacShown = () => { const ls = lacSet(); return Array.isArray(ls.showM) ? ls.showM : [...new Set([ls.lt1, ls.lt2])]; };
+  // Marked by default: the methods the two lines start at (Log-log stands in for Bsln + 0.5 when there is no resting value).
+  const lacShown = res => { const ls = lacSet(); if (Array.isArray(ls.showM)) return ls.showM; const a = res ? [ltMethod(res, 'lt1'), ltMethod(res, 'lt2')].filter(Boolean).map(m => m.name) : []; return [...new Set(a.length ? a : [ls.lt1, ls.lt2])]; };
   const lacMarks = [];
   const ltPick = (key, q) => ((S.picks.lt || {})[key] || {})[q];
+  // The method a line starts at: the chosen one (Bsln + 0.5 for LT1, ModDmax for LT2), or, when it cannot be found (for example
+  // the baseline-plus methods with no resting sample), Log-log for LT1.
+  function ltMethod(res, q) { const want = lacSet()[q], m = res.methods.find(x => x.name === want && F(x.p)); if (m || q !== 'lt1') return m; return res.methods.find(x => x.name === 'Log-log' && F(x.p)); }
   function ltVal(se, res, q) {
     const p = ltPick(se.key, q); if (F(p)) return p;
-    const m = res.methods.find(x => x.name === lacSet()[q]); return m && F(m.p) ? m.p : NaN;
+    const m = ltMethod(res, q); return m ? m.p : NaN;
   }
-  function ltSource(se, res, q) { const p = ltPick(se.key, q); if (F(p)) return ((S.picks.ltSrc || {})[se.key] || {})[q] || 'placed by user'; return F(ltVal(se, res, q)) ? lacSet()[q] + ' (default)' : ''; }
+  function ltSource(se, res, q) { const p = ltPick(se.key, q); if (F(p)) return ((S.picks.ltSrc || {})[se.key] || {})[q] || 'placed by user'; const m = ltMethod(res, q); return m ? m.name + (m.name === lacSet()[q] ? ' (default)' : ' (default; no resting value for ' + lacSet()[q] + ')') : ''; }
   function setLT(key, q, v, src) { S.picks.lt = S.picks.lt || {}; S.picks.ltSrc = S.picks.ltSrc || {}; const o = S.picks.lt[key] = S.picks.lt[key] || {}, s = S.picks.ltSrc[key] = S.picks.ltSrc[key] || {}; if (F(v)) { o[q] = v; if (src) s[q] = src; else delete s[q]; } else { delete o[q]; delete s[q]; } }
   // lactate and heart rate at any intensity: from the fitted curve, and from a straight line through the stage heart rates
   const ltAt = (res, p) => { if (!res.fit || !F(p)) return {}; const la = res.fit.model.predict(p), hr = res.fit.data.slice(res.hasBase ? 1 : 0).filter(r => F(r.hr)); let h = NaN; if (hr.length >= 2) { const r = C.linreg(hr.map(q => q.p), hr.map(q => q.hr)); h = r.m * p + r.b; } return { la, hr: h }; };
@@ -128,7 +132,7 @@
     // chart
     const gd = document.getElementById('lc' + si); Plotly.purge(gd); gd.innerHTML = '';
     const pts = res.fit ? res.fit.data : [], tr = [], mcol = ['--t1', '--t2', '--t3', '--vt1', '--vt2', '--power'];
-    const marks = () => { const sh = lacShown(), ms = res.methods.filter(m => F(m.p) && F(m.la) && sh.includes(m.name)); return { x: ms.map(m => m.p), y: ms.map(m => m.la), text: ms.map(m => m.name), mode: ms.length <= 6 ? 'markers+text' : 'markers', color: ms.map(m => css(mcol[LT_METHODS.indexOf(m.name) % 6])) }; };
+    const marks = () => { const sh = lacShown(res), ms = res.methods.filter(m => F(m.p) && F(m.la) && sh.includes(m.name)); return { x: ms.map(m => m.p), y: ms.map(m => m.la), text: ms.map(m => m.name), mode: ms.length <= 6 ? 'markers+text' : 'markers', color: ms.map(m => css(mcol[LT_METHODS.indexOf(m.name) % 6])) }; };
     if (res.fit) {
       tr.push({ x: res.fit.x, y: res.fit.y, mode: 'lines', type: 'scatter', line: { color: css('--ma'), width: 2 }, name: 'Fitted curve', hoverinfo: 'skip' });
       tr.push({ x: pts.map(r => r.p), y: pts.map(r => r.la), mode: 'markers', type: 'scatter', marker: { color: css('--bg'), size: 9, line: { color: css('--fg'), width: 1.5 } }, name: 'Samples', text: pts.map((r, i) => (res.hasBase && i === 0 ? 'Baseline (rest)' : (+r.p.toFixed(dp + 1)) + ' ' + u)), hovertemplate: `%{text}<br>%{y:.2f} mmol/L<extra></extra>` });
@@ -152,12 +156,12 @@
       $('#lcpFrom' + si).onclick = () => { const done = []; se.vtLines.forEach(q => { const v = se.vt(q); if (!F(v)) return; setLT(se.key, q.replace('vt', 'lt'), Math.round((se.fit.m * v + se.fit.b) * 100) / 100, 'Gas ' + q.toUpperCase()); done.push(q.toUpperCase()); }); summaries(); vLactate(); const m = $('#lcpM' + si); if (m) m.textContent = done.length ? `${done.join(' and ')} copied here.` : 'Nothing to copy yet.'; };
     }
     // the list beside the chart: tick a method to mark its value on the chart
-    const sh = lacShown(), found = res.methods.filter(m => F(m.p) && F(m.la));
+    const sh = lacShown(res), found = res.methods.filter(m => F(m.p) && F(m.la));
     $('#lms' + si).innerHTML = found.length ? `<div class="lacms">${found.map(m => `<label class="chk"><input type="checkbox" data-lshow="${esc(m.name)}" ${sh.includes(m.name) ? 'checked' : ''}><span>${m.name}</span><span class="hint">${fx(m.p, dp + 1)} ${u}</span></label>`).join('')}</div><div class="tools"><button data-lall="1">Show all</button><button data-lall="0">Reset to default</button></div>` : '<p class="hint">Enter lactate values first.</p>';
-    $$(`#lms${si} [data-lshow]`).forEach(el => (el.onchange = () => { const now = new Set(lacShown()); if (el.checked) now.add(el.dataset.lshow); else now.delete(el.dataset.lshow); lacSet().showM = LT_METHODS.filter(m => now.has(m)); lacMarks.forEach(f => f()); }));
+    $$(`#lms${si} [data-lshow]`).forEach(el => (el.onchange = () => { const now = new Set(lacShown(res)); if (el.checked) now.add(el.dataset.lshow); else now.delete(el.dataset.lshow); lacSet().showM = LT_METHODS.filter(m => now.has(m)); lacMarks.forEach(f => f()); }));
     $$(`#lms${si} [data-lall]`).forEach(b => (b.onclick = () => { if (b.dataset.lall === '1') lacSet().showM = [...LT_METHODS]; else delete lacSet().showM; lacMarks.forEach(f => f()); }));
     // Ticking a box only restyles the marks (no redraw of the tab), and keeps the boxes of every test in step.
-    lacMarks[si] = () => { const now = lacShown(); $$(`#lms${si} [data-lshow]`).forEach(el => (el.checked = now.includes(el.dataset.lshow))); if (!res.fit || !gd.data) return; const mk = marks(); Plotly.restyle(gd, { x: [mk.x], y: [mk.y], text: [mk.text], mode: mk.mode, 'marker.color': [mk.color] }, [2]); };
+    lacMarks[si] = () => { const now = lacShown(res); $$(`#lms${si} [data-lshow]`).forEach(el => (el.checked = now.includes(el.dataset.lshow))); if (!res.fit || !gd.data) return; const mk = marks(); Plotly.restyle(gd, { x: [mk.x], y: [mk.y], text: [mk.text], mode: mk.mode, 'marker.color': [mk.color] }, [2]); };
     // every method
     $('#lmT' + si).innerHTML = res.methods.length ? `<thead><tr><th>Method</th><th>Fit</th><th>${u}</th><th>Lactate</th><th>Heart rate</th><th>Use as</th></tr></thead><tbody>${res.methods.map(m => `<tr><td>${m.name}</td><td class="hint">${m.fitting}</td><td>${F(m.p) ? fx(m.p, dp + 1) : '<span class="hint">not found</span>'}</td><td>${F(m.la) ? fx(m.la, m.cat === 'Bsln+' ? 2 : 1) : ''}</td><td>${F(m.hr) ? m.hr : ''}</td><td>${F(m.p) ? `<button data-luse="lt1:${m.p}:${m.name}">LT1</button> <button data-luse="lt2:${m.p}:${m.name}">LT2</button>` : ''}</td></tr>`).join('')}</tbody>` : '<tbody><tr><td class="hint">No methods yet.</td></tr></tbody>';
     $$(`#lmT${si} [data-luse]`).forEach(b => (b.onclick = () => { const [q, v, ...nm] = b.dataset.luse.split(':'); setLT(se.key, q, +v, nm.join(':')); moveLines(ctx); tiles(); summaries(); }));

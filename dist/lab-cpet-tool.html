@@ -202,17 +202,30 @@ details.sub[open]>summary{margin-bottom:6px}
 .sttools{margin:6px 0}
 .stguide{font-size:.85rem;margin:2px 0 8px;padding:6px 10px;border-radius:6px;background:var(--bg);border:1px solid var(--line)}
 .stguide .k{display:inline-grid;place-items:center;min-width:1.3em;padding:0 3px;border:1px solid var(--line);border-radius:4px;background:var(--panel);font-size:.8rem;margin:0 2px}
-.stgrid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;align-items:start}
-@media(max-width:980px){.stgrid{grid-template-columns:1fr}}
+.stgrid{display:grid;grid-template-columns:1fr;gap:14px;align-items:start}
+.stside{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:14px;align-items:start}
+@media(max-width:900px){.stside{grid-template-columns:1fr}}
+.stback{position:fixed;inset:0;background:rgba(15,20,26,.45);z-index:900}
+.stedit.fs{position:fixed;inset:3vh 2.5vw;z-index:901;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;box-shadow:0 12px 40px rgba(0,0,0,.35);display:flex;flex-direction:column;overflow:hidden}
+.stedit.fs .stgrid{grid-template-columns:minmax(0,1fr) minmax(300px,380px);flex:1;min-height:0;align-items:stretch}
+.stedit.fs .stmain{display:flex;flex-direction:column;min-height:0}
+.stedit.fs .stchartwrap{flex:1;min-height:0;overflow:hidden}
+.stedit.fs .stside{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+.stedit.fs .stside .tblwrap{max-height:none}
+body.stfs-on{overflow:hidden}
+.stfsbtn{margin-left:auto}
+.stsel label{display:inline-flex;gap:4px;align-items:center;font-size:.78rem;color:var(--muted)}.stsel input{width:4.4em;padding:1px 4px;font-size:.8rem}.stsel input[type=number]{width:4.8em}
+.stsel button:disabled{opacity:.45}
 .stchartwrap{position:relative;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
 .stover{position:absolute;touch-action:none;z-index:2}
-.stsel{position:absolute;z-index:4;transform:translateX(-50%);display:flex;gap:6px;align-items:center;background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:3px 6px;font-size:.8rem;box-shadow:0 2px 8px rgba(0,0,0,.15);white-space:nowrap}
+.stsel{position:absolute;z-index:4;display:flex;gap:6px;align-items:center;background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:3px 6px;font-size:.8rem;box-shadow:0 2px 8px rgba(0,0,0,.15);white-space:nowrap}
 .stsel button{padding:2px 8px;font-size:.8rem}
 .stT tbody tr.on td{background:var(--accent-soft)}
 #stc .modebar-container{z-index:5}#stc .modebar{opacity:1!important}
 .stzoom{margin:0 0 6px}.stzoom button[data-sz]{min-width:2.2em}
 .stpop{position:absolute;z-index:3;pointer-events:none;white-space:pre-line!important;line-height:1.35;background:var(--fg);color:var(--bg);font-size:.75rem;padding:2px 7px;border-radius:4px;white-space:nowrap}
-.stside .tblwrap{max-height:340px;overflow:auto}
+.stside .tblwrap{max-height:360px;overflow:auto}
+.stT tbody tr{cursor:pointer}
 .stT input{width:4.8em}.stT input[type=number]{width:5.5em}
 .stall{margin-top:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;display:grid;gap:4px;font-size:.85rem}
 .stall input{width:4.8em}.stall label{display:inline-flex;gap:6px;align-items:center}
@@ -1982,7 +1995,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.30.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.32.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -2126,7 +2139,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     if (S.hr && !S.set.hrOffset) { const ce = P.cosmedStartEpoch(m); if (S.hr.start && ce) S.set.hrOffset = Math.round(S.hr.start - ce); }
     rebuild();
     S.align = L.alignment(S.gas, S.I);
-    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = false; $('#sBox').open = false; S._stUnlock = false; S._stX = null; S._stMsg = ''; S._stSel = null; S._stRest = null; S._stTemp = null; S._stVO2 = null;
+    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = false; $('#sBox').open = false; S._stUnlock = false; S._stX = null; S._stMsg = ''; S._stSel = null; S._stRest = null; S._stTemp = null; S._stFS = false; document.body.classList.remove('stfs-on'); S._stVO2 = null;
     ['#bSave', '#bExport', '#bCsv'].forEach(b => ($(b).disabled = false));
     buildDetails(); buildProc(); buildTabs(); recompute();
     H.steps = []; H.at = -1; H.saved = null; checkpoint(); S.gStep = 0; renderGuide();
@@ -2230,7 +2243,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     const [kind, a, b] = conf.split(':');
     if (kind === 'inc') { const v = incVT(a); if (!F(v)) return; S.picks.inc[a] = +v.toFixed(3); S.picks.incSrc = S.picks.incSrc || {}; S.picks.incSrc[a] = 'suggestion, confirmed'; }
     else if (kind === 'test') { const i = +a, v = testVT(b, i); if (!F(v)) return; setTestVT(S.proto.tests[i], b, +v.toFixed(3)); S.picks.testSrc = S.picks.testSrc || {}; (S.picks.testSrc[testKey(S.proto.tests[i])] = S.picks.testSrc[testKey(S.proto.tests[i])] || {})[b] = 'suggestion, confirmed'; }
-    else if (kind === 'lt') { const se = lacSeries().find(x => x.key === a); if (!se) return; const res = lacAnalyse(se), v = ltVal(se, res, b); if (!F(v)) return; setLT(se.key, b, v, lacSet()[b] + ', confirmed'); }
+    else if (kind === 'lt') { const se = lacSeries().find(x => x.key === a); if (!se) return; const res = lacAnalyse(se), v = ltVal(se, res, b); if (!F(v)) return; const m = ltMethod(res, b); setLT(se.key, b, v, (m ? m.name : lacSet()[b]) + ', confirmed'); }
     summaries(); render();
   }
   document.addEventListener('click', e => { const b = e.target.closest('[data-conf]'); if (b) { e.preventDefault(); confirmThreshold(b.dataset.conf); } });
@@ -2364,22 +2377,23 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       <td>${nx ? (on ? tin('rest', i, mmss(Math.max(0, rest))) : rest > 1 ? mmss(rest) : '–') : '–'}</td>
       <td>${on ? `<input type="number" step="any" data-st="p:${i}" value="${+q.p.toFixed(2)}" aria-label="${lab} of stage ${i + 1}">` : (+q.p).toFixed(dp)}</td>
       <td>${on ? `<button class="rm" data-strm="${i}" title="Remove this stage" aria-label="Remove stage ${i + 1}">×</button>` : ''}</td></tr>`; }).join('');
-    $('#sForm').innerHTML = `
-      <div class="tools sttools">${on ? '<button id="stLock" aria-pressed="true">Lock the stages</button>' : '<button id="stLock" class="primary">Unlock to edit</button>'}<button id="stReset" ${set.stages ? '' : 'disabled'}>Reset to original</button>${on ? '<button id="stAdd">Add a stage</button>' : ''}<span id="stI"></span><span class="hint" id="stMsg">${esc(S._stMsg || '')}${ov > 0 ? ` Stage ${ov + 1} starts before stage ${ov} ends.` : ''}</span></div>
+    const fs = !!S._stFS;
+    $('#sForm').innerHTML = `${fs ? '<div class="stback" id="stback" title="Click to leave full screen"></div>' : ''}<div class="stedit ${fs ? 'fs' : ''}" id="stedit" ${fs ? 'role="dialog" aria-label="Stages, full screen"' : ''}>
+      <div class="tools sttools">${on ? '<button id="stLock" aria-pressed="true">Lock the stages</button>' : '<button id="stLock" class="primary">Unlock to edit</button>'}<button id="stReset" ${set.stages ? '' : 'disabled'}>Reset to original</button>${on ? '<button id="stAdd">Add a stage at the end</button>' : ''}<button id="stFS" class="stfsbtn">${fs ? '✕ Leave full screen' : '⛶ Full screen'}</button><span id="stI"></span><span class="hint" id="stMsg">${esc(S._stMsg || '')}${ov > 0 ? ` Stage ${ov + 1} starts before stage ${ov} ends.` : ''}</span></div>
       <ul class="notes" data-info="stI"><li>Times are from the start of the recording, as minutes:seconds (or a number of minutes, such as 3 or 0.5).</li><li>In the table, changing a start, length or rest moves the stages after it by the same amount. On the chart, moving an edge changes only the stages on either side of it.</li><li>Edited stages replace the ${lab.toLowerCase()} from the file or the entered steps on every tab. <b>Reset to original</b> goes back, and Ctrl+Z (⌘Z) undoes the last change.</li><li>Rests between stages (up to 2 min, stopped or slower) keep the stages as one test. They are shaded grey${S.proto.type === 'incremental' ? ', and left out of the threshold charts and peak values unless you untick that under Test details' : ''}.</li></ul>
-      <div class="stguide">${on ? `<b>Unlocked.</b> On the chart: <span class="k">↔</span> drag a red line to move a stage’s start or end · <span class="k">⇕</span> drag the top of a stage to change its ${lab.toLowerCase()} · <span class="k">+</span> drag across a stage to add a rest · click a stage or a grey rest to select it (then delete it, or use ← → for its length and ↑ ↓ for a stage’s ${lab.toLowerCase()}) · hold <span class="k">${MOD}</span>${IS_MAC ? ` (or <span class="k">${MOD2}</span>)` : ''} and scroll over a stage, a rest or a time in the table to change it in 5 s steps · pinch to zoom. Or type in the table.` : `Check the stages against your protocol. To correct them, click <b>Unlock to edit</b>.`}</div>
-      <div class="stgrid"><div><div class="stzoom tools"><span>Zoom:</span><button data-sz="in" title="Zoom in" aria-label="Zoom in">+</button><button data-sz="out" title="Zoom out" aria-label="Zoom out">−</button><button data-sz="all">Show all stages</button><span class="hint">or drag the handles of the strip under the chart</span></div>
+      <div class="stguide">${on ? `<b>Unlocked.</b> <b>Click a stage or a grey rest</b> (or a row of the table) to select it: a bar above it lets you type its length, add a rest or a stage after it, or delete it. With something selected, hold <span class="k">${MOD}</span>${IS_MAC ? ` (or <span class="k">${MOD2}</span>)` : ''} and scroll anywhere on the chart, or use ← →, to change its length in 5 s steps (↑ ↓ for a stage’s ${lab.toLowerCase()}). Drag a red line <span class="k">↔</span> to move an edge, or the top of a stage <span class="k">⇕</span> to change its ${lab.toLowerCase()}. Pinch to zoom.` : `Check the stages against your protocol. Click a stage or a row to find it on the other. To correct them, click <b>Unlock to edit</b>.`}</div>
+      <div class="stgrid"><div class="stmain"><div class="stzoom tools"><span>Zoom:</span><button data-sz="in" title="Zoom in" aria-label="Zoom in">+</button><button data-sz="out" title="Zoom out" aria-label="Zoom out">−</button><button data-sz="all">Show all stages</button><span class="hint">or drag the handles of the strip under the chart</span></div>
         <div class="stchartwrap" id="stcw"><div class="stchart" id="stc"></div><div class="stover" id="sto" hidden></div><div class="stpop" id="stpop" hidden></div><div class="stsel" id="stsel" hidden></div></div>
-        <div class="sizebar" id="stsize" title="Drag up or down to change the chart's height" role="separator" aria-label="Drag to change the chart's height"><span></span></div></div>
+        ${fs ? '' : `<div class="sizebar" id="stsize" title="Drag up or down to change the chart's height" role="separator" aria-label="Drag to change the chart's height"><span></span></div>`}</div>
         <div class="stside">${rows.length ? `<div class="tblwrap"><table class="stT"><thead><tr><th>Stage</th><th>Start</th><th>Length</th><th>Rest after</th><th>${lab} (${u})</th><th></th></tr></thead><tbody>${body}</tbody></table></div>` : `<p class="hint">${on ? 'Click <b>Add a stage</b>, or enter the steps below.' : 'No stages yet. Unlock to type them, or enter the steps below.'}</p>`}
-        ${on && rows.length > 1 ? `<div class="stall"><b>Same for every stage</b><div class="tools"><label>Length <input type="text" id="stL" placeholder="${mmss(C.median(rows.slice(0, -1).map(q => q.dur)) || 180)}"></label><label>Rest after <input type="text" id="stR" placeholder="0:30"></label><button id="stAll">Apply</button></div><span class="hint">Fill one or both. The first start and the last stage’s length stay as they are.</span></div>` : ''}</div></div>
+        ${on && rows.length > 1 ? `<div class="stall"><b>Same for every stage</b><div class="tools"><label>Length <input type="text" id="stL" placeholder="${mmss(C.median(rows.slice(0, -1).map(q => q.dur)) || 180)}"></label><label>Rest after <input type="text" id="stR" placeholder="0:30"></label><button id="stAll">Apply</button></div><span class="hint">Fill one or both. The first start and the last stage’s length stay as they are.</span></div>` : ''}</div></div></div>
       ${planForm()}
       <details class="adv" id="blkD" ${set.blocks ? 'open' : ''}><summary>Enter blocks of stages (for example step tests within a trial)</summary>
         <div class="step" style="padding-top:8px">
           <p class="hint">One row per block of stages. Times are from the start of the COSMED recording. This replaces the detected intensity everywhere.</p>
           <div class="tools"><span>Unit</span><select id="bUnit">${unitOpts()}</select></div>
           <div class="tblwrap"><table class="blocks" id="bT"></table></div>
-          <div class="tools"><button id="bAdd">Add block</button><button id="bApply" class="primary">Apply</button><button id="bClear" ${set.blocks ? '' : 'disabled'}>Back to detected stages</button></div>
+          <div class="tools"><button id="bAdd">Add block</button><button id="bApply" class="primary">Apply</button><button id="bClear" ${set.blocks ? '' : 'disabled'}>Back to detected stages</button><span class="msg" id="bMsg"></span></div>
         </div></details>
 `;
     bindPlan();
@@ -2393,15 +2407,26 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       $$('[data-rm]').forEach(el => (el.onclick = () => { rowsNow.splice(+el.dataset.rm, 1); drawB(); }));
     };
     drawB();
-    $('#bAdd').onclick = () => { const l = rowsNow.at(-1) || { start: 0, n: 5, dur: 4, first: 8, inc: 1 }; rowsNow.push({ start: l.start + l.n * l.dur + 60, n: l.n, dur: l.dur, first: l.first, inc: l.inc }); drawB(); };
-    $('#bApply').onclick = () => { if (!rowsNow.length) return; const b = clone(rowsNow); b.unit = $('#bUnit').value; set.blocks = b; set.stages = null; set.excluded = []; fullS(); };
+    $('#bAdd').onclick = () => { const l = rowsNow.at(-1) || { start: 0, n: 5, dur: 4, first: 8, inc: 1 }; rowsNow.push({ start: +(l.start + l.n * l.dur + 1).toFixed(2), n: l.n, dur: l.dur, first: l.first, inc: l.inc }); drawB(); }; // the next block starts 1 min after the last one ends (times in minutes)
+    $('#bApply').onclick = () => {
+      if (!rowsNow.length) return; const endMin = S.gas.blank ? Infinity : S.gas.t.at(-1) / 60, late = rowsNow.findIndex(b => b.start >= endMin);
+      if (rowsNow.some(b => !F(b.start) || !(b.n >= 1) || !(b.dur > 0) || !F(b.first))) { $('#bMsg').textContent = 'Fill in every box of every block.'; return; }
+      if (late >= 0) { $('#bMsg').textContent = `Block ${late + 1} starts at ${rowsNow[late].start} min, after the recording ends (${endMin.toFixed(1)} min). Check its start.`; return; }
+      const b = clone(rowsNow); b.unit = $('#bUnit').value; set.blocks = b; set.stages = null; set.excluded = []; S._stMsg = `${b.length} block${b.length > 1 ? 's' : ''} applied.`; fullS(); };
     $('#bClear').onclick = () => { set.blocks = null; set.stages = null; fullS(); };
-    if (box.open && S.D) drawStageChart();
+    if (box.open && S.D) { drawStageChart(); if (S._stFS) requestAnimationFrame(() => drawStageChart()); }
   }
   const fullS = () => { rebuild(); S.align = L.alignment(S.gas, S.I); buildDetails(); buildTabs(); recompute(); };
   function bindStageEditor(rows, on) {
     const set = S.set;
     $('#stLock').onclick = () => { S._stUnlock = !S._stUnlock; S._stMsg = ''; $('#sBox').open = true; buildStages(); if (S.view === 'protocol') render(); };
+    // Full screen: the editor fills most of the window, over a dimmed page; Esc, the button or a click outside leaves it.
+    const setFS = v => { S._stFS = v; document.body.classList.toggle('stfs-on', v); buildStages(); requestAnimationFrame(() => setTimeout(() => drawStageChart(), 0)); }; // once the new layout has settled, the chart takes its full size
+    $('#stFS').onclick = () => setFS(!S._stFS); if ($('#stback')) $('#stback').onclick = () => setFS(false);
+    document.body.classList.toggle('stfs-on', !!S._stFS);
+    if (!document._stFSKey) { document._stFSKey = true; document.addEventListener('keydown', e => { if (e.key !== 'Escape' || !S._stFS) return; if ((S._stSel !== null && S._stSel !== undefined) || (S._stRest !== null && S._stRest !== undefined)) return; const el = document.activeElement; if (el && /INPUT|TEXTAREA|SELECT/.test(el.tagName)) { el.blur(); return; } setFS(false); }); }
+    // A row of the table selects that stage on the chart too (clicking into one of its boxes does as well).
+    $$('.stT tbody tr').forEach((tr, k) => { const pick = () => { if (S._stSel === k) return; S._stSel = k; S._stRest = null; drawStageChart(); }; tr.onclick = ev => { if (!ev.target.closest('button')) pick(); }; tr.addEventListener('focusin', pick); });
     $('#stReset').onclick = () => { S.set.stages = null; S._stMsg = 'Back to the original stages.'; later(fullS); };
     if ($('#stAdd')) $('#stAdd').onclick = () => {
       const r = stageList(), a = r.at(-1), b = r.at(-2), u = stUnit();
@@ -2456,7 +2481,10 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   // tmp: stages being changed by scrolling, drawn before they are applied.
   function drawStageChart(tmp) {
     const gd = $('#stc'); if (!gd || !$('#sBox').open) return;
-    const rows = tmp || stageList(), u = stUnit(), lab = u === 'W' ? 'Power' : 'Speed', on = !!S._stUnlock, g = S.gas, rs = stRests(rows), H = (S.set.view && S.set.view.stH) || 320;
+    const rows = tmp || stageList(), u = stUnit(), lab = u === 'W' ? 'Power' : 'Speed', on = !!S._stUnlock, g = S.gas, rs = stRests(rows);
+    let H = (S.set.view && S.set.view.stH) || 320;
+    // In full screen the chart's box stretches to the space left (CSS); the chart takes that height.
+    if (S._stFS) { gd.style.height = '0px'; H = Math.max(260, $('#stcw').clientHeight - 2); }
     if (S._stSel !== undefined && S._stSel !== null && !rows[S._stSel]) S._stSel = null;
     if (S._stRest !== undefined && S._stRest !== null && !rs.some(x => x[2] === S._stRest)) S._stRest = null;
     const xs = [], ys = []; rows.forEach((q, i) => { const e = q.t0 + q.dur, pv = rows[i - 1]; if (!pv || q.t0 > pv.t0 + pv.dur + 0.5) { xs.push(q.t0 / 60); ys.push(0); } xs.push(q.t0 / 60, e / 60); ys.push(q.p, q.p); const nx = rows[i + 1]; if (!nx || nx.t0 > e + 0.5) { xs.push(e / 60); ys.push(0); } });
@@ -2465,7 +2493,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     const top = Math.max(1, ...rows.map(q => q.p)) * 1.25, shapes = [], ann = [];
     rs.forEach(([a, b]) => shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: a / 60, x1: b / 60, y0: 0, y1: 1, fillcolor: css('--restfill'), line: { width: 0 }, layer: 'below' }));
     rows.forEach((q, i) => ann.push({ x: (q.t0 + q.dur / 2) / 60, y: q.p, yanchor: 'bottom', showarrow: false, text: (+q.p).toFixed(u === 'W' ? 0 : 1), font: { size: 10, color: css('--fg') } }));
-    const sel = on && S._stSel !== null && S._stSel !== undefined ? rows[S._stSel] : null;
+    const sel = S._stSel !== null && S._stSel !== undefined ? rows[S._stSel] : null;
     if (sel) shapes.push({ type: 'rect', xref: 'x', yref: 'y', x0: sel.t0 / 60, x1: (sel.t0 + sel.dur) / 60, y0: 0, y1: sel.p, fillcolor: css('--accent-soft'), line: { color: css('--accent'), width: 2 } });
     const selR = on && S._stRest !== null && S._stRest !== undefined ? rs.find(x => x[2] === S._stRest) : null;
     if (selR) shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: selR[0] / 60, x1: selR[1] / 60, y0: 0, y1: 1, fillcolor: css('--accent-soft'), line: { color: css('--accent'), width: 2 } });
@@ -2479,16 +2507,18 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       edges.forEach(e => { e.k = shapes.length; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: e.x / 60, x1: e.x / 60, y0: 0, y1: 1, line: { color: css('--accent'), width: 1.5 } }); });
     }
     const pv0 = shapes.length; shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: 0, x1: 0, y0: 0, y1: 1, fillcolor: css('--restfill'), line: { color: css('--accent'), width: 1, dash: 'dot' }, visible: false }, { type: 'line', xref: 'x', yref: 'y', x0: 0, x1: 0, y0: 0, y1: 0, line: { color: css('--accent'), width: 2, dash: 'dot' }, visible: false });
-    const xr = S._stX || stDefaultX(rows), hasV = tr.length > 1, end = Math.max(g.blank ? 0 : g.t.at(-1), rows.length ? rows.at(-1).t0 + rows.at(-1).dur + 120 : 0) / 60;
-    gd.style.height = H + 'px';
-    const L3 = lay({ height: H, margin: { l: 56, r: hasV ? 56 : 14, t: 34, b: 30 }, dragmode: on ? false : 'pan', showlegend: false, shapes, annotations: ann,
-      xaxis: ax('Time (min)', { range: xr, rangeslider: { visible: true, thickness: 0.1, range: [0, end], bgcolor: css('--bg'), bordercolor: css('--line'), borderwidth: 1 }, title: { text: 'Time (min)', font: { size: 12, color: css('--fg') }, standoff: 2 } }), yaxis: ax(`${lab} (${u})`, { range: [0, top], fixedrange: true }) });
+    const xr0 = S._stX || stDefaultX(rows), hasV = tr.length > 1, end = Math.max(g.blank ? 0 : g.t.at(-1), rows.length ? rows.at(-1).t0 + rows.at(-1).dur + 120 : 0) / 60;
+    gd.style.height = H + 'px'; gd._xLim = [0, end]; // no view before the recording starts or after it ends
+    const L3 = lay({ height: H, margin: { l: 56, r: hasV ? 56 : 14, t: on ? 48 : 34, b: 30 }, dragmode: on ? false : 'pan', showlegend: false, shapes, annotations: ann,
+      xaxis: ax('Time (min)', { range: (() => { const L = [0, end], w = Math.min(xr0[1] - xr0[0], L[1]); let a = Math.max(L[0], xr0[0]), b = a + w; if (b > L[1]) { b = L[1]; a = b - w; } return [a, b]; })(), rangeslider: { visible: true, thickness: 0.1, range: [0, end], bgcolor: css('--bg'), bordercolor: css('--line'), borderwidth: 1 }, title: { text: 'Time (min)', font: { size: 12, color: css('--fg') }, standoff: 2 } }), yaxis: ax(`${lab} (${u})`, { range: [0, top], fixedrange: true }) });
     if (hasV) L3.yaxis2 = ax('VO₂ (L/min)', { overlaying: 'y', side: 'right', fixedrange: true, showgrid: false, rangemode: 'tozero', title: { text: 'VO₂ (L/min)', font: { size: 11, color: css('--muted') } } }); // only when there is VO₂: an empty second axis stops Plotly
     const homeBtn = { name: 'Show all stages', icon: Plotly.Icons.home, click: () => { S._stX = null; Plotly.relayout(gd, { 'xaxis.range': stDefaultX(stageList()) }); } };
     try { Plotly.react(gd, tr, L3, Object.assign({}, FIGCFG, { scrollZoom: false, displayModeBar: true, modeBarButtons: [[homeBtn]] })); } catch (e) { console.error(e); return; } // a chart problem must never stop the rest of the page
-    if (!gd._stOn) { gd._stOn = true; gd.on('plotly_relayout', e => { if (e['xaxis.range[0]'] !== undefined) S._stX = [e['xaxis.range[0]'], e['xaxis.range[1]']]; else if (Array.isArray(e['xaxis.range'])) S._stX = e['xaxis.range'].slice(); else if (e['xaxis.autorange']) S._stX = null; if (gd._place) gd._place(); }); }
+    if (!window._stFSResize) { window._stFSResize = true; let tm; window.addEventListener('resize', () => { if (!S._stFS) return; clearTimeout(tm); tm = setTimeout(() => drawStageChart(), 150); }); }
+    if (!gd._stOn) { gd._stOn = true; gd.on('plotly_relayout', e => { let r = null; if (e['xaxis.range[0]'] !== undefined) r = [e['xaxis.range[0]'], e['xaxis.range[1]']]; else if (Array.isArray(e['xaxis.range'])) r = e['xaxis.range'].slice(); else if (e['xaxis.autorange']) S._stX = null;
+      if (r) { if (outside(gd, r)) { S._stX = clampX(gd, r); Plotly.relayout(gd, { 'xaxis.range': S._stX.slice() }); return; } S._stX = r; } if (gd._place) gd._place(); }); }
     // zoom buttons
-    const zoom = f => { const r = gd._fullLayout.xaxis.range, c = (r[0] + r[1]) / 2, h = (r[1] - r[0]) / 2 * f; S._stX = [Math.max(0, c - h), c + h]; Plotly.relayout(gd, { 'xaxis.range': S._stX.slice() }); };
+    const zoom = f => { const r = gd._fullLayout.xaxis.range, c = (r[0] + r[1]) / 2, h = (r[1] - r[0]) / 2 * f; S._stX = clampX(gd, [c - h, c + h]); Plotly.relayout(gd, { 'xaxis.range': S._stX.slice() }); };
     $$('[data-sz]').forEach(b => (b.onclick = () => { const k = b.dataset.sz; if (k === 'in') zoom(1 / 1.6); else if (k === 'out') zoom(1.6); else homeBtn.click(); }));
     // height: drag the bar under the chart
     const bar = $('#stsize');
@@ -2515,13 +2545,13 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     }
     // What the pointer is over: its length first, then (when unlocked) what can be done there.
     const info = h => h.kind === 'rest' ? `Rest after stage ${h.r[2] + 1}: ${mmss(h.r[1] - h.r[0])}` : h.kind === 'cut' || h.kind === 'top' ? `Stage ${h.i + 1}: ${mmss(rows[h.i].dur)} at ${(+rows[h.i].p).toFixed(dpU)} ${u}` : h.kind === 'edge' ? `Edge at ${mmss(h.e.x)}` : '';
-    const how = { edge: 'Drag to move it', top: `Drag up or down to change the ${lab.toLowerCase()}`, cut: `Click to select · drag across to add a rest · ${MOD} + scroll: length`, rest: `Click to select · ${MOD} + scroll: length`, none: '' };
-    const curs = { edge: 'ew-resize', top: 'ns-resize', cut: 'crosshair', rest: 'pointer', none: 'default' };
+    const how = { edge: 'Drag to move it', top: `Drag up or down to change the ${lab.toLowerCase()}`, cut: 'Click to select it: change its length, add a rest or a stage, or delete it', rest: 'Click to select it: change its length or remove it', none: '' };
+    const curs = { edge: 'ew-resize', top: 'ns-resize', cut: 'pointer', rest: 'pointer', none: 'default' };
     ov.onpointerleave = () => { if (!ov._drag) pop.hidden = true; };
     if (!on) { // locked: lengths on hover, and a reminder of how to start editing
-      $$('.stT tbody tr.on').forEach(tr => tr.classList.remove('on')); place();
-      ov.onpointermove = ev => { if (ev.buttons) return; const [px, py] = local(ev), h = hit(px, py); ov.style.cursor = 'default'; tip(info(h), px, py); };
-      ov.onpointerdown = ev => { if (ev.button) return; const [px, py] = local(ev); tip('Click Unlock to edit to change the stages', px, py); };
+      $$('.stT tbody tr').forEach((tr, k) => tr.classList.toggle('on', !!sel && k === S._stSel)); place();
+      ov.onpointermove = ev => { if (ev.buttons) return; const [px, py] = local(ev), h = hit(px, py); ov.style.cursor = h.kind === 'cut' ? 'pointer' : 'default'; tip(info(h), px, py); };
+      ov.onpointerdown = ev => { if (ev.button) return; const [px, py] = local(ev), h = hit(px, py); if (h.kind === 'cut') { S._stSel = h.i; S._stX = xa().range.slice(); drawStageChart(); const tr = $$('.stT tbody tr')[h.i]; if (tr) tr.scrollIntoView({ block: 'nearest' }); return; } tip('Click Unlock to edit to change the stages', px, py); };
       ov.onwheel = ev => { if (modHeld(ev)) { ev.preventDefault(); const [px, py] = local(ev); tip('Click Unlock to edit to change the stages', px, py); } };
       return;
     }
@@ -2531,11 +2561,23 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       if ((!sel && !selR) || tmp) { selBox.hidden = true; return; }
       const a = xa(), b = ya(), x = a._offset + a.l2p(gd._zoomAt()), y = sel ? b._offset + b.l2p(sel.p) : b._offset + 16;
       if (x < a._offset || x > a._offset + a._length) { selBox.hidden = true; return; }
+      const i = sel ? S._stSel : S._stRest, nx = rows[i + 1], restAfter = sel && nx && nx.t0 - (sel.t0 + sel.dur) > 1;
       selBox.hidden = false;
-      selBox.innerHTML = sel ? `<span>Stage ${S._stSel + 1} · ${mmss(sel.dur)}</span><button id="stDel">Delete stage</button><button id="stUnsel" aria-label="Clear the selection" title="Clear the selection">×</button>`
-        : `<span>Rest after stage ${S._stRest + 1} · ${mmss(selR[1] - selR[0])}</span><button id="stDel">Remove rest</button><button id="stUnsel" aria-label="Clear the selection" title="Clear the selection">×</button>`;
-      selBox.style.left = x + 'px'; selBox.style.top = Math.max(2, y - 40) + 'px';
+      selBox.innerHTML = sel ? `<b>Stage ${i + 1}</b><label>Length <input id="stbL" value="${mmss(sel.dur)}" aria-label="Length of stage ${i + 1}"></label><label>${lab} <input id="stbP" type="number" step="any" value="${+(+sel.p).toFixed(2)}" aria-label="${lab} of stage ${i + 1}"></label>
+          <button id="stAddR" ${nx && !restAfter ? '' : 'disabled'} title="${!nx ? 'There is no stage after this one' : restAfter ? 'There is already a rest after this stage: click it to change it' : 'Add a 30-s rest after this stage'}">Add rest after</button><button id="stAddS" title="Add a stage straight after this one; the later stages move along">Add stage after</button><button id="stDel">Delete</button><button id="stUnsel" aria-label="Clear the selection" title="Clear the selection (Esc)">×</button>`
+        : `<b>Rest after stage ${i + 1}</b><label>Length <input id="stbL" value="${mmss(selR[1] - selR[0])}" aria-label="Length of the rest"></label><button id="stDel">Remove rest</button><button id="stUnsel" aria-label="Clear the selection" title="Clear the selection (Esc)">×</button>`;
+      // the bar sits in the strip above the chart, centred over the selection where it fits, so it never covers a stage (or the home button)
+      void y; const w = selBox.offsetWidth; selBox.style.left = Math.max(4, Math.min(a._offset + a._length - w - 36, x - w / 2)) + 'px'; selBox.style.top = '6px';
       $('#stDel').onclick = () => delSel(); $('#stUnsel').onclick = () => { S._stSel = S._stRest = null; drawStageChart(); };
+      // typed values: Enter or leaving the box applies them; later stages move along
+      const typed = (el, fn) => { if (!el) return; el.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } else if (e.key === 'Escape') { e.preventDefault(); el.blur(); S._stSel = S._stRest = null; drawStageChart(); } }; el.onchange = fn; };
+      typed($('#stbL'), () => { const v = parseT($('#stbL').value), r = stageList(); if (!F(v) || v < (sel ? 5 : 0)) { $('#stMsg').textContent = 'Type a time as minutes:seconds, such as 3:00.'; return; }
+        const q = r[i], d = sel ? v - q.dur : v - (r[i + 1].t0 - q.t0 - q.dur); if (sel) q.dur = v; r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + d).toFixed(1))); S._stX = xa().range.slice(); setStages(r, `${sel ? 'Stage ' + (i + 1) : 'Rest after stage ' + (i + 1)}: ${mmss(v)}.`); });
+      if (sel) typed($('#stbP'), () => { const v = parseFloat($('#stbP').value), r = stageList(); if (!(v > 0)) return; r[i].p = v; S._stX = xa().range.slice(); setStages(r, `Stage ${i + 1}: ${v} ${u}.`); });
+      if ($('#stAddR')) $('#stAddR').onclick = () => { const r = stageList(); r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + 30).toFixed(1))); S._stSel = null; S._stRest = i; S._stX = xa().range.slice(); setStages(r, `A 30-s rest added after stage ${i + 1}. Type its length in the bar, or hold ${MOD} and scroll.`); };
+      if ($('#stAddS')) $('#stAddS').onclick = () => { const r = stageList(), q = r[i], pv = r[i - 1], incs = r.slice(1).map((x, k) => x.p - r[k].p).filter(d => d > 0), inc = incs.length ? C.median(incs) : (pv ? q.p - pv.p : 0), gap = r[i + 1] ? Math.max(0, r[i + 1].t0 - q.t0 - q.dur) : 0;
+        const nq = { t0: +(q.t0 + q.dur + gap).toFixed(1), dur: q.dur, p: +(r[i + 1] ? q.p : q.p + inc).toFixed(2) }; r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + q.dur + gap).toFixed(1))); r.splice(i + 1, 0, nq); S._stSel = i + 1; S._stRest = null; S._stX = xa().range.slice();
+        setStages(r, `Stage ${i + 2} added after stage ${i + 1}${r[i + 2] ? '; the later stages moved along' : ''}. Type its ${lab.toLowerCase()} in the bar.`); };
     }
     function delSel() {
       const r = stageList(); S._stX = xa().range.slice();
@@ -2564,7 +2606,9 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     ov.onwheel = ev => {
       if (!modHeld(ev)) return;
       ev.preventDefault(); // with the key held, the page itself must not scroll or zoom
-      const [px, py] = local(ev), h = hit(px, py); if (h.kind !== 'cut' && h.kind !== 'top' && h.kind !== 'rest') { tip(`Hold ${MOD} and scroll over a stage or a grey rest`, px, py); return; }
+      const [px, py] = local(ev), isS = S._stSel !== null && S._stSel !== undefined, isR = S._stRest !== null && S._stRest !== undefined;
+      const h = isS ? { kind: 'cut', i: S._stSel } : isR ? { kind: 'rest', r: [0, 0, S._stRest] } : hit(px, py); // what is selected wins over what is under the pointer
+      if (h.kind !== 'cut' && h.kind !== 'top' && h.kind !== 'rest') { tip(`Select a stage or rest first, or hold ${MOD} and scroll over one`, px, py); return; }
       const W = S._stWheel = S._stWheel || { acc: 0 }, notches = notchesOf(W, ev); if (!notches) return;
       const r = (S._stTemp || stageList()).map(q => Object.assign({}, q)), txt = stChange(r, h.kind === 'rest' ? 'rest' : 'dur', h.kind === 'rest' ? h.r[2] : h.i, -notches, ev.shiftKey);
       S._stTemp = r; S._stX = xa().range.slice(); drawStageChart(r); tip(txt, px, py); $('#stMsg').textContent = txt;
@@ -2573,8 +2617,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     ov.onpointerdown = ev => {
       if (ev.button) return; ev.preventDefault(); const [px0, py0] = local(ev), h = hit(px0, py0);
       if (h.kind === 'none') { if (sel || selR) { S._stSel = S._stRest = null; drawStageChart(); } return; }
-      if (h.kind === 'rest') { S._stRest = S._stRest === h.r[2] ? null : h.r[2]; S._stSel = null; S._stX = xa().range.slice(); pop.hidden = true; return drawStageChart(); } // a click selects the rest
-      const r = stageList(), s0 = secAt(px0); ov.setPointerCapture(ev.pointerId); ov._drag = true; let val = null, raf = 0;
+      if (h.kind === 'rest') { S._stRest = h.r[2]; S._stSel = null; S._stX = xa().range.slice(); pop.hidden = true; return drawStageChart(); } // a click selects the rest
+      const r = stageList(); void secAt; ov.setPointerCapture(ev.pointerId); ov._drag = true; let val = null, raf = 0;
       const live = up => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; Plotly.relayout(gd, up); }); };
       let lo = 0, hi = Infinity;
       if (h.kind === 'edge') { const e = h.e; lo = e.a !== null ? r[e.a].t0 + 5 : e.b > 0 ? r[e.b - 1].t0 + r[e.b - 1].dur : 0; hi = e.b !== null ? r[e.b].t0 + r[e.b].dur - 5 : r[e.a + 1] ? r[e.a + 1].t0 : Infinity; }
@@ -2582,15 +2626,13 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
         const [px, py] = local(m);
         if (h.kind === 'edge') { val = Math.round(Math.max(lo, Math.min(hi, secAt(px)))); live({ [`shapes[${h.e.k}].x0`]: val / 60, [`shapes[${h.e.k}].x1`]: val / 60 }); tip(mmss(val), px, py); }
         else if (h.kind === 'top') { const q = r[h.i]; val = snapP(ya().p2l(py)); live({ [`shapes[${pv0 + 1}]`]: { type: 'line', xref: 'x', yref: 'y', x0: q.t0 / 60, x1: (q.t0 + q.dur) / 60, y0: val, y1: val, line: { color: css('--accent'), width: 2, dash: 'dot' }, visible: true } }); tip(`${(+val).toFixed(dpU)} ${u}`, px, py); }
-        else if (h.kind === 'cut' && Math.abs(px - px0) >= 3) { const a = Math.round(Math.min(s0, secAt(px))), b = Math.round(Math.max(s0, secAt(px))); val = [a, b]; live({ [`shapes[${pv0}].x0`]: a / 60, [`shapes[${pv0}].x1`]: b / 60, [`shapes[${pv0}].visible`]: true }); tip(`Rest ${mmss(b - a)}`, px, py); }
       };
       ov.onpointerup = () => {
         ov._drag = false; ov.onpointermove = null; ov.onpointerup = null; if (raf) cancelAnimationFrame(raf); pop.hidden = true;
         S._stX = xa().range.slice();
-        if (val === null) { if (h.kind === 'cut' || h.kind === 'top') { S._stSel = S._stSel === h.i ? null : h.i; S._stRest = null; } return drawStageChart(); } // a click selects (or clears) the stage
+        if (val === null) { if (h.kind === 'cut' || h.kind === 'top') { S._stSel = h.i; S._stRest = null; const tr = $$('.stT tbody tr')[h.i]; if (tr && S._stSel !== null) tr.scrollIntoView({ block: 'nearest' }); } return drawStageChart(); } // a click selects (or clears) the stage
         if (h.kind === 'edge') { const e = h.e; if (Math.abs(val - e.x) < 0.5) return drawStageChart(); if (e.a !== null) r[e.a].dur = +(val - r[e.a].t0).toFixed(1); if (e.b !== null) { const end = r[e.b].t0 + r[e.b].dur; r[e.b].t0 = val; r[e.b].dur = +(end - val).toFixed(1); } return setStages(r, `Stage edge moved to ${mmss(val)}.`); }
         if (h.kind === 'top') { r[h.i].p = +val.toFixed(2); return setStages(r, `Stage ${h.i + 1} set to ${(+val).toFixed(dpU)} ${u}.`); }
-        if (h.kind === 'cut') { const [a, b] = val; if (b - a < 3) return drawStageChart(); const out = []; r.forEach(q => { const e = q.t0 + q.dur; if (e <= a || q.t0 >= b) { out.push(q); return; } if (q.t0 < a - 0.5) out.push({ t0: q.t0, dur: a - q.t0, p: q.p }); if (e > b + 0.5) out.push({ t0: b, dur: e - b, p: q.p }); }); S._stSel = null; return setStages(out, `Rest added at ${mmss(a)}–${mmss(b)}.`); }
       };
     };
     window.addEventListener('resize', place, { once: true });
@@ -2722,10 +2764,14 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   /* Pinch to zoom, on every chart. A trackpad pinch reaches the page as a scroll with Ctrl held (Safari sends gesture events instead).
      Plain scrolling is left to scroll the page. The chart zooms in time around the pointer, or around the selected stage on the stage chart. */
   const PZ = { x: 0, y: 0, scale: 1 };
+  // A time chart's limits: gd._xLim when the chart sets it, otherwise the span of its data. Views are kept inside them.
+  function xLim(gd) { if (gd._xLim) return gd._xLim; let lo = Infinity, hi = -Infinity; (gd.data || []).forEach(t => (t.x || []).forEach(x => { if (typeof x === 'number' && isFinite(x)) { if (x < lo) lo = x; if (x > hi) hi = x; } })); return isFinite(lo) ? [lo, hi] : null; }
+  function clampX(gd, r) { const L = xLim(gd); if (!L) return r; const w = Math.min(r[1] - r[0], L[1] - L[0]); let a = r[0], b = r[0] + w; if (a < L[0]) { a = L[0]; b = a + w; } if (b > L[1]) { b = L[1]; a = b - w; } return [a, b]; }
+  const outside = (gd, r) => { const L = xLim(gd); return !!L && (r[0] < L[0] - 1e-6 || r[1] > L[1] + 1e-6); };
   function pinchZoom(gd, f, cx, cy) {
     const fl = gd._fullLayout; if (!fl || !fl.xaxis || fl.xaxis.fixedrange) return;
     const xa = fl.xaxis, box = gd.getBoundingClientRect(), r = xa.range.map(Number), at = gd._zoomAt && gd._zoomAt(), c = at !== null && at !== undefined ? at : xa.p2l(cx - box.left - xa._offset);
-    const up = { 'xaxis.range': [c - (c - r[0]) * f, c + (r[1] - c) * f] }, ya = fl.yaxis;
+    const up = { 'xaxis.range': clampX(gd, [c - (c - r[0]) * f, c + (r[1] - c) * f]) }, ya = fl.yaxis;
     if (ya && !ya.fixedrange && cy !== undefined) { const v = ya.p2l(cy - box.top - ya._offset), q = ya.range.map(Number); up['yaxis.range'] = [v - (v - q[0]) * f, v + (q[1] - v) * f]; }
     Plotly.relayout(gd, up);
   }
@@ -2808,7 +2854,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       L2.annotations.push({ xref: 'x', yref: 'paper', x: (q.t0 + q.t1) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: q.label, font: { size: 10, color: css('--muted') } });
     });
     L2.xaxis = ax('Time (min)', { anchor: I ? iax : 'y' + (n ? (n > 1 ? n : '') : ''), range: [0, end], rangeslider: { visible: true, thickness: 34 / H, bgcolor: css('--bg'), bordercolor: css('--line'), borderwidth: 1, range: [0, end] }, title: { text: 'Time (min)', font: { size: 12, color: css('--fg') }, standoff: 2 } });
-    const gd = document.getElementById('pv');
+    const gd = document.getElementById('pv'); gd._xLim = [0, end];
     Plotly.newPlot(gd, tr, L2, CFG);
     gd.addEventListener('click', e => { if (e.detail > 1) setX([0, end]); });
     let busy = false, X0 = [0, end];
@@ -2817,7 +2863,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     function setX(r) { X0 = r.slice(); busy = true; Plotly.relayout(gd, Object.assign({ 'xaxis.range': r.slice() }, fit(r[0], r[1]))).then(() => { setTimeout(() => (busy = false), 0); }); readout(r[0], r[1]); }
     Plotly.relayout(gd, fit(0, end)); readout(0, end);
     const showMode = () => { gd.classList.remove('m-pan', 'm-zoom'); gd.classList.add(gd._fullLayout.dragmode === 'zoom' ? 'm-zoom' : 'm-pan'); }; showMode();
-    gd.on('plotly_relayout', e => { showMode(); if (busy) return; let a = e['xaxis.range[0]'], b = e['xaxis.range[1]']; if (e['xaxis.range']) [a, b] = e['xaxis.range']; if (e['xaxis.autorange']) { a = 0; b = end; } if (a === undefined) return; X0 = [+a, +b]; busy = true; Plotly.relayout(gd, fit(+a, +b)).then(() => setTimeout(() => (busy = false), 0)); readout(+a, +b); });
+    gd.on('plotly_relayout', e => { showMode(); if (busy) return; let a = e['xaxis.range[0]'], b = e['xaxis.range[1]']; if (e['xaxis.range']) [a, b] = e['xaxis.range']; if (e['xaxis.autorange']) { a = 0; b = end; } if (a === undefined) return; if (outside(gd, [+a, +b])) return setX(clampX(gd, [+a, +b])); X0 = [+a, +b]; busy = true; Plotly.relayout(gd, fit(+a, +b)).then(() => setTimeout(() => (busy = false), 0)); readout(+a, +b); });
     $$('[data-j]').forEach(b => (b.onclick = () => setX(jumps.find(j => j[0] === b.dataset.j)[2])));
     // Panel heights: drag a panel's top or bottom edge; a line shows the new edge until the button is let go.
     const pgl = $('#pgline');
@@ -3251,7 +3297,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   const LM = window.LabLactate;
   const LT_METHODS = ['Log-log', 'OBLA 2.0', 'OBLA 2.5', 'OBLA 3.0', 'OBLA 3.5', 'OBLA 4.0', 'Bsln + 0.5', 'Bsln + 1.0', 'Bsln + 1.5', 'Dmax', 'ModDmax', 'Exp-Dmax', 'Log-Poly-ModDmax', 'Log-Exp-ModDmax', 'LTP1', 'LTP2', 'LTratio'];
   // The lactate settings. Missing ones are filled in on the SAME object, so anything holding it keeps seeing later changes.
-  const lacSet = () => { const o = S.set.lac = S.set.lac || {}, d = { fit: 'poly3', baseline: false, restrain: 0.75, lt1: 'Log-log', lt2: 'ModDmax' }; Object.keys(d).forEach(k => { if (o[k] === undefined) o[k] = d[k]; }); o.series = o.series || {}; return o; };
+  const lacSet = () => { const o = S.set.lac = S.set.lac || {}, d = { fit: 'poly3', baseline: false, restrain: 0.75, lt1: 'Bsln + 0.5', lt2: 'ModDmax' }; Object.keys(d).forEach(k => { if (o[k] === undefined) o[k] = d[k]; }); o.series = o.series || {}; return o; };
   // Heart rate of a stage for the lactate table and the client report: the mean of its last 30 s.
   const HR_WIN = 30, stageHR = q => (S.D && S.D.R0 && F(q.t0) && F(q.t1) ? L.stageValues(S.D.R0, q, HR_WIN, S.meta.mass, S.D.mode).m.hr : NaN);
   // One series per lactate curve: the incremental test, or each step test. fit maps VO₂ (L/min) to intensity.
@@ -3286,14 +3332,18 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     res.n = use.length; res.hasBase = F(base.la); return res;
   }
   // Methods marked on the chart: the two starting methods (Log-log and ModDmax unless changed) until boxes are ticked beside the chart.
-  const lacShown = () => { const ls = lacSet(); return Array.isArray(ls.showM) ? ls.showM : [...new Set([ls.lt1, ls.lt2])]; };
+  // Marked by default: the methods the two lines start at (Log-log stands in for Bsln + 0.5 when there is no resting value).
+  const lacShown = res => { const ls = lacSet(); if (Array.isArray(ls.showM)) return ls.showM; const a = res ? [ltMethod(res, 'lt1'), ltMethod(res, 'lt2')].filter(Boolean).map(m => m.name) : []; return [...new Set(a.length ? a : [ls.lt1, ls.lt2])]; };
   const lacMarks = [];
   const ltPick = (key, q) => ((S.picks.lt || {})[key] || {})[q];
+  // The method a line starts at: the chosen one (Bsln + 0.5 for LT1, ModDmax for LT2), or, when it cannot be found (for example
+  // the baseline-plus methods with no resting sample), Log-log for LT1.
+  function ltMethod(res, q) { const want = lacSet()[q], m = res.methods.find(x => x.name === want && F(x.p)); if (m || q !== 'lt1') return m; return res.methods.find(x => x.name === 'Log-log' && F(x.p)); }
   function ltVal(se, res, q) {
     const p = ltPick(se.key, q); if (F(p)) return p;
-    const m = res.methods.find(x => x.name === lacSet()[q]); return m && F(m.p) ? m.p : NaN;
+    const m = ltMethod(res, q); return m ? m.p : NaN;
   }
-  function ltSource(se, res, q) { const p = ltPick(se.key, q); if (F(p)) return ((S.picks.ltSrc || {})[se.key] || {})[q] || 'placed by user'; return F(ltVal(se, res, q)) ? lacSet()[q] + ' (default)' : ''; }
+  function ltSource(se, res, q) { const p = ltPick(se.key, q); if (F(p)) return ((S.picks.ltSrc || {})[se.key] || {})[q] || 'placed by user'; const m = ltMethod(res, q); return m ? m.name + (m.name === lacSet()[q] ? ' (default)' : ' (default; no resting value for ' + lacSet()[q] + ')') : ''; }
   function setLT(key, q, v, src) { S.picks.lt = S.picks.lt || {}; S.picks.ltSrc = S.picks.ltSrc || {}; const o = S.picks.lt[key] = S.picks.lt[key] || {}, s = S.picks.ltSrc[key] = S.picks.ltSrc[key] || {}; if (F(v)) { o[q] = v; if (src) s[q] = src; else delete s[q]; } else { delete o[q]; delete s[q]; } }
   // lactate and heart rate at any intensity: from the fitted curve, and from a straight line through the stage heart rates
   const ltAt = (res, p) => { if (!res.fit || !F(p)) return {}; const la = res.fit.model.predict(p), hr = res.fit.data.slice(res.hasBase ? 1 : 0).filter(r => F(r.hr)); let h = NaN; if (hr.length >= 2) { const r = C.linreg(hr.map(q => q.p), hr.map(q => q.hr)); h = r.m * p + r.b; } return { la, hr: h }; };
@@ -3375,7 +3425,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     // chart
     const gd = document.getElementById('lc' + si); Plotly.purge(gd); gd.innerHTML = '';
     const pts = res.fit ? res.fit.data : [], tr = [], mcol = ['--t1', '--t2', '--t3', '--vt1', '--vt2', '--power'];
-    const marks = () => { const sh = lacShown(), ms = res.methods.filter(m => F(m.p) && F(m.la) && sh.includes(m.name)); return { x: ms.map(m => m.p), y: ms.map(m => m.la), text: ms.map(m => m.name), mode: ms.length <= 6 ? 'markers+text' : 'markers', color: ms.map(m => css(mcol[LT_METHODS.indexOf(m.name) % 6])) }; };
+    const marks = () => { const sh = lacShown(res), ms = res.methods.filter(m => F(m.p) && F(m.la) && sh.includes(m.name)); return { x: ms.map(m => m.p), y: ms.map(m => m.la), text: ms.map(m => m.name), mode: ms.length <= 6 ? 'markers+text' : 'markers', color: ms.map(m => css(mcol[LT_METHODS.indexOf(m.name) % 6])) }; };
     if (res.fit) {
       tr.push({ x: res.fit.x, y: res.fit.y, mode: 'lines', type: 'scatter', line: { color: css('--ma'), width: 2 }, name: 'Fitted curve', hoverinfo: 'skip' });
       tr.push({ x: pts.map(r => r.p), y: pts.map(r => r.la), mode: 'markers', type: 'scatter', marker: { color: css('--bg'), size: 9, line: { color: css('--fg'), width: 1.5 } }, name: 'Samples', text: pts.map((r, i) => (res.hasBase && i === 0 ? 'Baseline (rest)' : (+r.p.toFixed(dp + 1)) + ' ' + u)), hovertemplate: `%{text}<br>%{y:.2f} mmol/L<extra></extra>` });
@@ -3399,12 +3449,12 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       $('#lcpFrom' + si).onclick = () => { const done = []; se.vtLines.forEach(q => { const v = se.vt(q); if (!F(v)) return; setLT(se.key, q.replace('vt', 'lt'), Math.round((se.fit.m * v + se.fit.b) * 100) / 100, 'Gas ' + q.toUpperCase()); done.push(q.toUpperCase()); }); summaries(); vLactate(); const m = $('#lcpM' + si); if (m) m.textContent = done.length ? `${done.join(' and ')} copied here.` : 'Nothing to copy yet.'; };
     }
     // the list beside the chart: tick a method to mark its value on the chart
-    const sh = lacShown(), found = res.methods.filter(m => F(m.p) && F(m.la));
+    const sh = lacShown(res), found = res.methods.filter(m => F(m.p) && F(m.la));
     $('#lms' + si).innerHTML = found.length ? `<div class="lacms">${found.map(m => `<label class="chk"><input type="checkbox" data-lshow="${esc(m.name)}" ${sh.includes(m.name) ? 'checked' : ''}><span>${m.name}</span><span class="hint">${fx(m.p, dp + 1)} ${u}</span></label>`).join('')}</div><div class="tools"><button data-lall="1">Show all</button><button data-lall="0">Reset to default</button></div>` : '<p class="hint">Enter lactate values first.</p>';
-    $$(`#lms${si} [data-lshow]`).forEach(el => (el.onchange = () => { const now = new Set(lacShown()); if (el.checked) now.add(el.dataset.lshow); else now.delete(el.dataset.lshow); lacSet().showM = LT_METHODS.filter(m => now.has(m)); lacMarks.forEach(f => f()); }));
+    $$(`#lms${si} [data-lshow]`).forEach(el => (el.onchange = () => { const now = new Set(lacShown(res)); if (el.checked) now.add(el.dataset.lshow); else now.delete(el.dataset.lshow); lacSet().showM = LT_METHODS.filter(m => now.has(m)); lacMarks.forEach(f => f()); }));
     $$(`#lms${si} [data-lall]`).forEach(b => (b.onclick = () => { if (b.dataset.lall === '1') lacSet().showM = [...LT_METHODS]; else delete lacSet().showM; lacMarks.forEach(f => f()); }));
     // Ticking a box only restyles the marks (no redraw of the tab), and keeps the boxes of every test in step.
-    lacMarks[si] = () => { const now = lacShown(); $$(`#lms${si} [data-lshow]`).forEach(el => (el.checked = now.includes(el.dataset.lshow))); if (!res.fit || !gd.data) return; const mk = marks(); Plotly.restyle(gd, { x: [mk.x], y: [mk.y], text: [mk.text], mode: mk.mode, 'marker.color': [mk.color] }, [2]); };
+    lacMarks[si] = () => { const now = lacShown(res); $$(`#lms${si} [data-lshow]`).forEach(el => (el.checked = now.includes(el.dataset.lshow))); if (!res.fit || !gd.data) return; const mk = marks(); Plotly.restyle(gd, { x: [mk.x], y: [mk.y], text: [mk.text], mode: mk.mode, 'marker.color': [mk.color] }, [2]); };
     // every method
     $('#lmT' + si).innerHTML = res.methods.length ? `<thead><tr><th>Method</th><th>Fit</th><th>${u}</th><th>Lactate</th><th>Heart rate</th><th>Use as</th></tr></thead><tbody>${res.methods.map(m => `<tr><td>${m.name}</td><td class="hint">${m.fitting}</td><td>${F(m.p) ? fx(m.p, dp + 1) : '<span class="hint">not found</span>'}</td><td>${F(m.la) ? fx(m.la, m.cat === 'Bsln+' ? 2 : 1) : ''}</td><td>${F(m.hr) ? m.hr : ''}</td><td>${F(m.p) ? `<button data-luse="lt1:${m.p}:${m.name}">LT1</button> <button data-luse="lt2:${m.p}:${m.name}">LT2</button>` : ''}</td></tr>`).join('')}</tbody>` : '<tbody><tr><td class="hint">No methods yet.</td></tr></tbody>';
     $$(`#lmT${si} [data-luse]`).forEach(b => (b.onclick = () => { const [q, v, ...nm] = b.dataset.luse.split(':'); setLT(se.key, q, +v, nm.join(':')); moveLines(ctx); tiles(); summaries(); }));

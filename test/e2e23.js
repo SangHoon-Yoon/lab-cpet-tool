@@ -24,6 +24,6 @@ const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
  // lactate
  await p2.click('[data-tab=lactate]');await p2.waitForTimeout(500);for(const [k,v] of [['la:b',1],['la:0',1.1],['la:1',1.3],['la:2',1.8],['la:3',2.9],['la:4',4.6]]){await p2.fill(`[data-lk="${k}"]`,String(v));await p2.dispatchEvent(`[data-lk="${k}"]`,'change');await p2.waitForTimeout(200);}
  ok(/suggested, not checked/.test(await p2.$eval('#lt0',e=>e.innerText)),'LT tiles suggested');await p2.click('#lt0 [data-conf$=":lt1"]');await p2.waitForTimeout(600);
- const lt=await p2.evaluate(()=>LabApp.results().thr.filter(r=>/^LT/.test(r.threshold)).map(r=>r.threshold+'|'+r.status+'|'+r.source));console.log('  ',JSON.stringify(lt));ok(lt.some(x=>x==='LT1|checked|Log-log, confirmed'),'LT1 confirmed');
+ const lt=await p2.evaluate(()=>LabApp.results().thr.filter(r=>/^LT/.test(r.threshold)).map(r=>r.threshold+'|'+r.status+'|'+r.source));console.log('  ',JSON.stringify(lt));ok(lt.some(x=>x==='LT1|checked|Bsln + 0.5, confirmed'),'LT1 confirmed');
  await p2.screenshot({path:out+'status_lac.png',clip:{x:0,y:0,width:1400,height:900}});
  console.log(' errors:',errs.length?errs:'none');await b.close()})().catch(e=>{console.error(e);process.exit(1)});

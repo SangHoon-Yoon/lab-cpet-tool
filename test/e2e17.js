@@ -11,7 +11,7 @@ const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
  const typ=async(k,v)=>{await pg.fill(`[data-lk="${k}"]`,String(v));await pg.dispatchEvent(`[data-lk="${k}"]`,'change');await pg.waitForTimeout(250);};
  const la=[1.1,1.2,1.4,1.9,2.6,3.6,5.2];await typ('la:b',0.9);for(let i=0;i<la.length;i++)await typ('la:'+i,la[i]);
  await pg.waitForTimeout(500);
- const tl=await pg.$eval('#lt0',e=>e.innerText);console.log(' tiles:',tl.replace(/\n/g,' | '));ok(/LT1 · Log-log \(default\)/.test(tl)&&/LT2 · ModDmax \(default\)/.test(tl),'LT1 Log-log and LT2 ModDmax by default');
+ const tl=await pg.$eval('#lt0',e=>e.innerText);console.log(' tiles:',tl.replace(/\n/g,' | '));ok(/LT1 · Bsln \+ 0\.5 \(default\)/.test(tl)&&/LT2 · ModDmax \(default\)/.test(tl),'LT1 Bsln + 0.5 and LT2 ModDmax by default');
  ok(/min\/km/.test(tl),'treadmill shows pace');
  const n=await pg.$$eval('#lmT0 tbody tr',x=>x.length);ok(n===17,'all 17 methods listed: '+n);
  // use a method as LT2

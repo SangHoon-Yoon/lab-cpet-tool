@@ -4,10 +4,14 @@
   /* Pinch to zoom, on every chart. A trackpad pinch reaches the page as a scroll with Ctrl held (Safari sends gesture events instead).
      Plain scrolling is left to scroll the page. The chart zooms in time around the pointer, or around the selected stage on the stage chart. */
   const PZ = { x: 0, y: 0, scale: 1 };
+  // A time chart's limits: gd._xLim when the chart sets it, otherwise the span of its data. Views are kept inside them.
+  function xLim(gd) { if (gd._xLim) return gd._xLim; let lo = Infinity, hi = -Infinity; (gd.data || []).forEach(t => (t.x || []).forEach(x => { if (typeof x === 'number' && isFinite(x)) { if (x < lo) lo = x; if (x > hi) hi = x; } })); return isFinite(lo) ? [lo, hi] : null; }
+  function clampX(gd, r) { const L = xLim(gd); if (!L) return r; const w = Math.min(r[1] - r[0], L[1] - L[0]); let a = r[0], b = r[0] + w; if (a < L[0]) { a = L[0]; b = a + w; } if (b > L[1]) { b = L[1]; a = b - w; } return [a, b]; }
+  const outside = (gd, r) => { const L = xLim(gd); return !!L && (r[0] < L[0] - 1e-6 || r[1] > L[1] + 1e-6); };
   function pinchZoom(gd, f, cx, cy) {
     const fl = gd._fullLayout; if (!fl || !fl.xaxis || fl.xaxis.fixedrange) return;
     const xa = fl.xaxis, box = gd.getBoundingClientRect(), r = xa.range.map(Number), at = gd._zoomAt && gd._zoomAt(), c = at !== null && at !== undefined ? at : xa.p2l(cx - box.left - xa._offset);
-    const up = { 'xaxis.range': [c - (c - r[0]) * f, c + (r[1] - c) * f] }, ya = fl.yaxis;
+    const up = { 'xaxis.range': clampX(gd, [c - (c - r[0]) * f, c + (r[1] - c) * f]) }, ya = fl.yaxis;
     if (ya && !ya.fixedrange && cy !== undefined) { const v = ya.p2l(cy - box.top - ya._offset), q = ya.range.map(Number); up['yaxis.range'] = [v - (v - q[0]) * f, v + (q[1] - v) * f]; }
     Plotly.relayout(gd, up);
   }
@@ -90,7 +94,7 @@
       L2.annotations.push({ xref: 'x', yref: 'paper', x: (q.t0 + q.t1) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: q.label, font: { size: 10, color: css('--muted') } });
     });
     L2.xaxis = ax('Time (min)', { anchor: I ? iax : 'y' + (n ? (n > 1 ? n : '') : ''), range: [0, end], rangeslider: { visible: true, thickness: 34 / H, bgcolor: css('--bg'), bordercolor: css('--line'), borderwidth: 1, range: [0, end] }, title: { text: 'Time (min)', font: { size: 12, color: css('--fg') }, standoff: 2 } });
-    const gd = document.getElementById('pv');
+    const gd = document.getElementById('pv'); gd._xLim = [0, end];
     Plotly.newPlot(gd, tr, L2, CFG);
     gd.addEventListener('click', e => { if (e.detail > 1) setX([0, end]); });
     let busy = false, X0 = [0, end];
@@ -99,7 +103,7 @@
     function setX(r) { X0 = r.slice(); busy = true; Plotly.relayout(gd, Object.assign({ 'xaxis.range': r.slice() }, fit(r[0], r[1]))).then(() => { setTimeout(() => (busy = false), 0); }); readout(r[0], r[1]); }
     Plotly.relayout(gd, fit(0, end)); readout(0, end);
     const showMode = () => { gd.classList.remove('m-pan', 'm-zoom'); gd.classList.add(gd._fullLayout.dragmode === 'zoom' ? 'm-zoom' : 'm-pan'); }; showMode();
-    gd.on('plotly_relayout', e => { showMode(); if (busy) return; let a = e['xaxis.range[0]'], b = e['xaxis.range[1]']; if (e['xaxis.range']) [a, b] = e['xaxis.range']; if (e['xaxis.autorange']) { a = 0; b = end; } if (a === undefined) return; X0 = [+a, +b]; busy = true; Plotly.relayout(gd, fit(+a, +b)).then(() => setTimeout(() => (busy = false), 0)); readout(+a, +b); });
+    gd.on('plotly_relayout', e => { showMode(); if (busy) return; let a = e['xaxis.range[0]'], b = e['xaxis.range[1]']; if (e['xaxis.range']) [a, b] = e['xaxis.range']; if (e['xaxis.autorange']) { a = 0; b = end; } if (a === undefined) return; if (outside(gd, [+a, +b])) return setX(clampX(gd, [+a, +b])); X0 = [+a, +b]; busy = true; Plotly.relayout(gd, fit(+a, +b)).then(() => setTimeout(() => (busy = false), 0)); readout(+a, +b); });
     $$('[data-j]').forEach(b => (b.onclick = () => setX(jumps.find(j => j[0] === b.dataset.j)[2])));
     // Panel heights: drag a panel's top or bottom edge; a line shows the new edge until the button is let go.
     const pgl = $('#pgline');
