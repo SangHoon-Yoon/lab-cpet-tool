@@ -14,7 +14,7 @@ const ok=(c,m)=>console.log((c?' pass ':' FAIL ')+m);
  ok(await pg.$eval('#needSteps',e=>e.innerText.trim()==='' ),'no-power prompt gone');
  ok(await pg.$$eval('details[data-fold=dchk],details[data-fold=dpre]',d=>d.length===2&&d.every(x=>!x.open)),'Data checks and Lab presets fold, closed');
  ok(/all passed|to look at/.test(await pg.$eval('#chkSum',e=>e.textContent)),'Data checks title gives the count');
- await pg.click('details[data-fold=dchk]>summary');await pg.waitForTimeout(200);ok(await pg.$eval('details[data-fold=dchk]',e=>e.open)&&await pg.$$eval('#chk li',x=>x.length)>0,'Data checks opens');
+ await pg.evaluate(()=>{document.querySelector('#dBox').open=true;});await pg.click('details[data-fold=dchk]>summary');await pg.waitForTimeout(200);ok(await pg.$eval('details[data-fold=dchk]',e=>e.open)&&await pg.$$eval('#chk li',x=>x.length)>0,'Data checks opens');
  // live resize
  await pg.evaluate(()=>{document.getElementById('dBox').open=false});await pg.waitForTimeout(200);
  const len=()=>pg.evaluate(()=>Math.round(document.getElementById('pv')._fullLayout.yaxis._length));

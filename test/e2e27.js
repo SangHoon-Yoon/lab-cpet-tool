@@ -27,7 +27,7 @@ let fail=0;const ok=(c,m)=>{console.log((c?'  ok ':'  FAIL ')+m);if(!c)fail++;};
  await load(null);ok(await tabs()==='lactate,summary','no gas file: Lactate and Summary only: '+await tabs());
  ok(await pg.$eval('#qBox',e=>e.hidden)&&await pg.$('#nsGo')!==null,'asks for the stages, no Data processing box');
  await pg.fill('#mName','Example Runner');await pg.keyboard.press('Tab');await pg.waitForTimeout(300);
- await pg.evaluate(()=>{document.querySelector('#dBox').open=true;document.querySelector('#planD').open=true;});ok(await pg.$eval('#plU',e=>e.value)==='km/h','running: steps in km/h');
+ await pg.evaluate(()=>{document.querySelector('#sBox').open=true;document.querySelector('#planD').open=true;});ok(await pg.$eval('#plU',e=>e.value)==='km/h','running: steps in km/h');
  await pg.fill('#plS','10');await pg.fill('#plI','1');await pg.fill('#plD','3');await pg.fill('#plE','22.5');await pg.click('#plGo');await pg.waitForTimeout(1200);
  const rows=await pg.$$eval('.lacT tbody tr',x=>x.length);ok(rows===9,'a row for the baseline and each of 8 stages: '+rows);
  await pg.click('[data-lk="la:b"]');await pg.keyboard.type('0.9');await pg.keyboard.press('Enter');for(const v of [1.0,1.1,1.0,1.2,1.6,2.4,4.1,6.5]){await pg.keyboard.type(String(v));await pg.keyboard.press('Enter');await pg.waitForTimeout(120);}

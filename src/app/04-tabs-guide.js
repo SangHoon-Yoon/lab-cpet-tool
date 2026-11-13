@@ -41,8 +41,8 @@
   function guideSteps() {
     const pr = S.proto, inc = pr.type === 'incremental', openBox = id => () => { const b = $(id); if (b) { b.open = true; b.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
     const dm = dataMode(), first = noGas() ? 'lactate' : 'protocol';
-    const st = noGas() ? [{ tab: 'lactate', title: 'Enter the test details and stages', text: 'Open Test details. Type the name and body mass, then enter the stages under Incremental test steps and click Apply steps.', act: openBox('#dBox') }] : [
-      { tab: 'protocol', title: 'Check the test details', text: 'Open Test details. Check the name, body mass and test type, and that the detected stages match your protocol. Anything marked ! under Data checks needs a look.', act: openBox('#dBox') },
+    const st = noGas() ? [{ tab: 'lactate', title: 'Enter the test details and stages', text: 'Type the name and body mass under Test details. Then open Stages and enter the steps (or unlock the table and type each stage).', act: openBox('#sBox') }] : [
+      { tab: 'protocol', title: 'Check the test details', text: 'Open Test details and check the name, body mass and test type. Open Stages and check the stages match your protocol; unlock it to correct them. Anything marked ! under Data checks needs a look.', act: openBox('#dBox') },
       { tab: 'protocol', title: 'Look over the whole test', text: 'Look for mask leaks, gaps or odd values on the Protocol chart. To drop a stretch of noisy or wrong data, click Leave out a period and drag across it. To clean or smooth the data, open Data processing.' }
     ];
     void first;

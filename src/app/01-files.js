@@ -89,7 +89,7 @@
     if (ch.sport) { const av = L.availableIntensity(S.gas, S.lode), want = ch.sport === 'run' ? ['speed'] : ['lode', 'power']; S.set.source = av.find(a => want.includes(a)) || null; }
     const pre = presetList().find(x => x.name === $('#sPreset').value); if (pre) { applyPresetTo(pre); try { localStorage.setItem('labcpet.lastPreset', pre.name); } catch (e) { /* private window */ } }
     start();
-    if (S.gas.blank) $('#dBox').open = true;
+    if (S.gas.blank) { $('#dBox').open = true; $('#sBox').open = true; }
     if (pre) toast(`Preset “${pre.name}” applied`);
     else if (ch.sport && S.I && !S.I.plan && (S.I.mode === 'cycling') !== (ch.sport === 'cycle')) toast(`You chose ${ch.sport === 'cycle' ? 'cycling' : 'running'}, but the file holds ${S.I.mode === 'cycling' ? 'cycling power' : 'treadmill speed'}. Check Test details.`);
   }
@@ -109,7 +109,7 @@
     if (S.hr && !S.set.hrOffset) { const ce = P.cosmedStartEpoch(m); if (S.hr.start && ce) S.set.hrOffset = Math.round(S.hr.start - ce); }
     rebuild();
     S.align = L.alignment(S.gas, S.I);
-    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = false;
+    $('#start').hidden = true; $('#app').hidden = false; $('#dBox').open = false; $('#sBox').open = false; S._stUnlock = false; S._stX = null; S._stMsg = '';
     ['#bSave', '#bExport', '#bCsv'].forEach(b => ($(b).disabled = false));
     buildDetails(); buildProc(); buildTabs(); recompute();
     H.steps = []; H.at = -1; H.saved = null; checkpoint(); S.gStep = 0; renderGuide();

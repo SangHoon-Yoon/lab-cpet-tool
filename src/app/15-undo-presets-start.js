@@ -81,5 +81,6 @@
   }
   fillStartPresets();
   setupInfo();
+  $('#sBox').addEventListener('toggle', () => { if ($('#sBox').open && S.D) drawStageChart(); });
   window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse, rows: lacRows }, _rep: { clientReport, researchReport } };
 })();

@@ -5,6 +5,7 @@ and small changes. The first stays 0 until the tool is ready for the whole lab. 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-11-13 | 0.28.0 | Stages has its own block with a chart editor: drag a red line to move a stage edge, drag the top of a stage to change its power or speed, drag across a stage to add a rest, click a rest to remove it, scroll to zoom; the pointer shows what each will do. VO₂ is drawn behind the stages. Same length and rest for every stage in one step. The steps and blocks forms moved into the block. Folding sections show a Show/Hide label and an arrow |
 | 2026-11-13 | 0.27.0 | Stage table under Test details: unlock to type or correct stages (start, length, rest after, intensity), add or remove stages, reset to original, undo; on the Protocol tab, Edit stages lets you drag a stage's edge. Tests with rests between stages (up to 2 min, stopped or walking) are read as one test, with the rests shaded and left out of the threshold analysis (optional). Entered steps take a rest between stages. When running or cycling was chosen, only km/h or W is offered |
 | 2026-11-13 | 0.26.0 | Start page asks which test, running or cycling, and which data (gas, lactate or both); the tabs follow the answers. Lactate only works with no gas file: enter the stages, type the lactate values, and get the thresholds and reports. The Summary table shows the speed or power at LT1 and LT2 |
 | 2026-11-13 | 0.25.2 | Heart rate in every stage table is the mean of the stage's last 30 s; report buttons say Generate |

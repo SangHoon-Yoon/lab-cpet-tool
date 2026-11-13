@@ -26,12 +26,12 @@
       <div class="tools"><span>Show (up to 6):</span>${chips(av, vars, 'data-sv')}</div>
       <div class="tools"><span>Averaging:</span><select id="vAvg">${[['raw', S.gas.kind === 'bxb' ? 'Breath by breath' : 'As in file'], ['bin:15', '15-s bins'], ['bin:30', '30-s bins'], ['bin:60', '60-s bins'], ['roll:30', '30-s rolling'], ['custom', 'Custom (under Data processing)']].map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')}</select>
         <span class="sep"></span><span>Go to:</span>${jumps.map(j => `<button data-j="${j[0]}">${j[1]}</button>`).join('')}<span id="pvInfo"></span></div>
-      <div class="tools"><button id="stEdit" aria-pressed="${S._stUnlock ? 'true' : 'false'}" title="Drag the edges of the stages on the chart, or type them in the stage table">Edit stages</button><button id="exBtn" aria-pressed="${S._exMode ? 'true' : 'false'}" title="Then drag across the chart over the data to leave out">Leave out a period</button><span class="hint" id="exHint">${S._exMode ? 'Drag across the chart over the noisy or wrong data. Click the button again when done.' : (set.leaveOut || []).length ? 'Left out:' : 'Noisy or wrong data? Leave that period out of every calculation.'}</span>${(set.leaveOut || []).map(([a, b], i) => `<span class="lochip">${mmss(a)}–${mmss(b)}<button data-lo="${i}" title="Put this period back" aria-label="Put ${mmss(a)} to ${mmss(b)} back">×</button></span>`).join('')}</div>
-      ${S._stUnlock ? `<p class="sthint">${I ? `Stages unlocked: drag the edge of a stage in the ${esc(I.label.toLowerCase())} panel to move it. Exact values, rests and new stages go in the stage table under Test details.` : 'Stages unlocked: type the stages in the stage table under Test details.'} <button class="linkbtn" id="stOpen">Open the stage table</button> · <button class="linkbtn" id="stDone">Lock the stages</button></p>` : ''}
+      <div class="tools"><button id="stEdit" title="Open the Stages block to correct the stages">Edit stages</button><button id="exBtn" aria-pressed="${S._exMode ? 'true' : 'false'}" title="Then drag across the chart over the data to leave out">Leave out a period</button><span class="hint" id="exHint">${S._exMode ? 'Drag across the chart over the noisy or wrong data. Click the button again when done.' : (set.leaveOut || []).length ? 'Left out:' : 'Noisy or wrong data? Leave that period out of every calculation.'}</span>${(set.leaveOut || []).map(([a, b], i) => `<span class="lochip">${mmss(a)}–${mmss(b)}<button data-lo="${i}" title="Put this period back" aria-label="Put ${mmss(a)} to ${mmss(b)} back">×</button></span>`).join('')}</div>
+
       <div class="panel"><div class="readout big" id="cur">Move over the chart to read every variable at one moment.</div>
         <div class="chartwrap" id="cwrap"><div class="chart" id="pv" style="height:${H}px"></div><div class="cursor" id="cline"></div><div class="zshade" id="zshade"></div>${szBtns}</div>
         <div class="readout" id="ro"></div></div>
-      <ul class="notes" data-info="pvInfo"><li>Each panel’s height can be changed by dragging its top or bottom edge.</li><li>To correct the stages, click <b>Edit stages</b> and drag the edge of a stage in the ${I ? esc(I.label.toLowerCase()) : 'intensity'} panel, or type the values in the stage table under Test details. Rests between stages are shaded grey.</li><li>To leave out noisy or wrong data, click <b>Leave out a period</b> and drag across the chart over it. The period is dropped from every calculation and chart on every tab, like a removed breath, and is listed in Data checks and the export. Click × on a period to put it back.</li><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
+      <ul class="notes" data-info="pvInfo"><li>Each panel’s height can be changed by dragging its top or bottom edge.</li><li>To correct the stages, click <b>Edit stages</b>: the Stages block above opens, where you can edit them on its chart or in its table. Rests between stages are shaded grey.</li><li>To leave out noisy or wrong data, click <b>Leave out a period</b> and drag across the chart over it. The period is dropped from every calculation and chart on every tab, like a removed breath, and is listed in Data checks and the export. Click × on a period to put it back.</li><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
       ${I ? `<li>Shaded: test stages (blue)${pr.maot ? ', all-out test (red)' : ''}. The ${I.label.toLowerCase()} panel gives each stage’s ${I.label.toLowerCase()}, with RPE and any other COSMED markers above it.</li>` : ''}</ul>`;
     multiToggle('data-sv', vars, 6, () => vProtocol());
     const curAvg = set.avg.mode === 'raw' ? 'raw' : set.avg.mode + ':' + avgParOf(set);
@@ -70,15 +70,6 @@
     (set.leaveOut || []).forEach(([a, b]) => { L2.shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: a / 60, x1: b / 60, y0: 0, y1: 1, fillcolor: css('--leftout'), line: { color: css('--warn'), width: 1, dash: 'dot' }, layer: 'above' }); L2.annotations.push({ xref: 'x', yref: 'paper', x: (a + b) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: 'left out', font: { size: 10, color: css('--warn') } }); });
     // Rests between stages (left out of the threshold analysis unless kept), lightly shaded.
     if (pr.type === 'incremental' && pr.inc && pr.inc.rests) pr.inc.rests.forEach(([a, b]) => L2.shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: a / 60, x1: b / 60, y0: 0, y1: 1, fillcolor: css('--restfill'), line: { width: 0 }, layer: 'above' }));
-    // Stage edges to drag while the stages are unlocked.
-    const edges = [];
-    if (S._stUnlock && I) {
-      const rows = stageList();
-      rows.forEach((q, i) => { const e = q.t0 + q.dur, nx = rows[i + 1], prev = rows[i - 1];
-        if (!prev || Math.abs(prev.t0 + prev.dur - q.t0) > 1) edges.push({ x: q.t0, a: null, b: i });
-        edges.push({ x: e, a: i, b: nx && Math.abs(nx.t0 - e) <= 1 ? i + 1 : null }); });
-      edges.forEach(e => { e.k = L2.shapes.length; L2.shapes.push({ type: 'line', xref: 'x', yref: iax + ' domain', x0: e.x / 60, x1: e.x / 60, y0: 0, y1: 1, line: { color: css('--accent'), width: 2 }, layer: 'above' }); });
-    }
     pr.phases.forEach(q => {
       if (q.kind === 'test' || q.kind === 'allout') L2.shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: q.t0 / 60, x1: q.t1 / 60, y0: 0, y1: 1, fillcolor: css(q.kind === 'test' ? '--test' : '--maot'), line: { width: 0 }, layer: 'below' });
       L2.annotations.push({ xref: 'x', yref: 'paper', x: (q.t0 + q.t1) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: q.label, font: { size: 10, color: css('--muted') } });
@@ -122,33 +113,10 @@
       const mu = () => { window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu); if (raf) { cancelAnimationFrame(raf); raf = 0; } resizePanels(); };
       window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
     }));
-    // Editing stages: the button unlocks the stage table; while it is unlocked, a stage's edge can be dragged in the intensity panel.
-    const keepX = () => { S._pvX = gd._fullLayout.xaxis.range.slice(); };
-    $('#stEdit').onclick = () => { S._stUnlock = !S._stUnlock; S._exMode = false; S._stMsg = ''; keepX(); if (S._stUnlock) openFolds.add('dstg'); buildDetails(); vProtocol(); };
-    if ($('#stDone')) $('#stDone').onclick = () => { S._stUnlock = false; keepX(); buildDetails(); vProtocol(); };
-    if ($('#stOpen')) $('#stOpen').onclick = () => { $('#dBox').open = true; const d = $('details[data-fold=dstg]'); if (d) { d.open = true; d.scrollIntoView({ block: 'center', behavior: 'smooth' }); } };
-    if (edges.length) {
-      const ia = () => gd._fullLayout['yaxis' + (n + 1)], near = (px, py) => { const xa = gd._fullLayout.xaxis, ya = ia(); if (!ya || py < ya._offset - 4 || py > ya._offset + ya._length + 4) return null; let best = null, d = 7; edges.forEach(e => { const q = Math.abs(xa.l2p(e.x / 60) + xa._offset - px); if (q < d) { d = q; best = e; } }); return best; };
-      const wrap = $('#cwrap');
-      wrap.addEventListener('mousemove', ev => { if (ev.buttons) return; const r = gd.getBoundingClientRect(); wrap.style.cursor = near(ev.clientX - r.left, ev.clientY - r.top) ? 'ew-resize' : ''; });
-      wrap.addEventListener('mousedown', ev => {
-        if (ev.button || S._exMode) return; const r = gd.getBoundingClientRect(), e = near(ev.clientX - r.left, ev.clientY - r.top); if (!e) return;
-        ev.preventDefault(); ev.stopPropagation();
-        const rows = stageList(), xa = gd._fullLayout.xaxis, lo = e.a !== null ? rows[e.a].t0 + 5 : e.b !== null && e.b > 0 ? rows[e.b - 1].t0 + rows[e.b - 1].dur : 0, hi = e.b !== null ? rows[e.b].t0 + rows[e.b].dur - 5 : rows[e.a + 1] ? rows[e.a + 1].t0 : Infinity;
-        let x = e.x, raf = 0;
-        const mm = m => { if (!m.buttons) return mu(); x = Math.round(Math.max(lo, Math.min(hi, xa.p2l(m.clientX - r.left - xa._offset) * 60))); if (!raf) raf = requestAnimationFrame(() => { raf = 0; Plotly.relayout(gd, { [`shapes[${e.k}].x0`]: x / 60, [`shapes[${e.k}].x1`]: x / 60 }); $('#cur').textContent = `Stage edge at ${mmss(x)}`; }); };
-        const mu = () => {
-          window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu); if (raf) cancelAnimationFrame(raf);
-          if (Math.abs(x - e.x) < 0.5) return;
-          if (e.a !== null) rows[e.a].dur = +(x - rows[e.a].t0).toFixed(1);
-          if (e.b !== null) { const end = rows[e.b].t0 + rows[e.b].dur; rows[e.b].t0 = x; rows[e.b].dur = +(end - x).toFixed(1); }
-          keepX(); setStages(rows, `Stage edge moved to ${mmss(x)}.`);
-        };
-        window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
-      }, true);
-    }
+    // Edit stages: opens the Stages block above, unlocked, with its own chart for editing.
+    $('#stEdit').onclick = () => { S._stUnlock = true; S._stMsg = ''; const b = $('#sBox'); b.open = true; buildStages(); b.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
     // Leaving out a period: while the button is on, a drag across the chart marks the period instead of zooming or moving.
-    $('#exBtn').onclick = () => { S._exMode = !S._exMode; if (S._exMode) S._stUnlock = false; S._pvX = gd._fullLayout.xaxis.range.slice(); vProtocol(); };
+    $('#exBtn').onclick = () => { S._exMode = !S._exMode; S._pvX = gd._fullLayout.xaxis.range.slice(); vProtocol(); };
     $$('[data-lo]').forEach(b => (b.onclick = () => { set.leaveOut.splice(+b.dataset.lo, 1); S._pvX = gd._fullLayout.xaxis.range.slice(); recompute(); }));
     if (S._exMode) gd.classList.add('m-ex');
     $('#cwrap').addEventListener('mousedown', ev => {
