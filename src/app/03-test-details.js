@@ -19,11 +19,12 @@
         ${S.hr ? `<label class="f"><span>Heart-rate offset (s)</span><input type="number" step="1" id="mHR" value="${set.hrOffset}"></label>` : ''}
       </div>
       <div class="step"><h4>What was detected</h4>${protoSummary(stageTxt)}</div>
+      ${stageTable()}
       ${planForm()}
       <details class="adv" ${set.blocks ? 'open' : ''}><summary>Any other protocol, such as step tests within a trial: enter blocks of stages by hand</summary>
         <div class="step" style="padding-top:8px">
           <p class="hint">One row per block of stages. Times are from the start of the COSMED recording. This replaces the detected intensity everywhere.</p>
-          <div class="tools"><span>Unit</span><select id="bUnit"><option value="km/h">km/h</option><option value="W">W</option></select></div>
+          <div class="tools"><span>Unit</span><select id="bUnit">${unitOpts()}</select></div>
           <div class="tblwrap"><table class="blocks" id="bT"></table></div>
           <div class="tools"><button id="bAdd">Add block</button><button id="bApply" class="primary">Apply</button><button id="bClear" ${set.blocks ? '' : 'disabled'}>Back to detected stages</button></div>
         </div></details>
@@ -49,13 +50,15 @@
     on('#mMass', e => { m.mass = parseFloat(e.target.value); recompute(); });
     on('#mAge', e => { m.age = parseFloat(e.target.value); recompute(); });
     const full = () => { rebuild(); S.align = L.alignment(S.gas, S.I); buildDetails(); buildTabs(); recompute(); };
-    on('#mSrc', e => { set.source = e.target.value; set.blocks = null; full(); });
+    on('#mSrc', e => { set.source = e.target.value; set.blocks = null; set.stages = null; full(); });
+    on('#mRest', e => { set.inc.dropRests = e.target.checked; recompute(); buildDetails(); });
+    bindStageTable();
     on('#mType', e => { set.type = e.target.value; S.view = 'protocol'; full(); });
     on('#mOff', e => { set.offset = parseFloat(e.target.value) || 0; full(); });
     on('#mHR', e => { set.hrOffset = parseFloat(e.target.value) || 0; recompute(); });
     // Manual blocks
     const rowsNow = set.blocks ? clone([...set.blocks]) : [{ start: 0, n: 5, dur: 4, first: I && I.unit === 'W' ? 100 : 8, inc: I && I.unit === 'W' ? 20 : 1 }];
-    $('#bUnit').value = (set.blocks && set.blocks.unit) || (I && I.unit) || 'km/h';
+    $('#bUnit').value = set.sport ? sportUnit() : (set.blocks && set.blocks.unit) || (I && I.unit) || 'km/h';
     const drawB = () => {
       $('#bT').innerHTML = '<tr><th>Start (min)</th><th>Stages</th><th>Stage length (min)</th><th>First stage</th><th>Increment</th><th></th></tr>' + rowsNow.map((b, i) => `<tr><td><input type="number" step="0.5" data-b="${i}" data-f="start" value="${b.start}"></td><td><input type="number" step="1" min="1" data-b="${i}" data-f="n" value="${b.n}"></td><td><input type="number" step="0.5" data-b="${i}" data-f="dur" value="${b.dur}"></td><td><input type="number" step="0.5" data-b="${i}" data-f="first" value="${b.first}"></td><td><input type="number" step="0.5" data-b="${i}" data-f="inc" value="${b.inc}"></td><td><button data-rm="${i}" aria-label="Remove block">Remove</button></td></tr>`).join('');
       $$('[data-b]').forEach(el => (el.onchange = () => { rowsNow[+el.dataset.b][el.dataset.f] = parseFloat(el.value); }));
@@ -63,8 +66,8 @@
     };
     drawB();
     $('#bAdd').onclick = () => { const l = rowsNow.at(-1) || { start: 0, n: 5, dur: 4, first: 8, inc: 1 }; rowsNow.push({ start: l.start + l.n * l.dur + 60, n: l.n, dur: l.dur, first: l.first, inc: l.inc }); drawB(); };
-    $('#bApply').onclick = () => { if (!rowsNow.length) return; const b = clone(rowsNow); b.unit = $('#bUnit').value; set.blocks = b; set.excluded = []; full(); };
-    $('#bClear').onclick = () => { set.blocks = null; full(); };
+    $('#bApply').onclick = () => { if (!rowsNow.length) return; const b = clone(rowsNow); b.unit = $('#bUnit').value; set.blocks = b; set.stages = null; set.excluded = []; full(); };
+    $('#bClear').onclick = () => { set.blocks = null; set.stages = null; full(); };
     drawChecks();
   }
   function groupStages(st) { // "warm-up 5:00 at 50 W; 7 × 3:00 from 9 to 15 km/h; 5 × 1:00 from 16 to 20 km/h"
@@ -74,16 +77,16 @@
     return out.join('; ');
   }
   // The usual incremental test: warm-up, longer stages, then shorter stages to failure.
-  function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = S.set.sport ? (S.set.sport === 'run' ? 'km/h' : 'W') : last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, switchP: NaN, shortMin: last.shortMin || 1, endMin: S.gas.blank ? NaN : +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
+  function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = S.set.sport ? (S.set.sport === 'run' ? 'km/h' : 'W') : last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, restS: last.restS, switchP: NaN, shortMin: last.shortMin || 1, endMin: S.gas.blank ? NaN : +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
   function planForm() {
     const set = S.set, q = set.plan || planDefaults(), need = !S.I, show = need && !set.plan, val = v => (F(v) ? v : ''), uu = q.unit === 'W' ? 'W' : 'km/h', fld = (id, lab, v, extra) => `<label class="f"><span>${lab}</span><input type="number" step="any" id="${id}" value="${val(v)}" ${extra || ''}></label>`;
     return `<details class="adv" id="planD" ${show ? 'open' : ''}><summary>${set.plan ? `Change the entered steps <span class="hint">(applied: ${+set.plan.startP} ${set.plan.unit === 'W' ? 'W' : 'km/h'}, +${+set.plan.inc} every ${+set.plan.stageMin} min)</span>` : S.lode || S.I && !S.I.plan ? 'Replace the detected stages with entered ones' : 'Enter the incremental test steps'}</summary><div class="plan ${need ? 'need' : ''}" style="margin-top:8px">
       <h4>Incremental test steps</h4>
       ${S.gas.blank ? '<p class="hint">Enter the stages as they were run. Times are from the start of the first stage (or of the warm-up, if you enter one). <b>Test ended at</b> is the time the last stage stopped, so an unfinished last stage is counted correctly.</p>' : need ? '<p class="hint">This COSMED file has no power recording. Enter the steps here, or <button id="bAddLode">add the Lode file</button>. Times are from the start of the COSMED recording.</p>' : ''}
       <div class="form">
-        <label class="f"><span>Unit</span><select id="plU"><option value="W">W (cycling)</option><option value="km/h">km/h (treadmill)</option></select></label>
+        <label class="f"><span>Unit</span><select id="plU">${unitOpts()}</select></label>
         ${fld('plWm', 'Warm-up length (min, optional)', q.warmMin)}${fld('plWp', `Warm-up intensity (${uu}, optional)`, q.warmP)}
-        ${fld('plS', `Starting intensity (${uu})`, q.startP)}${fld('plI', `Increment (${uu})`, q.inc)}${fld('plD', 'Stage length (min)', q.stageMin)}
+        ${fld('plS', `Starting intensity (${uu})`, q.startP)}${fld('plI', `Increment (${uu})`, q.inc)}${fld('plD', 'Stage length (min)', q.stageMin)}${fld('plR', 'Rest between stages (s, optional)', q.restS)}
         <label class="f"><span>Shorter stages at the end</span><select id="plHasSh"><option value="0">No</option><option value="1" ${F(q.switchP) || F(q.switchMin) ? 'selected' : ''}>Yes</option></select></label>
         ${fld('plSw', `Shorter stages started at (${uu})`, q.switchP)}${fld('plSd', 'Shorter stage length (min)', q.shortMin)}
         ${fld('plE', 'Test ended at (min)', q.endMin)}
@@ -97,23 +100,82 @@
     // The shorter-stage boxes only show when the test has shorter stages at the end.
     const hasSh = $('#plHasSh'), showSh = () => ['#plSw', '#plSd'].forEach(id => ($(id).closest('label').hidden = hasSh.value !== '1')); hasSh.onchange = showSh; showSh();
     $('#plGo').onclick = () => {
-      const sh = hasSh.value === '1', pl = { unit: u.value, warmMin: g('#plWm') || 0, warmP: g('#plWp'), startP: g('#plS'), inc: g('#plI'), stageMin: g('#plD'), switchP: sh ? g('#plSw') : NaN, shortMin: g('#plSd') || 1, endMin: g('#plE') };
+      const sh = hasSh.value === '1', pl = { unit: u.value, warmMin: g('#plWm') || 0, warmP: g('#plWp'), startP: g('#plS'), inc: g('#plI'), stageMin: g('#plD'), restS: g('#plR') > 0 ? g('#plR') : 0, switchP: sh ? g('#plSw') : NaN, shortMin: g('#plSd') || 1, endMin: g('#plE') };
       if (sh && !F(pl.switchP)) { $('#plMsg').textContent = `Enter the ${pl.unit === 'W' ? 'power' : 'speed'} the shorter stages started at, or choose No under Shorter stages at the end.`; return; }
       if (!F(pl.startP) || !F(pl.inc) || !(pl.stageMin > 0) || !(pl.endMin > pl.warmMin)) { $('#plMsg').textContent = 'Enter the starting intensity, increment, stage length and test end.'; return; }
       if (F(pl.switchP)) { const k = (pl.switchP - pl.startP) / pl.inc, near = [Math.floor(k), Math.ceil(k)].map(j => +(pl.startP + Math.max(1, j) * pl.inc).toFixed(2)).filter((x, i, a) => a.indexOf(x) === i);
         if (!(k >= 1 - 1e-6)) { $('#plMsg').textContent = `The shorter stages must start above the starting intensity, at ${+(pl.startP + pl.inc).toFixed(2)} ${pl.unit} or later.`; return; }
         if (Math.abs(k - Math.round(k)) > 1e-6) { $('#plMsg').textContent = `With these increments the stages go up in steps of ${pl.inc} ${pl.unit}, so the shorter stages must start at one of them, such as ${near.join(' or ')} ${pl.unit}.`; return; }
-        if (pl.warmMin * 60 + k * pl.stageMin * 60 >= pl.endMin * 60) { $('#plMsg').textContent = 'At that intensity the shorter stages would start after the test ended. Check the intensity and the test end.'; return; } }
-      set.plan = pl; set.blocks = null; set.type = 'incremental'; set.inc.t0 = set.inc.t1 = null;
-      try { localStorage.setItem('labcpet:plan', JSON.stringify({ unit: pl.unit, warmMin: pl.warmMin, warmP: pl.warmP, startP: pl.startP, inc: pl.inc, stageMin: pl.stageMin, shortMin: pl.shortMin })); } catch (e) { }
+        if (pl.warmMin * 60 + k * (pl.stageMin * 60 + pl.restS) >= pl.endMin * 60) { $('#plMsg').textContent = 'At that intensity the shorter stages would start after the test ended. Check the intensity and the test end.'; return; } }
+      set.plan = pl; set.blocks = null; set.stages = null; set.type = set.type === 'two' ? 'two' : 'incremental'; set.inc.t0 = set.inc.t1 = null;
+      try { localStorage.setItem('labcpet:plan', JSON.stringify({ unit: pl.unit, warmMin: pl.warmMin, warmP: pl.warmP, startP: pl.startP, inc: pl.inc, stageMin: pl.stageMin, restS: pl.restS, shortMin: pl.shortMin })); } catch (e) { }
       later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); });
     };
-    $('#plOff').onclick = () => { set.plan = null; set.inc.t0 = set.inc.t1 = null; later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); }); };
+    $('#plOff').onclick = () => { set.plan = null; set.stages = null; set.inc.t0 = set.inc.t1 = null; later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); }); };
+  }
+  /* ---------------- Stage table ----------------
+     Every stage with its start, length, rest after it and intensity. Locked by default; Unlock lets the researcher correct the stages
+     (from a file, from entered steps, or none at all). The edited list is S.set.stages, which replaces the intensity everywhere,
+     so Reset to original and undo work like any other setting. */
+  const sportUnit = () => (S.set.sport === 'run' ? 'km/h' : 'W');
+  // The units on offer: only the one that matches running or cycling, when that was chosen on the start page.
+  const unitOpts = () => (S.set.sport ? [sportUnit()] : ['W', 'km/h']).map(u => `<option value="${u}">${u === 'W' ? 'W (cycling)' : 'km/h (running)'}</option>`).join('');
+  const stUnit = () => (S.set.stages && S.set.stages.unit) || (S.I && S.I.unit) || (S.set.sport ? sportUnit() : (S.set.plan && S.set.plan.unit) || 'W');
+  function stageList() {
+    if (S.set.stages) return S.set.stages.list.map(q => Object.assign({}, q));
+    if (!S.I) return [];
+    const minV = S.I.unit === 'W' ? 20 : 2, rests = (S.proto.inc && S.proto.inc.rests) || [], end = Math.max(S.gas.t.at(-1), 1);
+    return C.plateaus(S.I).filter(q => q.p > minV && q.dur >= 10 && q.t0 < end && !rests.some(([a, b]) => q.t0 >= a - 1 && q.t1 <= b + 1)).map(q => ({ t0: +q.t0.toFixed(1), dur: +(Math.min(q.t1, end) - q.t0).toFixed(1), p: +q.p.toFixed(2) }));
+  }
+  // m:ss, or a number of minutes (3 → 3:00, 0.5 → 0:30)
+  const parseT = s => { s = String(s).trim().replace(',', '.'); if (!s) return NaN; if (s.includes(':')) { const [m, x] = s.split(':'); return (parseFloat(m) || 0) * 60 + (parseFloat(x) || 0); } return parseFloat(s) * 60; };
+  function setStages(list, msg) {
+    list = list.filter(q => q.dur > 0 && F(q.p)).sort((a, b) => a.t0 - b.t0);
+    S.set.stages = { unit: stUnit(), list }; S._stMsg = msg || '';
+    later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); });
+  }
+  function stageTable() {
+    const on = !!S._stUnlock, rows = stageList(), u = stUnit(), lab = u === 'W' ? 'Power' : 'Speed', dp = u === 'W' ? 0 : 1;
+    const ov = rows.findIndex((q, i) => i && q.t0 < rows[i - 1].t0 + rows[i - 1].dur - 0.5);
+    const tin = (k, i, v) => `<input type="text" inputmode="decimal" data-st="${k}:${i}" value="${v}" style="width:4.6em" aria-label="${k} of stage ${i + 1}">`;
+    const body = rows.map((q, i) => { const nx = rows[i + 1], rest = nx ? nx.t0 - (q.t0 + q.dur) : NaN; return `<tr><td>${i + 1}</td>
+      <td>${on ? tin('t0', i, mmss(q.t0)) : mmss(q.t0)}</td><td>${on ? tin('dur', i, mmss(q.dur)) : mmss(q.dur)}</td>
+      <td>${nx ? (on ? tin('rest', i, mmss(Math.max(0, rest))) : rest > 1 ? mmss(rest) : '–') : '–'}</td>
+      <td>${on ? `<input type="number" step="any" data-st="p:${i}" value="${+q.p.toFixed(2)}" style="width:5.5em" aria-label="${lab} of stage ${i + 1}">` : (+q.p).toFixed(dp)}</td>
+      <td>${on ? `<button class="rm" data-strm="${i}" title="Remove this stage" aria-label="Remove stage ${i + 1}">×</button>` : ''}</td></tr>`; }).join('');
+    const sum = !rows.length ? 'none yet' : `${rows.length} stage${rows.length > 1 ? 's' : ''}${S.set.stages ? ', edited by hand' : S.set.plan || S.set.blocks ? ', from the entered steps' : ', from the file'}`;
+    return `<details class="sub" data-fold="dstg" ${on || openFolds.has('dstg') ? 'open' : ''}><summary>Stages <span class="hint">${sum}</span><span id="stI"></span></summary><div>
+      <p class="hint" data-info="stI">Times are from the start of the recording, as minutes:seconds (or type minutes, such as 3 or 0.5). Changing a start, length or rest moves the stages after it by the same amount. On the Protocol tab, Edit stages lets you drag the edge of a stage instead. Edited stages replace the ${lab.toLowerCase()} from the file or the entered steps everywhere; Reset to original goes back, and Ctrl+Z (⌘Z) undoes the last change.</p>
+      <div class="tools"><button id="stLock" aria-pressed="${on}">${on ? 'Lock the stages' : 'Unlock to edit'}</button><button id="stReset" ${S.set.stages ? '' : 'disabled'}>Reset to original</button>${on ? '<button id="stAdd">Add a stage</button>' : ''}<span class="hint" id="stMsg">${esc(S._stMsg || '')}${ov > 0 ? ` Stage ${ov + 1} starts before stage ${ov} ends.` : ''}</span></div>
+      ${rows.length ? `<div class="tblwrap"><table class="stT"><thead><tr><th>Stage</th><th>Start</th><th>Length</th><th>Rest after</th><th>${lab} (${u})</th><th></th></tr></thead><tbody>${body}</tbody></table></div>` : `<p class="hint">${on ? 'Click Add a stage to type the first one.' : 'No stages yet. Unlock to type them, or use Enter the incremental test steps below.'}</p>`}</div></details>`;
+  }
+  function bindStageTable() {
+    const lock = $('#stLock'); if (!lock) return;
+    lock.onclick = () => { S._stUnlock = !S._stUnlock; S._stMsg = ''; openFolds.add('dstg'); buildDetails(); if (S.view === 'protocol') render(); };
+    $('#stReset').onclick = () => { S.set.stages = null; S._stMsg = 'Back to the original stages.'; later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); }); };
+    if ($('#stAdd')) $('#stAdd').onclick = () => {
+      const r = stageList(), a = r.at(-1), b = r.at(-2), u = stUnit();
+      r.push(a ? { t0: a.t0 + a.dur + (b ? Math.max(0, a.t0 - b.t0 - b.dur) : 0), dur: a.dur, p: +(a.p + (b ? a.p - b.p : 0)).toFixed(2) } : { t0: 0, dur: 180, p: u === 'W' ? 100 : 8 });
+      setStages(r, `Stage ${r.length} added.`);
+    };
+    $$('[data-strm]').forEach(b => (b.onclick = () => { const r = stageList(); r.splice(+b.dataset.strm, 1); setStages(r, 'Stage removed.'); }));
+    $$('[data-st]').forEach(el => (el.onchange = () => {
+      const [k, s] = el.dataset.st.split(':'), i = +s, r = stageList(), q = r[i], v = k === 'p' ? parseFloat(el.value) : parseT(el.value);
+      if (!F(v) || v < 0 || (k === 'dur' && v <= 0)) { $('#stMsg').textContent = 'Type a time as minutes:seconds, such as 3:00, or a number.'; return; }
+      const shift = (from, d) => r.slice(from).forEach(x => (x.t0 = +(x.t0 + d).toFixed(1)));
+      if (k === 'p') q.p = v;
+      else if (k === 't0') shift(i, v - q.t0);
+      else if (k === 'dur') { const d = v - q.dur; q.dur = v; shift(i + 1, d); }
+      else if (k === 'rest' && r[i + 1]) shift(i + 1, q.t0 + q.dur + v - r[i + 1].t0);
+      setStages(r);
+    }));
+    // Enter moves down the same column, as in a spreadsheet.
+    $('.stT') && ($('.stT').onkeydown = ev => { if (ev.key !== 'Enter') return; const el = ev.target.closest('[data-st]'); if (!el) return; ev.preventDefault(); const [k, s] = el.dataset.st.split(':'), nx = $(`[data-st="${k}:${+s + 1}"]`); el.blur(); setTimeout(() => { const n2 = $(`[data-st="${k}:${+s + 1}"]`); if (n2) { n2.focus(); n2.select(); } }, 30); void nx; });
   }
   function protoSummary(stageTxt) {
     const pr = S.proto;
     if (!S.I) return S.gas.blank ? '<p class="hint">Lactate only, with no gas file. No stages have been entered yet.</p>' : '<p class="hint">Gas data only. No power or speed has been entered yet.</p>';
-    if (pr.type === 'incremental') return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} incremental test${pr.max ? ', then a separate VO₂max phase. Threshold stages' : '. Stages'}: ${esc(stageTxt)}${S.set.blocks || S.set.plan ? ' (entered by hand)' : ''}.</p>`;
+    if (pr.type === 'incremental') return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} incremental test${pr.max ? ', then a separate VO₂max phase. Threshold stages' : '. Stages'}: ${esc(stageTxt)}${S.set.stages ? ' (edited by hand)' : S.set.blocks || S.set.plan ? ' (entered by hand)' : ''}.</p>${pr.inc && pr.inc.rests && pr.inc.rests.length ? `<label class="chk hint"><input type="checkbox" id="mRest" ${S.set.inc.dropRests === false ? '' : 'checked'}>Leave the ${pr.inc.rests.length} rest${pr.inc.rests.length > 1 ? 's' : ''} between stages out of the threshold charts and peak values</label>` : ''}`;
     const tests = (pr.allTests || []).map((T, i) => `<label class="chk"><input type="checkbox" data-ex="${Math.round(T.t0)}" ${S.set.excluded.includes(Math.round(T.t0)) ? '' : 'checked'}>${L.testName(pr, i)}: ${mmss(T.t0)}–${mmss(T.t1)}, ${T.steps.map(s => +s.p.toFixed(1)).join(', ')} ${S.I.unit}${T.complete ? '' : ' (partial)'}</label>`).join('<br>');
     setTimeout(() => $$('[data-ex]').forEach(el => (el.onchange = () => { const k = +el.dataset.ex, a = S.set.excluded; if (el.checked) a.splice(a.indexOf(k), 1); else a.push(k); rebuild(); buildTabs(); recompute(); })), 0);
     return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} durability test. Steady work: ${F(pr.base) ? iVal(pr.base) : 'none found'}${pr.ttf && pr.maot ? `; work ends at ${mmss(pr.ttf)}; all-out test at ${mmss(pr.maot.t0)}` : ''}.${pr.pauses.length ? ' ' + pr.pauses.length + ' pause(s).' : ''} ${tests ? 'Tick the step tests to include:' : 'No step tests found.'}</p>${tests ? `<div class="hint">${tests}</div>` : ''}`;

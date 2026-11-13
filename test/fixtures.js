@@ -24,4 +24,11 @@ const out=require('./paths').SIM;fs.mkdirSync(out,{recursive:true});
   [8,9,10,11,12].forEach(s=>add(16,s)); add(240,10); add(20,0); [8,9,10,11,12].forEach(s=>add(16,s));
   design.forEach((sp,i)=>{ const idx=Math.min(base.length-1,Math.round((sp?sp-8:0)*14)+20+(i%7)), q=base[idx].slice(); q[c('t')]=(i+1)*15/86400; q[c('Speed')]=sp; q[c('Grade')]=1; q[c('Marker')]=null; if(sp===0){['VO2','VCO2','VE'].forEach(k=>q[c(k)]=q[c(k)]*0.25);} R.push(q);});
   X.writeFile(cosmedWB(R),out+'sim_run_5ST_60min_5ST_COSMED.xlsx');}
+// 3. Running incremental with rests: 3-min stages from 8 km/h (+1), 30 s stopped after each (blood taken), 15-s rows. The second copy has no speed.
+{ const base=rows.slice(3).filter(r=>r[c('t')]!=null), R=rows.slice(0,3).map(r=>r.slice()), design=[];
+  for(let k=0;k<9;k++){for(let i=0;i<(k===8?6:12);i++)design.push(8+k); if(k<8){design.push(0);design.push(0);}}
+  for(let i=0;i<20;i++)design.push(0);
+  design.forEach((sp,i)=>{ const idx=Math.min(base.length-1,Math.round((sp?sp-8:0)*14)+20+(i%7)), q=base[idx].slice(); q[c('t')]=(i+1)*15/86400; q[c('Speed')]=sp; q[c('Grade')]=1; q[c('Marker')]=null; if(sp===0){['VO2','VCO2','VE'].forEach(k=>q[c(k)]=q[c(k)]*0.4);} R.push(q);});
+  X.writeFile(cosmedWB(R),out+'sim_run_incremental_rests_COSMED.xlsx');
+  X.writeFile(cosmedWB(R.map((r,i)=>{ if(i<3)return r; const q=r.slice(); q[c('Speed')]=null; return q;})),out+'sim_run_incremental_rests_nospeed_COSMED.xlsx');}
 console.log('ok',fs.readdirSync(out));

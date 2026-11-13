@@ -31,6 +31,7 @@ threshold suggestions only assist; credit "created by SangHoon Yoon" and cite th
 - Instructions/notes on tabs go in (i) pop-ups: mark an element `data-info="<target id>"`.
 - Undo: state = `S.set` + `S.picks`, checkpointed after each click/change/keyup (keep new state in those two objects).
 - Start-page choices: `S.set.type`, `S.set.sport` ('run' | 'cycle') and `S.set.data` ('gas' | 'lac' | 'both'; `dataMode()` decides the tabs). All optional: with none, the test is worked out from the file. Lactate only with no gas file uses an empty recording (`S.gas.blank`, made by `blankGas()` in 01-files) so the usual pipeline still runs.
+- Stages: `S.set.stages` ({unit, list: [{t0, dur, p}]}, seconds) replaces the intensity everywhere when set (stage table in 03, edge dragging in 05; `fromStages` in protocol.js). Applying entered steps or blocks, or changing the source, clears it. Rests between stages (≤ `REST_MAX` s, slower or stopped) stay in one incremental run; `pr.inc.rests` are dropped in computeD unless `set.inc.dropRests === false`.
 - Settings objects are filled in place (`lacSet()`, `repInfo()`): never replace them with a copy, or forms holding the old object stop working.
 - Left-out periods (`S.set.leaveOut`, seconds) drop breaths in computeD, so every tab and protocol respects them.
 - Oxynet input always excludes flagged outlier breaths (min-max scaling is fragile to single extreme breaths).
@@ -41,7 +42,7 @@ threshold suggestions only assist; credit "created by SangHoon Yoon" and cite th
 
 ## Tests
 - Setup once: `npm install` then `npx playwright install chromium`. Python 3 is needed for `build.py`.
-- Everything: `npm test` (build, simulated files, unit tests, browser tests e2e … e2e27). Unit only: `npm run test:unit`.
+- Everything: `npm test` (build, simulated files, unit tests, browser tests e2e … e2e28). Unit only: `npm run test:unit`.
 - Paths come from `test/paths.js` (samples: `LABCPET_SAMPLES`, else `../lab-cpet-private/samples`, else `../samples`; downloads: `DL` or a temp folder).
 - Run the full set before sending a build; tests that read hidden boxes must be updated when the UI changes on purpose.
 - `test/oxy_ref.py` + `test/oxy_compare.js` compare with pyoxynet itself (needs Python with pyoxynet; optional).

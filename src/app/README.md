@@ -8,7 +8,7 @@ opens it, the last closes it), so a name defined in one part can be used in the 
 | 00-core | Shared helpers, variables and default settings |
 | 01-files | Loading COSMED and Lode files, starting a test |
 | 02-compute | All calculations: averaging, outliers, left-out periods, stage values, regressions, suggestions |
-| 03-test-details | Test details panel: type, steps form, data checks, presets section |
+| 03-test-details | Test details panel: type, stage table (unlock, edit, reset), steps form, data checks, presets section |
 | 04-tabs-guide | Tabs, guided steps, (i) pop-ups, rendering |
 | 05-protocol | Protocol tab: stacked panels, zoom, panel heights, leaving out periods |
 | 06-threshold-charts | Draggable VT/LT lines and fitted lines shared by the threshold charts |

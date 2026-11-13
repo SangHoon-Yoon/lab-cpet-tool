@@ -38,7 +38,7 @@
         else {
           const wb = P.readWorkbook(await f.arrayBuffer()), id = P.identify(wb);
           if (id === 'cosmed') { item.obj = P.parseCosmed(wb); item.kind = 'cosmed'; const hasSp = L.speedChanges(item.obj); item.desc = (item.obj.kind === 'bxb' ? item.obj.t.length + ' breaths' : item.obj.t.length + ' × ' + item.obj.avgWidth + '-s averages') + (hasSp ? ', with treadmill speed' : ''); }
-          else if (id === 'lode' && S.addLode) { S.addLode = false; S.pending = []; S.lode = P.parseLode(wb); S.set.source = 'lode'; S.set.plan = null; S.set.blocks = null; S.set.inc.t0 = S.set.inc.t1 = null; if (S.view !== 'summary') S.view = 'protocol'; rebuild(); S.align = L.alignment(S.gas, S.I); buildDetails(); buildTabs(); recompute(); return; }
+          else if (id === 'lode' && S.addLode) { S.addLode = false; S.pending = []; S.lode = P.parseLode(wb); S.set.source = 'lode'; S.set.plan = null; S.set.blocks = null; S.set.stages = null; S.set.inc.t0 = S.set.inc.t1 = null; if (S.view !== 'summary') S.view = 'protocol'; rebuild(); S.align = L.alignment(S.gas, S.I); buildDetails(); buildTabs(); recompute(); return; }
           else if (id === 'lode') { item.obj = P.parseLode(wb); item.kind = 'lode'; item.desc = (item.obj.t.at(-1) / 60).toFixed(1) + ' min of power'; }
           else throw new Error('Not recognised as a COSMED or Lode export.');
         }
@@ -117,7 +117,7 @@
   // Intensity channel and protocol, from the current settings.
   function rebuild() {
     const set = S.set;
-    S.I = L.buildIntensity(S.gas, S.lode, set.source, set.offset, set.blocks, set.plan);
+    S.I = L.buildIntensity(S.gas, S.lode, set.source, set.offset, set.blocks, set.plan, set.stages);
     S.proto = S.I ? L.detect(S.I, { type: set.plan ? 'incremental' : set.type }) : { type: set.type || 'incremental', unit: '', label: 'Intensity', tests: [], phases: [], inc: { none: true, ramp: false, stages: [], t0: S.gas.t[0], t1: L.exerciseEnd(S.gas), peak: NaN }, plateaus: [], pauses: [], base: NaN, maot: null, ttf: null, pattern: null };
     S.proto.allTests = S.proto.tests;
     S.proto.tests = S.proto.tests.filter(T => !set.excluded.includes(Math.round(T.t0)));

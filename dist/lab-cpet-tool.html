@@ -6,15 +6,15 @@
 <title>Lab CPET Tool</title>
 <style>
 /* Layout: sticky header with file actions; collapsible participant + processing panels; tabbed views of chart panels */
-:root{--bg:#f6f7f9;--panel:#ffffff;--fg:#1b2129;--muted:#5a6471;--grid:#e4e8ed;--axis:#3b4450;--line:#d5dbe2;--accent:#b8372a;--accent-soft:rgba(184,55,42,.08);
+:root{--bg:#f6f7f9;--panel:#ffffff;--fg:#1b2129;--muted:#5a6471;--grid:#e4e8ed;--axis:#3b4450;--line:#d5dbe2;--accent:#b8372a;--accent-soft:rgba(184,55,42,.08);--restfill:rgba(90,100,113,.13);
 --t1:#2f6fb0;--t2:#d9822b;--t3:#2e9a6a;--t4:#8a4fbf;--t5:#c2417a;--t6:#6b7a2a;
 --s1:#f2b8a0;--s2:#e8866a;--s3:#d1553f;--s4:#a8322a;--s5:#6e1d1f;
 --low:#d9822b;--high:#2f6fb0;--seg1:#2f7d46;--seg2:#c8692b;--seg3:#b2332a;--vt1:#1f6fd1;--vt2:#7a3fc4;--rf:#1f6fd1;--ma:#0b2f5c;--power:#6b7785;--powerfill:rgba(107,119,133,.16);--test:rgba(31,111,209,.07);--maot:rgba(184,55,42,.07);--wfill:rgba(184,55,42,.22);--rpm:#2e9a6a;--ok:#2e7d4f;--warn:#a86a00;--panelalt:rgba(11,47,92,.035);--leftout:rgba(168,106,0,.16);
 --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161b;--panel:#1a1f26;--fg:#e6e9ed;--muted:#98a2ae;--grid:#2a313a;--axis:#aeb7c2;--line:#323a44;--accent:#ff6b5b;--accent-soft:rgba(255,107,91,.1);
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161b;--panel:#1a1f26;--fg:#e6e9ed;--muted:#98a2ae;--grid:#2a313a;--axis:#aeb7c2;--line:#323a44;--accent:#ff6b5b;--accent-soft:rgba(255,107,91,.1);--restfill:rgba(152,162,174,.16);
 --t1:#5b97dc;--t2:#c6843f;--t3:#47a97d;--t4:#b48cf0;--t5:#f07aa8;--t6:#b8c45a;--s1:#5a2a24;--s2:#8f3a2e;--s3:#c9543f;--s4:#f08465;--s5:#ffc2a8;
 --low:#f0a55a;--high:#6ea8e8;--seg1:#5cc795;--seg2:#f0a55a;--seg3:#ff6b5b;--vt1:#6eaaf5;--vt2:#b48cf0;--rf:#6eaaf5;--ma:#d6e7ff;--power:#9aa6b4;--powerfill:rgba(154,166,180,.14);--test:rgba(110,170,245,.09);--maot:rgba(255,107,91,.08);--wfill:rgba(255,107,91,.25);--rpm:#5cc795;--ok:#5cc795;--warn:#f0b35a;--panelalt:rgba(255,255,255,.035);--leftout:rgba(240,179,90,.18);color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#12161b;--panel:#1a1f26;--fg:#e6e9ed;--muted:#98a2ae;--grid:#2a313a;--axis:#aeb7c2;--line:#323a44;--accent:#ff6b5b;--accent-soft:rgba(255,107,91,.1);
+:root[data-theme="dark"]{--bg:#12161b;--panel:#1a1f26;--fg:#e6e9ed;--muted:#98a2ae;--grid:#2a313a;--axis:#aeb7c2;--line:#323a44;--accent:#ff6b5b;--accent-soft:rgba(255,107,91,.1);--restfill:rgba(152,162,174,.16);
 --t1:#5b97dc;--t2:#c6843f;--t3:#47a97d;--t4:#b48cf0;--t5:#f07aa8;--t6:#b8c45a;--s1:#5a2a24;--s2:#8f3a2e;--s3:#c9543f;--s4:#f08465;--s5:#ffc2a8;
 --low:#f0a55a;--high:#6ea8e8;--seg1:#5cc795;--seg2:#f0a55a;--seg3:#ff6b5b;--vt1:#6eaaf5;--vt2:#b48cf0;--rf:#6eaaf5;--ma:#d6e7ff;--power:#9aa6b4;--powerfill:rgba(154,166,180,.14);--test:rgba(110,170,245,.09);--maot:rgba(255,107,91,.08);--wfill:rgba(255,107,91,.25);--rpm:#5cc795;--ok:#5cc795;--warn:#f0b35a;--panelalt:rgba(255,255,255,.035);--leftout:rgba(240,179,90,.18);color-scheme:dark}
 *{box-sizing:border-box}
@@ -189,6 +189,8 @@ details.sub[open]>summary{margin-bottom:6px}
 .lacms label.chk{display:grid;grid-template-columns:auto 1fr auto;gap:6px}
 .lacside .tools{padding:6px 0 0}
 @media(max-width:820px){.lacrow{grid-template-columns:1fr}.lacside .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
+.sthint{margin:4px 0 8px;font-size:.85rem;border-left:3px solid var(--accent);padding:4px 10px;background:var(--accent-soft)}
+.stT td,.stT th{padding:3px 8px}
 .choose{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px 10px;margin-bottom:12px}
 .choose h1{font-size:1.3rem;margin:0 0 10px}
 .chstep{margin:0 0 14px}
@@ -975,7 +977,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (a.power && a.power.some(x => F(x) && x > 0)) out.push('power');
     return out;
   }
-  function buildIntensity(gas, lode, source, offset, blocks, plan) {
+  function buildIntensity(gas, lode, source, offset, blocks, plan, stages) {
+    if (stages && stages.list && stages.list.length) return fromStages(stages, gas);
     if (plan) return fromPlan(plan, gas);
     if (blocks && blocks.length) return fromBlocks(blocks, gas);
     if (source === 'lode' && lode) return { t: lode.t.map(x => x + (offset || 0)), p: lode.p, rpm: lode.rpm, unit: 'W', label: 'Power', mode: 'cycling', source: 'lode', tolerance: 1, gapTol: 3 };
@@ -1003,6 +1006,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     return { t, p, unit, label: unit === 'W' ? 'Power' : 'Speed', mode: unit === 'W' ? 'cycling' : 'treadmill', source: 'manual', tolerance: unit === 'W' ? 1 : 0.11, gapTol: 3 };
   }
 
+  // Stages edited by hand in the stage table: [{t0, dur, p}] in seconds from the start of the recording, zero between them.
+  function fromStages(stages, gas) {
+    const unit = stages.unit || 'km/h', list = stages.list.filter(q => F(q.t0) && q.dur > 0 && F(q.p)).slice().sort((a, b) => a.t0 - b.t0), t = [0], p = [0];
+    list.forEach((q, i) => { const nx = list[i + 1], end = nx ? Math.min(q.t0 + q.dur, nx.t0) : q.t0 + q.dur; if (q.t0 <= t.at(-1) + 1e-6) { t.pop(); p.pop(); } t.push(q.t0); p.push(q.p); if (!nx || nx.t0 > end + 1e-6) { t.push(end); p.push(0); } });
+    t.push(Math.max(gas.t.at(-1), t.at(-1)) + 1); p.push(0);
+    return { t, p, unit, label: unit === 'W' ? 'Power' : 'Speed', mode: unit === 'W' ? 'cycling' : 'treadmill', source: 'manual', edited: true, tolerance: unit === 'W' ? 1 : 0.11, gapTol: 3 };
+  }
   // The end of exercise: where the COSMED phase turns to recovery for the last time, otherwise the end of the file.
   function exerciseEnd(gas) {
     const ph = (gas.aux && gas.aux.phase) || [], w = gas.kind === 'avg' ? gas.avgWidth : 0;
@@ -1045,12 +1055,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function fromPlan(pl, gas) {
     const unit = pl.unit || 'W', t = [0], p = [F(pl.warmP) && pl.warmMin > 0 ? pl.warmP : 0], warm = (pl.warmMin || 0) * 60, end = F(pl.endMin) ? pl.endMin * 60 : exerciseEnd(gas);
     const byP = F(pl.switchP), sw = !byP && F(pl.switchMin) ? pl.switchMin * 60 : Infinity, tol = Math.abs(pl.inc || 1) * 1e-6;
-    let x = warm, v = pl.startP, guard = 0, short = false;
+    let x = warm, v = pl.startP, guard = 0, short = false; const rest = pl.restS > 0 ? pl.restS : 0;
     while (x < end - 1e-6 && guard++ < 500) {
       short = byP ? v >= pl.switchP - tol : x >= sw - 1e-6;
       const x1 = Math.min(x + (short ? (pl.shortMin || 1) : pl.stageMin) * 60, short || byP ? end : Math.min(sw, end));
       if (x === 0) p[0] = v; else { t.push(x); p.push(v); }
-      x = x1; v += !byP && x >= sw - 1e-6 && F(pl.shortInc) ? pl.shortInc : pl.inc;
+      // a rest after each stage (for example to take blood), when one was entered
+      if (rest && x1 + rest < end - 1e-6) { t.push(x1); p.push(0); x = x1 + rest; } else x = x1;
+      v += !byP && x >= sw - 1e-6 && F(pl.shortInc) ? pl.shortInc : pl.inc;
     }
     t.push(end); p.push(0); const last = Math.max(gas.t.at(-1), end) + 1; t.push(last); p.push(0);
     return { t, p, unit, label: unit === 'W' ? 'Power' : 'Speed', mode: unit === 'W' ? 'cycling' : 'treadmill', source: 'manual', plan: true, warmEnd: warm, tolerance: unit === 'W' ? 1 : 0.11, gapTol: 3 };
@@ -1075,7 +1087,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const exTime = P.filter(q => q.p > minV).reduce((a, q) => a + q.dur, 0);
     // Ascending runs of stages.
     const runs = []; let cur = [];
-    LP.forEach(q => { const pv = cur[cur.length - 1]; if (pv && q.p > pv.p + tol && q.t0 - pv.t1 <= gapTol) cur.push(q); else { if (cur.length >= 2) runs.push(cur); cur = [q]; } });
+    // Stages follow on from each other, or after a short rest (up to 2 min, slower or stopped, for example to take blood).
+    const restOK = (pv, q) => q.t0 - pv.t1 <= REST_MAX && P.every(x => x.t1 <= pv.t1 + 0.5 || x.t0 >= q.t0 - 0.5 || x.p < pv.p - tol);
+    // A short, slower stretch (walking during a rest) is skipped when a higher stage follows it.
+    for (let i = 0; i < LP.length; i++) {
+      const q = LP[i], pv = cur[cur.length - 1];
+      if (pv && q.p > pv.p + tol && (q.t0 - pv.t1 <= gapTol || restOK(pv, q))) { cur.push(q); continue; }
+      const nx = LP[i + 1];
+      if (pv && q.p < pv.p - tol && q.dur <= REST_MAX && nx && nx.p > pv.p + tol && restOK(pv, nx)) continue;
+      if (cur.length >= 2) runs.push(cur); cur = [q];
+    }
     if (cur.length >= 2) runs.push(cur);
     const durOf = r => r[r.length - 1].t1 - r[0].t0;
     const longest = runs.slice().sort((a, b) => durOf(b) - durOf(a))[0];
@@ -1102,7 +1123,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         if (firstIsWarm(st)) st[0].warm = true;
         if (st.length >= 2 && st.at(-1).dur < 0.5 * st.at(-2).dur) st.at(-1).full = false; // a final stage cut short
         if (F(I.warmEnd) && I.warmEnd > 0) st.forEach(q => { if (q.t1 <= I.warmEnd + 1) q.warm = true; });
-        out.inc = { ramp: false, stages: st, t0: st.find(q => !q.warm).t0, t1: st.at(-1).t1, peak: st.at(-1).p };
+        out.inc = { ramp: false, stages: st, t0: st.find(q => !q.warm).t0, t1: st.at(-1).t1, peak: st.at(-1).p, rests: restsOf(st, gapTol) };
       }
     }
 
@@ -1163,6 +1184,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     out.phases.sort((a, b) => a.t0 - b.t0);
     return out;
   }
+  const REST_MAX = 120;
+  // The rests between the stages of a test: [start, end] in seconds.
+  const restsOf = (st, gapTol) => st.slice(1).map((q, i) => [st[i].t1, q.t0]).filter(([a, b]) => b - a > gapTol);
   // A first stage well below the next, with a bigger jump than the stages after it, is a warm-up.
   function firstIsWarm(st) { if (st.length < 3) return false; const d0 = st[1].p - st[0].p, d1 = st[2].p - st[1].p; return d0 > 1.4 * d1 && st[0].p < 0.85 * st[1].p; }
   // Longer stages for thresholds, an easy block, then shorter stages to failure. Stage lengths in the first part may differ.
@@ -1341,6 +1365,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     const sp = g.aux && g.aux.speed ? g.aux.speed.filter(x => F(x) && x > 0) : [];
     if (sp.length && !speedChanges(g) && (!I || I.mode !== 'treadmill')) info(`The COSMED file lists a speed of ${g.aux.speedUnit && /mph/i.test(g.aux.speedUnit) ? (sp[0] / 1.60934).toFixed(1) + ' mph' : sp[0].toFixed(1) + ' km/h'} that never changes${m.protocol && m.protocol !== 'None' ? ` (protocol “${m.protocol}”)` : ''}, which looks like a leftover setting, so it was ignored.`);
     if (!I) warn('No power or speed yet: thresholds, VO₂peak and the charts all work, but power and stage results need the steps entered below or a Lode file.');
+    if (I && I.edited) info(`The stages were edited by hand in the stage table, so ${I.label.toLowerCase()} comes from that table, not from a recording.`);
+    if (pr && pr.inc && pr.inc.rests && pr.inc.rests.length) { const r = pr.inc.rests, d = r.map(([a, b]) => b - a); info(`${r.length} rest${r.length > 1 ? 's' : ''} between stages (${Math.round(Math.min(...d))}${Math.max(...d) - Math.min(...d) > 2 ? '–' + Math.round(Math.max(...d)) : ''} s)${ss.set && ss.set.inc && ss.set.inc.dropRests === false ? ' are kept in the threshold charts.' : ' are left out of the threshold charts and peak values.'}`); }
     if (I && I.plan) { info('Power comes from the steps you entered, not from a recording.'); const pl = ss.set && ss.set.plan; if (pl && F(pl.switchMin) && Math.abs(((pl.switchMin - (pl.warmMin || 0)) / pl.stageMin) % 1) > 0.01 && Math.abs(((pl.switchMin - (pl.warmMin || 0)) / pl.stageMin) % 1) < 0.99) warn(`The ${pl.shortMin || 1}-min stages start partway through a ${pl.stageMin}-min stage, so that stage is shorter. Check the time entered.`); }
     if (I && I.mode === 'treadmill' && g.aux && g.aux.grade) {
       // Only the test stages count: a walk at a different grade does not affect the results.
@@ -1927,7 +1953,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.26.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.27.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -1950,11 +1976,11 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   const vlab = k => VARS[k].h + (VARS[k].u ? ' (' + VARS[k].u + ')' : '');
 
   const defaults = () => ({
-    source: null, offset: 0, type: null, blocks: null, plan: null, excluded: [], leaveOut: [], oxyWin: 'analysis', fits: {},
+    source: null, offset: 0, type: null, blocks: null, plan: null, stages: null, excluded: [], leaveOut: [], oxyWin: 'analysis', fits: {},
     outl: { local: true, nsd: 4, half: 5, vars: ['vo2', 'vco2', 've'], limits: true, rfMin: 5, rfMax: 100, vtMin: 0.3, remove: false, show: false },
     avg: { mode: 'bin', bin: 15, ma: 7, roll: 15 },
     view: { vars: ['vo2', 'hr', 've'], h: {} },
-    inc: { t0: null, t1: null, skip: 0, selVar: 'vo2', stageWin: 60, peakWin: 30, x: 'vo2' },
+    inc: { t0: null, t1: null, skip: 0, selVar: 'vo2', stageWin: 60, peakWin: 30, x: 'vo2', dropRests: true },
     st: { meas: ['eqo2', 'vco2'], win: null, regWin: 60, sel: null, sels: {}, selVar: 'vo2', vt2: false, cmp: ['vo2', 'hr', 'rer'] }, per: { avgMin: 1, vars: ['vo2', 'hr', 'cho', 'fat', 'econ'] }, hrOffset: 0
   });
   const S = { pending: [], gas: null, lode: null, hr: null, meta: {}, set: defaults(), picks: { inc: {}, tests: {} }, I: null, proto: null, D: null, view: 'protocol', align: null, oxy: null, oxyCache: {} };
@@ -2000,7 +2026,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
         else {
           const wb = P.readWorkbook(await f.arrayBuffer()), id = P.identify(wb);
           if (id === 'cosmed') { item.obj = P.parseCosmed(wb); item.kind = 'cosmed'; const hasSp = L.speedChanges(item.obj); item.desc = (item.obj.kind === 'bxb' ? item.obj.t.length + ' breaths' : item.obj.t.length + ' × ' + item.obj.avgWidth + '-s averages') + (hasSp ? ', with treadmill speed' : ''); }
-          else if (id === 'lode' && S.addLode) { S.addLode = false; S.pending = []; S.lode = P.parseLode(wb); S.set.source = 'lode'; S.set.plan = null; S.set.blocks = null; S.set.inc.t0 = S.set.inc.t1 = null; if (S.view !== 'summary') S.view = 'protocol'; rebuild(); S.align = L.alignment(S.gas, S.I); buildDetails(); buildTabs(); recompute(); return; }
+          else if (id === 'lode' && S.addLode) { S.addLode = false; S.pending = []; S.lode = P.parseLode(wb); S.set.source = 'lode'; S.set.plan = null; S.set.blocks = null; S.set.stages = null; S.set.inc.t0 = S.set.inc.t1 = null; if (S.view !== 'summary') S.view = 'protocol'; rebuild(); S.align = L.alignment(S.gas, S.I); buildDetails(); buildTabs(); recompute(); return; }
           else if (id === 'lode') { item.obj = P.parseLode(wb); item.kind = 'lode'; item.desc = (item.obj.t.at(-1) / 60).toFixed(1) + ' min of power'; }
           else throw new Error('Not recognised as a COSMED or Lode export.');
         }
@@ -2079,7 +2105,7 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
   // Intensity channel and protocol, from the current settings.
   function rebuild() {
     const set = S.set;
-    S.I = L.buildIntensity(S.gas, S.lode, set.source, set.offset, set.blocks, set.plan);
+    S.I = L.buildIntensity(S.gas, S.lode, set.source, set.offset, set.blocks, set.plan, set.stages);
     S.proto = S.I ? L.detect(S.I, { type: set.plan ? 'incremental' : set.type }) : { type: set.type || 'incremental', unit: '', label: 'Intensity', tests: [], phases: [], inc: { none: true, ramp: false, stages: [], t0: S.gas.t[0], t1: L.exerciseEnd(S.gas), peak: NaN }, plateaus: [], pauses: [], base: NaN, maot: null, ttf: null, pattern: null };
     S.proto.allTests = S.proto.tests;
     S.proto.tests = S.proto.tests.filter(T => !set.excluded.includes(Math.round(T.t0)));
@@ -2103,7 +2129,9 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     const g = S.gas, set = S.set, pr = S.proto, I = S.I, mass = S.meta.mass, mode = I ? I.mode : '';
     const fl = C.flagOutliers(g, Object.assign({}, set.outl, { limits: set.outl.local && set.outl.limits }));
     // Periods the researcher left out (set.leaveOut, seconds) are dropped from every calculation and chart, like removed breaths.
-    const lo = set.leaveOut || [], out = t => lo.some(([a, b]) => t >= a && t <= b);
+    // Rests between the stages of an incremental test are left out too, unless the researcher keeps them.
+    const rests = pr && pr.type === 'incremental' && pr.inc && pr.inc.rests && set.inc.dropRests !== false ? pr.inc.rests : [];
+    const lo = (set.leaveOut || []).concat(rests.map(([a, b]) => [a + 0.5, b - 0.5])), out = t => lo.some(([a, b]) => t >= a && t <= b);
     const keep = Array.from(fl.flag, (f, i) => (f === 0 || (!set.outl.remove && f !== 3)) && !out(g.t[i]));
     const av = set.avg, par = avgParOf(set), w0 = g.kind === 'avg' ? g.avgWidth : 15;
     const X = C.series(g, keep, av.mode, par), ref = av.mode === 'bin' && par === w0 ? X : C.series(g, keep, 'bin', w0), R0 = C.series(g, keep, 'raw', 0);
@@ -2200,11 +2228,12 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
         ${S.hr ? `<label class="f"><span>Heart-rate offset (s)</span><input type="number" step="1" id="mHR" value="${set.hrOffset}"></label>` : ''}
       </div>
       <div class="step"><h4>What was detected</h4>${protoSummary(stageTxt)}</div>
+      ${stageTable()}
       ${planForm()}
       <details class="adv" ${set.blocks ? 'open' : ''}><summary>Any other protocol, such as step tests within a trial: enter blocks of stages by hand</summary>
         <div class="step" style="padding-top:8px">
           <p class="hint">One row per block of stages. Times are from the start of the COSMED recording. This replaces the detected intensity everywhere.</p>
-          <div class="tools"><span>Unit</span><select id="bUnit"><option value="km/h">km/h</option><option value="W">W</option></select></div>
+          <div class="tools"><span>Unit</span><select id="bUnit">${unitOpts()}</select></div>
           <div class="tblwrap"><table class="blocks" id="bT"></table></div>
           <div class="tools"><button id="bAdd">Add block</button><button id="bApply" class="primary">Apply</button><button id="bClear" ${set.blocks ? '' : 'disabled'}>Back to detected stages</button></div>
         </div></details>
@@ -2230,13 +2259,15 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     on('#mMass', e => { m.mass = parseFloat(e.target.value); recompute(); });
     on('#mAge', e => { m.age = parseFloat(e.target.value); recompute(); });
     const full = () => { rebuild(); S.align = L.alignment(S.gas, S.I); buildDetails(); buildTabs(); recompute(); };
-    on('#mSrc', e => { set.source = e.target.value; set.blocks = null; full(); });
+    on('#mSrc', e => { set.source = e.target.value; set.blocks = null; set.stages = null; full(); });
+    on('#mRest', e => { set.inc.dropRests = e.target.checked; recompute(); buildDetails(); });
+    bindStageTable();
     on('#mType', e => { set.type = e.target.value; S.view = 'protocol'; full(); });
     on('#mOff', e => { set.offset = parseFloat(e.target.value) || 0; full(); });
     on('#mHR', e => { set.hrOffset = parseFloat(e.target.value) || 0; recompute(); });
     // Manual blocks
     const rowsNow = set.blocks ? clone([...set.blocks]) : [{ start: 0, n: 5, dur: 4, first: I && I.unit === 'W' ? 100 : 8, inc: I && I.unit === 'W' ? 20 : 1 }];
-    $('#bUnit').value = (set.blocks && set.blocks.unit) || (I && I.unit) || 'km/h';
+    $('#bUnit').value = set.sport ? sportUnit() : (set.blocks && set.blocks.unit) || (I && I.unit) || 'km/h';
     const drawB = () => {
       $('#bT').innerHTML = '<tr><th>Start (min)</th><th>Stages</th><th>Stage length (min)</th><th>First stage</th><th>Increment</th><th></th></tr>' + rowsNow.map((b, i) => `<tr><td><input type="number" step="0.5" data-b="${i}" data-f="start" value="${b.start}"></td><td><input type="number" step="1" min="1" data-b="${i}" data-f="n" value="${b.n}"></td><td><input type="number" step="0.5" data-b="${i}" data-f="dur" value="${b.dur}"></td><td><input type="number" step="0.5" data-b="${i}" data-f="first" value="${b.first}"></td><td><input type="number" step="0.5" data-b="${i}" data-f="inc" value="${b.inc}"></td><td><button data-rm="${i}" aria-label="Remove block">Remove</button></td></tr>`).join('');
       $$('[data-b]').forEach(el => (el.onchange = () => { rowsNow[+el.dataset.b][el.dataset.f] = parseFloat(el.value); }));
@@ -2244,8 +2275,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     };
     drawB();
     $('#bAdd').onclick = () => { const l = rowsNow.at(-1) || { start: 0, n: 5, dur: 4, first: 8, inc: 1 }; rowsNow.push({ start: l.start + l.n * l.dur + 60, n: l.n, dur: l.dur, first: l.first, inc: l.inc }); drawB(); };
-    $('#bApply').onclick = () => { if (!rowsNow.length) return; const b = clone(rowsNow); b.unit = $('#bUnit').value; set.blocks = b; set.excluded = []; full(); };
-    $('#bClear').onclick = () => { set.blocks = null; full(); };
+    $('#bApply').onclick = () => { if (!rowsNow.length) return; const b = clone(rowsNow); b.unit = $('#bUnit').value; set.blocks = b; set.stages = null; set.excluded = []; full(); };
+    $('#bClear').onclick = () => { set.blocks = null; set.stages = null; full(); };
     drawChecks();
   }
   function groupStages(st) { // "warm-up 5:00 at 50 W; 7 × 3:00 from 9 to 15 km/h; 5 × 1:00 from 16 to 20 km/h"
@@ -2255,16 +2286,16 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     return out.join('; ');
   }
   // The usual incremental test: warm-up, longer stages, then shorter stages to failure.
-  function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = S.set.sport ? (S.set.sport === 'run' ? 'km/h' : 'W') : last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, switchP: NaN, shortMin: last.shortMin || 1, endMin: S.gas.blank ? NaN : +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
+  function planDefaults() { let last = {}; try { last = JSON.parse(localStorage.getItem('labcpet:plan') || '{}'); } catch (e) { } const u = S.set.sport ? (S.set.sport === 'run' ? 'km/h' : 'W') : last.unit || 'W'; return { unit: u, warmMin: last.warmMin, warmP: last.warmP, startP: last.startP, inc: last.inc, stageMin: last.stageMin || 3, restS: last.restS, switchP: NaN, shortMin: last.shortMin || 1, endMin: S.gas.blank ? NaN : +(L.exerciseEnd(S.gas) / 60).toFixed(2) }; }
   function planForm() {
     const set = S.set, q = set.plan || planDefaults(), need = !S.I, show = need && !set.plan, val = v => (F(v) ? v : ''), uu = q.unit === 'W' ? 'W' : 'km/h', fld = (id, lab, v, extra) => `<label class="f"><span>${lab}</span><input type="number" step="any" id="${id}" value="${val(v)}" ${extra || ''}></label>`;
     return `<details class="adv" id="planD" ${show ? 'open' : ''}><summary>${set.plan ? `Change the entered steps <span class="hint">(applied: ${+set.plan.startP} ${set.plan.unit === 'W' ? 'W' : 'km/h'}, +${+set.plan.inc} every ${+set.plan.stageMin} min)</span>` : S.lode || S.I && !S.I.plan ? 'Replace the detected stages with entered ones' : 'Enter the incremental test steps'}</summary><div class="plan ${need ? 'need' : ''}" style="margin-top:8px">
       <h4>Incremental test steps</h4>
       ${S.gas.blank ? '<p class="hint">Enter the stages as they were run. Times are from the start of the first stage (or of the warm-up, if you enter one). <b>Test ended at</b> is the time the last stage stopped, so an unfinished last stage is counted correctly.</p>' : need ? '<p class="hint">This COSMED file has no power recording. Enter the steps here, or <button id="bAddLode">add the Lode file</button>. Times are from the start of the COSMED recording.</p>' : ''}
       <div class="form">
-        <label class="f"><span>Unit</span><select id="plU"><option value="W">W (cycling)</option><option value="km/h">km/h (treadmill)</option></select></label>
+        <label class="f"><span>Unit</span><select id="plU">${unitOpts()}</select></label>
         ${fld('plWm', 'Warm-up length (min, optional)', q.warmMin)}${fld('plWp', `Warm-up intensity (${uu}, optional)`, q.warmP)}
-        ${fld('plS', `Starting intensity (${uu})`, q.startP)}${fld('plI', `Increment (${uu})`, q.inc)}${fld('plD', 'Stage length (min)', q.stageMin)}
+        ${fld('plS', `Starting intensity (${uu})`, q.startP)}${fld('plI', `Increment (${uu})`, q.inc)}${fld('plD', 'Stage length (min)', q.stageMin)}${fld('plR', 'Rest between stages (s, optional)', q.restS)}
         <label class="f"><span>Shorter stages at the end</span><select id="plHasSh"><option value="0">No</option><option value="1" ${F(q.switchP) || F(q.switchMin) ? 'selected' : ''}>Yes</option></select></label>
         ${fld('plSw', `Shorter stages started at (${uu})`, q.switchP)}${fld('plSd', 'Shorter stage length (min)', q.shortMin)}
         ${fld('plE', 'Test ended at (min)', q.endMin)}
@@ -2278,23 +2309,82 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     // The shorter-stage boxes only show when the test has shorter stages at the end.
     const hasSh = $('#plHasSh'), showSh = () => ['#plSw', '#plSd'].forEach(id => ($(id).closest('label').hidden = hasSh.value !== '1')); hasSh.onchange = showSh; showSh();
     $('#plGo').onclick = () => {
-      const sh = hasSh.value === '1', pl = { unit: u.value, warmMin: g('#plWm') || 0, warmP: g('#plWp'), startP: g('#plS'), inc: g('#plI'), stageMin: g('#plD'), switchP: sh ? g('#plSw') : NaN, shortMin: g('#plSd') || 1, endMin: g('#plE') };
+      const sh = hasSh.value === '1', pl = { unit: u.value, warmMin: g('#plWm') || 0, warmP: g('#plWp'), startP: g('#plS'), inc: g('#plI'), stageMin: g('#plD'), restS: g('#plR') > 0 ? g('#plR') : 0, switchP: sh ? g('#plSw') : NaN, shortMin: g('#plSd') || 1, endMin: g('#plE') };
       if (sh && !F(pl.switchP)) { $('#plMsg').textContent = `Enter the ${pl.unit === 'W' ? 'power' : 'speed'} the shorter stages started at, or choose No under Shorter stages at the end.`; return; }
       if (!F(pl.startP) || !F(pl.inc) || !(pl.stageMin > 0) || !(pl.endMin > pl.warmMin)) { $('#plMsg').textContent = 'Enter the starting intensity, increment, stage length and test end.'; return; }
       if (F(pl.switchP)) { const k = (pl.switchP - pl.startP) / pl.inc, near = [Math.floor(k), Math.ceil(k)].map(j => +(pl.startP + Math.max(1, j) * pl.inc).toFixed(2)).filter((x, i, a) => a.indexOf(x) === i);
         if (!(k >= 1 - 1e-6)) { $('#plMsg').textContent = `The shorter stages must start above the starting intensity, at ${+(pl.startP + pl.inc).toFixed(2)} ${pl.unit} or later.`; return; }
         if (Math.abs(k - Math.round(k)) > 1e-6) { $('#plMsg').textContent = `With these increments the stages go up in steps of ${pl.inc} ${pl.unit}, so the shorter stages must start at one of them, such as ${near.join(' or ')} ${pl.unit}.`; return; }
-        if (pl.warmMin * 60 + k * pl.stageMin * 60 >= pl.endMin * 60) { $('#plMsg').textContent = 'At that intensity the shorter stages would start after the test ended. Check the intensity and the test end.'; return; } }
-      set.plan = pl; set.blocks = null; set.type = 'incremental'; set.inc.t0 = set.inc.t1 = null;
-      try { localStorage.setItem('labcpet:plan', JSON.stringify({ unit: pl.unit, warmMin: pl.warmMin, warmP: pl.warmP, startP: pl.startP, inc: pl.inc, stageMin: pl.stageMin, shortMin: pl.shortMin })); } catch (e) { }
+        if (pl.warmMin * 60 + k * (pl.stageMin * 60 + pl.restS) >= pl.endMin * 60) { $('#plMsg').textContent = 'At that intensity the shorter stages would start after the test ended. Check the intensity and the test end.'; return; } }
+      set.plan = pl; set.blocks = null; set.stages = null; set.type = set.type === 'two' ? 'two' : 'incremental'; set.inc.t0 = set.inc.t1 = null;
+      try { localStorage.setItem('labcpet:plan', JSON.stringify({ unit: pl.unit, warmMin: pl.warmMin, warmP: pl.warmP, startP: pl.startP, inc: pl.inc, stageMin: pl.stageMin, restS: pl.restS, shortMin: pl.shortMin })); } catch (e) { }
       later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); });
     };
-    $('#plOff').onclick = () => { set.plan = null; set.inc.t0 = set.inc.t1 = null; later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); }); };
+    $('#plOff').onclick = () => { set.plan = null; set.stages = null; set.inc.t0 = set.inc.t1 = null; later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); }); };
+  }
+  /* ---------------- Stage table ----------------
+     Every stage with its start, length, rest after it and intensity. Locked by default; Unlock lets the researcher correct the stages
+     (from a file, from entered steps, or none at all). The edited list is S.set.stages, which replaces the intensity everywhere,
+     so Reset to original and undo work like any other setting. */
+  const sportUnit = () => (S.set.sport === 'run' ? 'km/h' : 'W');
+  // The units on offer: only the one that matches running or cycling, when that was chosen on the start page.
+  const unitOpts = () => (S.set.sport ? [sportUnit()] : ['W', 'km/h']).map(u => `<option value="${u}">${u === 'W' ? 'W (cycling)' : 'km/h (running)'}</option>`).join('');
+  const stUnit = () => (S.set.stages && S.set.stages.unit) || (S.I && S.I.unit) || (S.set.sport ? sportUnit() : (S.set.plan && S.set.plan.unit) || 'W');
+  function stageList() {
+    if (S.set.stages) return S.set.stages.list.map(q => Object.assign({}, q));
+    if (!S.I) return [];
+    const minV = S.I.unit === 'W' ? 20 : 2, rests = (S.proto.inc && S.proto.inc.rests) || [], end = Math.max(S.gas.t.at(-1), 1);
+    return C.plateaus(S.I).filter(q => q.p > minV && q.dur >= 10 && q.t0 < end && !rests.some(([a, b]) => q.t0 >= a - 1 && q.t1 <= b + 1)).map(q => ({ t0: +q.t0.toFixed(1), dur: +(Math.min(q.t1, end) - q.t0).toFixed(1), p: +q.p.toFixed(2) }));
+  }
+  // m:ss, or a number of minutes (3 → 3:00, 0.5 → 0:30)
+  const parseT = s => { s = String(s).trim().replace(',', '.'); if (!s) return NaN; if (s.includes(':')) { const [m, x] = s.split(':'); return (parseFloat(m) || 0) * 60 + (parseFloat(x) || 0); } return parseFloat(s) * 60; };
+  function setStages(list, msg) {
+    list = list.filter(q => q.dur > 0 && F(q.p)).sort((a, b) => a.t0 - b.t0);
+    S.set.stages = { unit: stUnit(), list }; S._stMsg = msg || '';
+    later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); });
+  }
+  function stageTable() {
+    const on = !!S._stUnlock, rows = stageList(), u = stUnit(), lab = u === 'W' ? 'Power' : 'Speed', dp = u === 'W' ? 0 : 1;
+    const ov = rows.findIndex((q, i) => i && q.t0 < rows[i - 1].t0 + rows[i - 1].dur - 0.5);
+    const tin = (k, i, v) => `<input type="text" inputmode="decimal" data-st="${k}:${i}" value="${v}" style="width:4.6em" aria-label="${k} of stage ${i + 1}">`;
+    const body = rows.map((q, i) => { const nx = rows[i + 1], rest = nx ? nx.t0 - (q.t0 + q.dur) : NaN; return `<tr><td>${i + 1}</td>
+      <td>${on ? tin('t0', i, mmss(q.t0)) : mmss(q.t0)}</td><td>${on ? tin('dur', i, mmss(q.dur)) : mmss(q.dur)}</td>
+      <td>${nx ? (on ? tin('rest', i, mmss(Math.max(0, rest))) : rest > 1 ? mmss(rest) : '–') : '–'}</td>
+      <td>${on ? `<input type="number" step="any" data-st="p:${i}" value="${+q.p.toFixed(2)}" style="width:5.5em" aria-label="${lab} of stage ${i + 1}">` : (+q.p).toFixed(dp)}</td>
+      <td>${on ? `<button class="rm" data-strm="${i}" title="Remove this stage" aria-label="Remove stage ${i + 1}">×</button>` : ''}</td></tr>`; }).join('');
+    const sum = !rows.length ? 'none yet' : `${rows.length} stage${rows.length > 1 ? 's' : ''}${S.set.stages ? ', edited by hand' : S.set.plan || S.set.blocks ? ', from the entered steps' : ', from the file'}`;
+    return `<details class="sub" data-fold="dstg" ${on || openFolds.has('dstg') ? 'open' : ''}><summary>Stages <span class="hint">${sum}</span><span id="stI"></span></summary><div>
+      <p class="hint" data-info="stI">Times are from the start of the recording, as minutes:seconds (or type minutes, such as 3 or 0.5). Changing a start, length or rest moves the stages after it by the same amount. On the Protocol tab, Edit stages lets you drag the edge of a stage instead. Edited stages replace the ${lab.toLowerCase()} from the file or the entered steps everywhere; Reset to original goes back, and Ctrl+Z (⌘Z) undoes the last change.</p>
+      <div class="tools"><button id="stLock" aria-pressed="${on}">${on ? 'Lock the stages' : 'Unlock to edit'}</button><button id="stReset" ${S.set.stages ? '' : 'disabled'}>Reset to original</button>${on ? '<button id="stAdd">Add a stage</button>' : ''}<span class="hint" id="stMsg">${esc(S._stMsg || '')}${ov > 0 ? ` Stage ${ov + 1} starts before stage ${ov} ends.` : ''}</span></div>
+      ${rows.length ? `<div class="tblwrap"><table class="stT"><thead><tr><th>Stage</th><th>Start</th><th>Length</th><th>Rest after</th><th>${lab} (${u})</th><th></th></tr></thead><tbody>${body}</tbody></table></div>` : `<p class="hint">${on ? 'Click Add a stage to type the first one.' : 'No stages yet. Unlock to type them, or use Enter the incremental test steps below.'}</p>`}</div></details>`;
+  }
+  function bindStageTable() {
+    const lock = $('#stLock'); if (!lock) return;
+    lock.onclick = () => { S._stUnlock = !S._stUnlock; S._stMsg = ''; openFolds.add('dstg'); buildDetails(); if (S.view === 'protocol') render(); };
+    $('#stReset').onclick = () => { S.set.stages = null; S._stMsg = 'Back to the original stages.'; later(() => { rebuild(); buildDetails(); buildTabs(); recompute(); }); };
+    if ($('#stAdd')) $('#stAdd').onclick = () => {
+      const r = stageList(), a = r.at(-1), b = r.at(-2), u = stUnit();
+      r.push(a ? { t0: a.t0 + a.dur + (b ? Math.max(0, a.t0 - b.t0 - b.dur) : 0), dur: a.dur, p: +(a.p + (b ? a.p - b.p : 0)).toFixed(2) } : { t0: 0, dur: 180, p: u === 'W' ? 100 : 8 });
+      setStages(r, `Stage ${r.length} added.`);
+    };
+    $$('[data-strm]').forEach(b => (b.onclick = () => { const r = stageList(); r.splice(+b.dataset.strm, 1); setStages(r, 'Stage removed.'); }));
+    $$('[data-st]').forEach(el => (el.onchange = () => {
+      const [k, s] = el.dataset.st.split(':'), i = +s, r = stageList(), q = r[i], v = k === 'p' ? parseFloat(el.value) : parseT(el.value);
+      if (!F(v) || v < 0 || (k === 'dur' && v <= 0)) { $('#stMsg').textContent = 'Type a time as minutes:seconds, such as 3:00, or a number.'; return; }
+      const shift = (from, d) => r.slice(from).forEach(x => (x.t0 = +(x.t0 + d).toFixed(1)));
+      if (k === 'p') q.p = v;
+      else if (k === 't0') shift(i, v - q.t0);
+      else if (k === 'dur') { const d = v - q.dur; q.dur = v; shift(i + 1, d); }
+      else if (k === 'rest' && r[i + 1]) shift(i + 1, q.t0 + q.dur + v - r[i + 1].t0);
+      setStages(r);
+    }));
+    // Enter moves down the same column, as in a spreadsheet.
+    $('.stT') && ($('.stT').onkeydown = ev => { if (ev.key !== 'Enter') return; const el = ev.target.closest('[data-st]'); if (!el) return; ev.preventDefault(); const [k, s] = el.dataset.st.split(':'), nx = $(`[data-st="${k}:${+s + 1}"]`); el.blur(); setTimeout(() => { const n2 = $(`[data-st="${k}:${+s + 1}"]`); if (n2) { n2.focus(); n2.select(); } }, 30); void nx; });
   }
   function protoSummary(stageTxt) {
     const pr = S.proto;
     if (!S.I) return S.gas.blank ? '<p class="hint">Lactate only, with no gas file. No stages have been entered yet.</p>' : '<p class="hint">Gas data only. No power or speed has been entered yet.</p>';
-    if (pr.type === 'incremental') return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} incremental test${pr.max ? ', then a separate VO₂max phase. Threshold stages' : '. Stages'}: ${esc(stageTxt)}${S.set.blocks || S.set.plan ? ' (entered by hand)' : ''}.</p>`;
+    if (pr.type === 'incremental') return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} incremental test${pr.max ? ', then a separate VO₂max phase. Threshold stages' : '. Stages'}: ${esc(stageTxt)}${S.set.stages ? ' (edited by hand)' : S.set.blocks || S.set.plan ? ' (entered by hand)' : ''}.</p>${pr.inc && pr.inc.rests && pr.inc.rests.length ? `<label class="chk hint"><input type="checkbox" id="mRest" ${S.set.inc.dropRests === false ? '' : 'checked'}>Leave the ${pr.inc.rests.length} rest${pr.inc.rests.length > 1 ? 's' : ''} between stages out of the threshold charts and peak values</label>` : ''}`;
     const tests = (pr.allTests || []).map((T, i) => `<label class="chk"><input type="checkbox" data-ex="${Math.round(T.t0)}" ${S.set.excluded.includes(Math.round(T.t0)) ? '' : 'checked'}>${L.testName(pr, i)}: ${mmss(T.t0)}–${mmss(T.t1)}, ${T.steps.map(s => +s.p.toFixed(1)).join(', ')} ${S.I.unit}${T.complete ? '' : ' (partial)'}</label>`).join('<br>');
     setTimeout(() => $$('[data-ex]').forEach(el => (el.onchange = () => { const k = +el.dataset.ex, a = S.set.excluded; if (el.checked) a.splice(a.indexOf(k), 1); else a.push(k); rebuild(); buildTabs(); recompute(); })), 0);
     return `<p class="hint">${S.I.mode === 'cycling' ? 'Cycling' : 'Treadmill'} durability test. Steady work: ${F(pr.base) ? iVal(pr.base) : 'none found'}${pr.ttf && pr.maot ? `; work ends at ${mmss(pr.ttf)}; all-out test at ${mmss(pr.maot.t0)}` : ''}.${pr.pauses.length ? ' ' + pr.pauses.length + ' pause(s).' : ''} ${tests ? 'Tick the step tests to include:' : 'No step tests found.'}</p>${tests ? `<div class="hint">${tests}</div>` : ''}`;
@@ -2440,11 +2530,12 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       <div class="tools"><span>Show (up to 6):</span>${chips(av, vars, 'data-sv')}</div>
       <div class="tools"><span>Averaging:</span><select id="vAvg">${[['raw', S.gas.kind === 'bxb' ? 'Breath by breath' : 'As in file'], ['bin:15', '15-s bins'], ['bin:30', '30-s bins'], ['bin:60', '60-s bins'], ['roll:30', '30-s rolling'], ['custom', 'Custom (under Data processing)']].map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')}</select>
         <span class="sep"></span><span>Go to:</span>${jumps.map(j => `<button data-j="${j[0]}">${j[1]}</button>`).join('')}<span id="pvInfo"></span></div>
-      <div class="tools"><button id="exBtn" aria-pressed="${S._exMode ? 'true' : 'false'}" title="Then drag across the chart over the data to leave out">Leave out a period</button><span class="hint" id="exHint">${S._exMode ? 'Drag across the chart over the noisy or wrong data. Click the button again when done.' : (set.leaveOut || []).length ? 'Left out:' : 'Noisy or wrong data? Leave that period out of every calculation.'}</span>${(set.leaveOut || []).map(([a, b], i) => `<span class="lochip">${mmss(a)}–${mmss(b)}<button data-lo="${i}" title="Put this period back" aria-label="Put ${mmss(a)} to ${mmss(b)} back">×</button></span>`).join('')}</div>
+      <div class="tools"><button id="stEdit" aria-pressed="${S._stUnlock ? 'true' : 'false'}" title="Drag the edges of the stages on the chart, or type them in the stage table">Edit stages</button><button id="exBtn" aria-pressed="${S._exMode ? 'true' : 'false'}" title="Then drag across the chart over the data to leave out">Leave out a period</button><span class="hint" id="exHint">${S._exMode ? 'Drag across the chart over the noisy or wrong data. Click the button again when done.' : (set.leaveOut || []).length ? 'Left out:' : 'Noisy or wrong data? Leave that period out of every calculation.'}</span>${(set.leaveOut || []).map(([a, b], i) => `<span class="lochip">${mmss(a)}–${mmss(b)}<button data-lo="${i}" title="Put this period back" aria-label="Put ${mmss(a)} to ${mmss(b)} back">×</button></span>`).join('')}</div>
+      ${S._stUnlock ? `<p class="sthint">${I ? `Stages unlocked: drag the edge of a stage in the ${esc(I.label.toLowerCase())} panel to move it. Exact values, rests and new stages go in the stage table under Test details.` : 'Stages unlocked: type the stages in the stage table under Test details.'} <button class="linkbtn" id="stOpen">Open the stage table</button> · <button class="linkbtn" id="stDone">Lock the stages</button></p>` : ''}
       <div class="panel"><div class="readout big" id="cur">Move over the chart to read every variable at one moment.</div>
         <div class="chartwrap" id="cwrap"><div class="chart" id="pv" style="height:${H}px"></div><div class="cursor" id="cline"></div><div class="zshade" id="zshade"></div>${szBtns}</div>
         <div class="readout" id="ro"></div></div>
-      <ul class="notes" data-info="pvInfo"><li>Each panel’s height can be changed by dragging its top or bottom edge.</li><li>To leave out noisy or wrong data, click <b>Leave out a period</b> and drag across the chart over it. The period is dropped from every calculation and chart on every tab, like a removed breath, and is listed in Data checks and the export. Click × on a period to put it back.</li><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
+      <ul class="notes" data-info="pvInfo"><li>Each panel’s height can be changed by dragging its top or bottom edge.</li><li>To correct the stages, click <b>Edit stages</b> and drag the edge of a stage in the ${I ? esc(I.label.toLowerCase()) : 'intensity'} panel, or type the values in the stage table under Test details. Rests between stages are shaded grey.</li><li>To leave out noisy or wrong data, click <b>Leave out a period</b> and drag across the chart over it. The period is dropped from every calculation and chart on every tab, like a removed breath, and is listed in Data checks and the export. Click × on a period to put it back.</li><li>Scroll to zoom, or use the tools at the top right of the chart: with the move tool, drag along time; with the zoom tool, drag across the period you want. You can also drag the handles of the strip under the chart. Each panel rescales to the data in view. The home button or a double-click zooms all the way out. The line under the chart gives the mean ± SD of what is in view.</li>
       ${I ? `<li>Shaded: test stages (blue)${pr.maot ? ', all-out test (red)' : ''}. The ${I.label.toLowerCase()} panel gives each stage’s ${I.label.toLowerCase()}, with RPE and any other COSMED markers above it.</li>` : ''}</ul>`;
     multiToggle('data-sv', vars, 6, () => vProtocol());
     const curAvg = set.avg.mode === 'raw' ? 'raw' : set.avg.mode + ':' + avgParOf(set);
@@ -2481,6 +2572,17 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       pr.plateaus.filter(q => q.dur >= 45 && q.p > (I.unit === 'W' ? 20 : 2)).forEach(q => L2.annotations.push({ xref: 'x', yref: iax, x: (q.t0 + q.t1) / 120, y: q.p, yanchor: 'top', showarrow: false, text: q.p.toFixed(iDp()), font: { size: 10, color: css('--fg') } }));
     }
     (set.leaveOut || []).forEach(([a, b]) => { L2.shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: a / 60, x1: b / 60, y0: 0, y1: 1, fillcolor: css('--leftout'), line: { color: css('--warn'), width: 1, dash: 'dot' }, layer: 'above' }); L2.annotations.push({ xref: 'x', yref: 'paper', x: (a + b) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: 'left out', font: { size: 10, color: css('--warn') } }); });
+    // Rests between stages (left out of the threshold analysis unless kept), lightly shaded.
+    if (pr.type === 'incremental' && pr.inc && pr.inc.rests) pr.inc.rests.forEach(([a, b]) => L2.shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: a / 60, x1: b / 60, y0: 0, y1: 1, fillcolor: css('--restfill'), line: { width: 0 }, layer: 'above' }));
+    // Stage edges to drag while the stages are unlocked.
+    const edges = [];
+    if (S._stUnlock && I) {
+      const rows = stageList();
+      rows.forEach((q, i) => { const e = q.t0 + q.dur, nx = rows[i + 1], prev = rows[i - 1];
+        if (!prev || Math.abs(prev.t0 + prev.dur - q.t0) > 1) edges.push({ x: q.t0, a: null, b: i });
+        edges.push({ x: e, a: i, b: nx && Math.abs(nx.t0 - e) <= 1 ? i + 1 : null }); });
+      edges.forEach(e => { e.k = L2.shapes.length; L2.shapes.push({ type: 'line', xref: 'x', yref: iax + ' domain', x0: e.x / 60, x1: e.x / 60, y0: 0, y1: 1, line: { color: css('--accent'), width: 2 }, layer: 'above' }); });
+    }
     pr.phases.forEach(q => {
       if (q.kind === 'test' || q.kind === 'allout') L2.shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: q.t0 / 60, x1: q.t1 / 60, y0: 0, y1: 1, fillcolor: css(q.kind === 'test' ? '--test' : '--maot'), line: { width: 0 }, layer: 'below' });
       L2.annotations.push({ xref: 'x', yref: 'paper', x: (q.t0 + q.t1) / 120, y: 1, yanchor: 'bottom', showarrow: false, text: q.label, font: { size: 10, color: css('--muted') } });
@@ -2524,8 +2626,33 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
       const mu = () => { window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu); if (raf) { cancelAnimationFrame(raf); raf = 0; } resizePanels(); };
       window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
     }));
+    // Editing stages: the button unlocks the stage table; while it is unlocked, a stage's edge can be dragged in the intensity panel.
+    const keepX = () => { S._pvX = gd._fullLayout.xaxis.range.slice(); };
+    $('#stEdit').onclick = () => { S._stUnlock = !S._stUnlock; S._exMode = false; S._stMsg = ''; keepX(); if (S._stUnlock) openFolds.add('dstg'); buildDetails(); vProtocol(); };
+    if ($('#stDone')) $('#stDone').onclick = () => { S._stUnlock = false; keepX(); buildDetails(); vProtocol(); };
+    if ($('#stOpen')) $('#stOpen').onclick = () => { $('#dBox').open = true; const d = $('details[data-fold=dstg]'); if (d) { d.open = true; d.scrollIntoView({ block: 'center', behavior: 'smooth' }); } };
+    if (edges.length) {
+      const ia = () => gd._fullLayout['yaxis' + (n + 1)], near = (px, py) => { const xa = gd._fullLayout.xaxis, ya = ia(); if (!ya || py < ya._offset - 4 || py > ya._offset + ya._length + 4) return null; let best = null, d = 7; edges.forEach(e => { const q = Math.abs(xa.l2p(e.x / 60) + xa._offset - px); if (q < d) { d = q; best = e; } }); return best; };
+      const wrap = $('#cwrap');
+      wrap.addEventListener('mousemove', ev => { if (ev.buttons) return; const r = gd.getBoundingClientRect(); wrap.style.cursor = near(ev.clientX - r.left, ev.clientY - r.top) ? 'ew-resize' : ''; });
+      wrap.addEventListener('mousedown', ev => {
+        if (ev.button || S._exMode) return; const r = gd.getBoundingClientRect(), e = near(ev.clientX - r.left, ev.clientY - r.top); if (!e) return;
+        ev.preventDefault(); ev.stopPropagation();
+        const rows = stageList(), xa = gd._fullLayout.xaxis, lo = e.a !== null ? rows[e.a].t0 + 5 : e.b !== null && e.b > 0 ? rows[e.b - 1].t0 + rows[e.b - 1].dur : 0, hi = e.b !== null ? rows[e.b].t0 + rows[e.b].dur - 5 : rows[e.a + 1] ? rows[e.a + 1].t0 : Infinity;
+        let x = e.x, raf = 0;
+        const mm = m => { if (!m.buttons) return mu(); x = Math.round(Math.max(lo, Math.min(hi, xa.p2l(m.clientX - r.left - xa._offset) * 60))); if (!raf) raf = requestAnimationFrame(() => { raf = 0; Plotly.relayout(gd, { [`shapes[${e.k}].x0`]: x / 60, [`shapes[${e.k}].x1`]: x / 60 }); $('#cur').textContent = `Stage edge at ${mmss(x)}`; }); };
+        const mu = () => {
+          window.removeEventListener('mousemove', mm, true); window.removeEventListener('mouseup', mu, true); window.removeEventListener('blur', mu); if (raf) cancelAnimationFrame(raf);
+          if (Math.abs(x - e.x) < 0.5) return;
+          if (e.a !== null) rows[e.a].dur = +(x - rows[e.a].t0).toFixed(1);
+          if (e.b !== null) { const end = rows[e.b].t0 + rows[e.b].dur; rows[e.b].t0 = x; rows[e.b].dur = +(end - x).toFixed(1); }
+          keepX(); setStages(rows, `Stage edge moved to ${mmss(x)}.`);
+        };
+        window.addEventListener('mousemove', mm, true); window.addEventListener('mouseup', mu, true); window.addEventListener('blur', mu);
+      }, true);
+    }
     // Leaving out a period: while the button is on, a drag across the chart marks the period instead of zooming or moving.
-    $('#exBtn').onclick = () => { S._exMode = !S._exMode; S._pvX = gd._fullLayout.xaxis.range.slice(); vProtocol(); };
+    $('#exBtn').onclick = () => { S._exMode = !S._exMode; if (S._exMode) S._stUnlock = false; S._pvX = gd._fullLayout.xaxis.range.slice(); vProtocol(); };
     $$('[data-lo]').forEach(b => (b.onclick = () => { set.leaveOut.splice(+b.dataset.lo, 1); S._pvX = gd._fullLayout.xaxis.range.slice(); recompute(); }));
     if (S._exMode) gd.classList.add('m-ex');
     $('#cwrap').addEventListener('mousedown', ev => {
@@ -3204,7 +3331,8 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     const avgT = avgLabel().replace('breath-by-breath', 'breath-by-breath data');
     const joined = g.files ? ` The ${g.files.length} recordings of the session were aligned by their clock times.` : '';
     const skipped = pr.type === 'incremental' && set.inc.skip > 0 && !F(set.inc.t0) ? ` The first ${set.inc.skip} s of the first stage were left out of the threshold estimation.` : '';
-    const entered = I && I.plan ? ' Power was taken from the protocol entered by the researcher, not from a recording.' : '';
+    const rs = pr.type === 'incremental' && pr.inc && pr.inc.rests ? pr.inc.rests : [];
+    const entered = (I && I.edited ? ` The stages were checked and edited by hand by the researcher.` : I && I.plan ? ' Power was taken from the protocol entered by the researcher, not from a recording.' : '') + (rs.length ? ` The test had ${rs.length} rest${rs.length > 1 ? 's' : ''} between stages, which ${set.inc.dropRests === false ? 'were kept in' : 'were left out of'} the threshold analysis and peak values.` : '');
     const tool = ` Data were analysed with the Lab CPET tool (version ${VERSION}, created by ${AUTHOR}).`;
     const oxUsed = S.oxy && S.oxy.done && S.proto.type === 'incremental', fromOx = Object.entries((S.picks.incSrc) || {}).filter(e => /^Oxynet/.test(e[1]));
     const ox = oxUsed ? ` Suggestions from the Oxynet open-source models (pyoxynet; CNN and LSTM) were also available to the researcher, run on ${oxyName()} with flagged outlier breaths left out${fromOx.length ? `, and ${fromOx.map(e => `the ${e[1].replace('Oxynet ', '')} suggestion was used for ${e[0].toUpperCase()}`).join(' and ')}` : ''} (Zignoli et al., 2022; Keir et al., 2026).` : '';

@@ -2,7 +2,7 @@
 
 > This copy lives in the repository and is the one to keep up to date. (It began as a Claude Doc.)
 
-Version 0.26.0 · Created by SangHoon Yoon · Nov 4, 2026
+Version 0.27.0 · Created by SangHoon Yoon · Nov 4, 2026
 
 ## **Before you start**
 
@@ -73,17 +73,30 @@ Use this guide to get VO₂peak, VT1 and VT2 from one incremental test.
 3. Read **What was detected**, and check that the stages match your protocol.
 4. Read **Data checks**. Anything marked **!** needs a look.
 
-### 3. Bike test with no Lode file: enter the power steps
+### 3. No power or speed in the file: enter the steps
 
-Skip this step if you loaded a Lode file or ran on a treadmill. If the file has no power, a yellow box above the tabs says so; click Enter the incremental test steps.
+Skip this step if the file holds the power or speed (or you loaded a Lode file). If it has none, a yellow box above the tabs says so; click Enter the incremental test steps. If you chose running or cycling on the start page, only km/h or only W is offered.
 
 1. Under **Incremental test steps**, enter the warm-up length and power.
-2. Enter the starting power, increment and stage length.
+2. Enter the starting power, increment and stage length. If there was a rest after each stage (for example 30 s to take blood), enter it under **Rest between stages**.
 3. If you changed to 1-min stages, choose Yes under Shorter stages at the end, then enter the power (or speed) of the first 1-min stage in **Shorter stages started at**. They go up by the same increment as the longer stages.
 4. Check **Test ended at**.
 5. Click **Apply steps**. The form closes, and its title changes to Change the entered steps, showing what you applied.
 
 All times are from the start of the COSMED recording. Without these steps or a Lode file, you still get VO₂peak and thresholds, but no power results.
+
+### 3b. Check or correct the stages (any test)
+
+Under **Test details**, open **Stages**. It lists every stage with its start, length, the rest after it, and its power or speed, whether the stages came from the file or from entered steps.
+
+1. Click **Unlock to edit**.
+2. Type a new start, length, rest or intensity. Times are minutes:seconds (or a number of minutes, such as 3 or 0.5). Changing a start, length or rest moves the stages after it by the same amount. Press Enter to move down a column.
+3. **Add a stage** adds one after the last, with the same length, rest and increment. × removes a stage.
+4. Or, on the **Protocol** tab, click **Edit stages** and drag the edge of a stage in the power (or speed) panel. Where two stages meet, dragging the edge moves both.
+5. **Reset to original** goes back to the stages from the file or the entered steps. Ctrl+Z (⌘Z on a Mac) undoes the last change.
+6. Click **Lock the stages** when done.
+
+**Rests between stages.** If the test stopped (or slowed to a walk) for up to 2 minutes between stages, for example to take blood, the stages still count as one test. The rests are shaded grey on the Protocol chart and, by default, left out of the threshold charts and peak values; untick the box under **What was detected** to keep them.
 
 ### 4. Look over the whole test
 

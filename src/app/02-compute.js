@@ -16,7 +16,9 @@
     const g = S.gas, set = S.set, pr = S.proto, I = S.I, mass = S.meta.mass, mode = I ? I.mode : '';
     const fl = C.flagOutliers(g, Object.assign({}, set.outl, { limits: set.outl.local && set.outl.limits }));
     // Periods the researcher left out (set.leaveOut, seconds) are dropped from every calculation and chart, like removed breaths.
-    const lo = set.leaveOut || [], out = t => lo.some(([a, b]) => t >= a && t <= b);
+    // Rests between the stages of an incremental test are left out too, unless the researcher keeps them.
+    const rests = pr && pr.type === 'incremental' && pr.inc && pr.inc.rests && set.inc.dropRests !== false ? pr.inc.rests : [];
+    const lo = (set.leaveOut || []).concat(rests.map(([a, b]) => [a + 0.5, b - 0.5])), out = t => lo.some(([a, b]) => t >= a && t <= b);
     const keep = Array.from(fl.flag, (f, i) => (f === 0 || (!set.outl.remove && f !== 3)) && !out(g.t[i]));
     const av = set.avg, par = avgParOf(set), w0 = g.kind === 'avg' ? g.avgWidth : 15;
     const X = C.series(g, keep, av.mode, par), ref = av.mode === 'bin' && par === w0 ? X : C.series(g, keep, 'bin', w0), R0 = C.series(g, keep, 'raw', 0);

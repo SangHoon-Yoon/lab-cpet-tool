@@ -15,7 +15,8 @@
     if (a.power && a.power.some(x => F(x) && x > 0)) out.push('power');
     return out;
   }
-  function buildIntensity(gas, lode, source, offset, blocks, plan) {
+  function buildIntensity(gas, lode, source, offset, blocks, plan, stages) {
+    if (stages && stages.list && stages.list.length) return fromStages(stages, gas);
     if (plan) return fromPlan(plan, gas);
     if (blocks && blocks.length) return fromBlocks(blocks, gas);
     if (source === 'lode' && lode) return { t: lode.t.map(x => x + (offset || 0)), p: lode.p, rpm: lode.rpm, unit: 'W', label: 'Power', mode: 'cycling', source: 'lode', tolerance: 1, gapTol: 3 };
@@ -43,6 +44,13 @@
     return { t, p, unit, label: unit === 'W' ? 'Power' : 'Speed', mode: unit === 'W' ? 'cycling' : 'treadmill', source: 'manual', tolerance: unit === 'W' ? 1 : 0.11, gapTol: 3 };
   }
 
+  // Stages edited by hand in the stage table: [{t0, dur, p}] in seconds from the start of the recording, zero between them.
+  function fromStages(stages, gas) {
+    const unit = stages.unit || 'km/h', list = stages.list.filter(q => F(q.t0) && q.dur > 0 && F(q.p)).slice().sort((a, b) => a.t0 - b.t0), t = [0], p = [0];
+    list.forEach((q, i) => { const nx = list[i + 1], end = nx ? Math.min(q.t0 + q.dur, nx.t0) : q.t0 + q.dur; if (q.t0 <= t.at(-1) + 1e-6) { t.pop(); p.pop(); } t.push(q.t0); p.push(q.p); if (!nx || nx.t0 > end + 1e-6) { t.push(end); p.push(0); } });
+    t.push(Math.max(gas.t.at(-1), t.at(-1)) + 1); p.push(0);
+    return { t, p, unit, label: unit === 'W' ? 'Power' : 'Speed', mode: unit === 'W' ? 'cycling' : 'treadmill', source: 'manual', edited: true, tolerance: unit === 'W' ? 1 : 0.11, gapTol: 3 };
+  }
   // The end of exercise: where the COSMED phase turns to recovery for the last time, otherwise the end of the file.
   function exerciseEnd(gas) {
     const ph = (gas.aux && gas.aux.phase) || [], w = gas.kind === 'avg' ? gas.avgWidth : 0;
@@ -85,12 +93,14 @@
   function fromPlan(pl, gas) {
     const unit = pl.unit || 'W', t = [0], p = [F(pl.warmP) && pl.warmMin > 0 ? pl.warmP : 0], warm = (pl.warmMin || 0) * 60, end = F(pl.endMin) ? pl.endMin * 60 : exerciseEnd(gas);
     const byP = F(pl.switchP), sw = !byP && F(pl.switchMin) ? pl.switchMin * 60 : Infinity, tol = Math.abs(pl.inc || 1) * 1e-6;
-    let x = warm, v = pl.startP, guard = 0, short = false;
+    let x = warm, v = pl.startP, guard = 0, short = false; const rest = pl.restS > 0 ? pl.restS : 0;
     while (x < end - 1e-6 && guard++ < 500) {
       short = byP ? v >= pl.switchP - tol : x >= sw - 1e-6;
       const x1 = Math.min(x + (short ? (pl.shortMin || 1) : pl.stageMin) * 60, short || byP ? end : Math.min(sw, end));
       if (x === 0) p[0] = v; else { t.push(x); p.push(v); }
-      x = x1; v += !byP && x >= sw - 1e-6 && F(pl.shortInc) ? pl.shortInc : pl.inc;
+      // a rest after each stage (for example to take blood), when one was entered
+      if (rest && x1 + rest < end - 1e-6) { t.push(x1); p.push(0); x = x1 + rest; } else x = x1;
+      v += !byP && x >= sw - 1e-6 && F(pl.shortInc) ? pl.shortInc : pl.inc;
     }
     t.push(end); p.push(0); const last = Math.max(gas.t.at(-1), end) + 1; t.push(last); p.push(0);
     return { t, p, unit, label: unit === 'W' ? 'Power' : 'Speed', mode: unit === 'W' ? 'cycling' : 'treadmill', source: 'manual', plan: true, warmEnd: warm, tolerance: unit === 'W' ? 1 : 0.11, gapTol: 3 };
@@ -115,7 +125,16 @@
     const exTime = P.filter(q => q.p > minV).reduce((a, q) => a + q.dur, 0);
     // Ascending runs of stages.
     const runs = []; let cur = [];
-    LP.forEach(q => { const pv = cur[cur.length - 1]; if (pv && q.p > pv.p + tol && q.t0 - pv.t1 <= gapTol) cur.push(q); else { if (cur.length >= 2) runs.push(cur); cur = [q]; } });
+    // Stages follow on from each other, or after a short rest (up to 2 min, slower or stopped, for example to take blood).
+    const restOK = (pv, q) => q.t0 - pv.t1 <= REST_MAX && P.every(x => x.t1 <= pv.t1 + 0.5 || x.t0 >= q.t0 - 0.5 || x.p < pv.p - tol);
+    // A short, slower stretch (walking during a rest) is skipped when a higher stage follows it.
+    for (let i = 0; i < LP.length; i++) {
+      const q = LP[i], pv = cur[cur.length - 1];
+      if (pv && q.p > pv.p + tol && (q.t0 - pv.t1 <= gapTol || restOK(pv, q))) { cur.push(q); continue; }
+      const nx = LP[i + 1];
+      if (pv && q.p < pv.p - tol && q.dur <= REST_MAX && nx && nx.p > pv.p + tol && restOK(pv, nx)) continue;
+      if (cur.length >= 2) runs.push(cur); cur = [q];
+    }
     if (cur.length >= 2) runs.push(cur);
     const durOf = r => r[r.length - 1].t1 - r[0].t0;
     const longest = runs.slice().sort((a, b) => durOf(b) - durOf(a))[0];
@@ -142,7 +161,7 @@
         if (firstIsWarm(st)) st[0].warm = true;
         if (st.length >= 2 && st.at(-1).dur < 0.5 * st.at(-2).dur) st.at(-1).full = false; // a final stage cut short
         if (F(I.warmEnd) && I.warmEnd > 0) st.forEach(q => { if (q.t1 <= I.warmEnd + 1) q.warm = true; });
-        out.inc = { ramp: false, stages: st, t0: st.find(q => !q.warm).t0, t1: st.at(-1).t1, peak: st.at(-1).p };
+        out.inc = { ramp: false, stages: st, t0: st.find(q => !q.warm).t0, t1: st.at(-1).t1, peak: st.at(-1).p, rests: restsOf(st, gapTol) };
       }
     }
 
@@ -203,6 +222,9 @@
     out.phases.sort((a, b) => a.t0 - b.t0);
     return out;
   }
+  const REST_MAX = 120;
+  // The rests between the stages of a test: [start, end] in seconds.
+  const restsOf = (st, gapTol) => st.slice(1).map((q, i) => [st[i].t1, q.t0]).filter(([a, b]) => b - a > gapTol);
   // A first stage well below the next, with a bigger jump than the stages after it, is a warm-up.
   function firstIsWarm(st) { if (st.length < 3) return false; const d0 = st[1].p - st[0].p, d1 = st[2].p - st[1].p; return d0 > 1.4 * d1 && st[0].p < 0.85 * st[1].p; }
   // Longer stages for thresholds, an easy block, then shorter stages to failure. Stage lengths in the first part may differ.
@@ -381,6 +403,8 @@
     const sp = g.aux && g.aux.speed ? g.aux.speed.filter(x => F(x) && x > 0) : [];
     if (sp.length && !speedChanges(g) && (!I || I.mode !== 'treadmill')) info(`The COSMED file lists a speed of ${g.aux.speedUnit && /mph/i.test(g.aux.speedUnit) ? (sp[0] / 1.60934).toFixed(1) + ' mph' : sp[0].toFixed(1) + ' km/h'} that never changes${m.protocol && m.protocol !== 'None' ? ` (protocol “${m.protocol}”)` : ''}, which looks like a leftover setting, so it was ignored.`);
     if (!I) warn('No power or speed yet: thresholds, VO₂peak and the charts all work, but power and stage results need the steps entered below or a Lode file.');
+    if (I && I.edited) info(`The stages were edited by hand in the stage table, so ${I.label.toLowerCase()} comes from that table, not from a recording.`);
+    if (pr && pr.inc && pr.inc.rests && pr.inc.rests.length) { const r = pr.inc.rests, d = r.map(([a, b]) => b - a); info(`${r.length} rest${r.length > 1 ? 's' : ''} between stages (${Math.round(Math.min(...d))}${Math.max(...d) - Math.min(...d) > 2 ? '–' + Math.round(Math.max(...d)) : ''} s)${ss.set && ss.set.inc && ss.set.inc.dropRests === false ? ' are kept in the threshold charts.' : ' are left out of the threshold charts and peak values.'}`); }
     if (I && I.plan) { info('Power comes from the steps you entered, not from a recording.'); const pl = ss.set && ss.set.plan; if (pl && F(pl.switchMin) && Math.abs(((pl.switchMin - (pl.warmMin || 0)) / pl.stageMin) % 1) > 0.01 && Math.abs(((pl.switchMin - (pl.warmMin || 0)) / pl.stageMin) % 1) < 0.99) warn(`The ${pl.shortMin || 1}-min stages start partway through a ${pl.stageMin}-min stage, so that stage is shorter. Check the time entered.`); }
     if (I && I.mode === 'treadmill' && g.aux && g.aux.grade) {
       // Only the test stages count: a walk at a different grade does not affect the results.

@@ -60,7 +60,8 @@
     const avgT = avgLabel().replace('breath-by-breath', 'breath-by-breath data');
     const joined = g.files ? ` The ${g.files.length} recordings of the session were aligned by their clock times.` : '';
     const skipped = pr.type === 'incremental' && set.inc.skip > 0 && !F(set.inc.t0) ? ` The first ${set.inc.skip} s of the first stage were left out of the threshold estimation.` : '';
-    const entered = I && I.plan ? ' Power was taken from the protocol entered by the researcher, not from a recording.' : '';
+    const rs = pr.type === 'incremental' && pr.inc && pr.inc.rests ? pr.inc.rests : [];
+    const entered = (I && I.edited ? ` The stages were checked and edited by hand by the researcher.` : I && I.plan ? ' Power was taken from the protocol entered by the researcher, not from a recording.' : '') + (rs.length ? ` The test had ${rs.length} rest${rs.length > 1 ? 's' : ''} between stages, which ${set.inc.dropRests === false ? 'were kept in' : 'were left out of'} the threshold analysis and peak values.` : '');
     const tool = ` Data were analysed with the Lab CPET tool (version ${VERSION}, created by ${AUTHOR}).`;
     const oxUsed = S.oxy && S.oxy.done && S.proto.type === 'incremental', fromOx = Object.entries((S.picks.incSrc) || {}).filter(e => /^Oxynet/.test(e[1]));
     const ox = oxUsed ? ` Suggestions from the Oxynet open-source models (pyoxynet; CNN and LSTM) were also available to the researcher, run on ${oxyName()} with flagged outlier breaths left out${fromOx.length ? `, and ${fromOx.map(e => `the ${e[1].replace('Oxynet ', '')} suggestion was used for ${e[0].toUpperCase()}`).join(' and ')}` : ''} (Zignoli et al., 2022; Keir et al., 2026).` : '';
