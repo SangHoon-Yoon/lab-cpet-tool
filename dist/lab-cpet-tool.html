@@ -232,6 +232,10 @@ body.stfs-on{overflow:hidden}
 #sForm details.adv{margin-top:8px}
 .sthint{margin:4px 0 8px;font-size:.85rem;border-left:3px solid var(--accent);padding:4px 10px;background:var(--accent-soft)}
 .stT td,.stT th{padding:3px 8px}
+.whatsnew{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:10px 16px 10px;margin-bottom:12px;font-size:.88rem}
+.whatsnew .wnhead{display:flex;gap:10px;align-items:baseline}.whatsnew .wnhead b{font-size:.98rem}
+.whatsnew .wnx{margin-left:auto;border:none;background:transparent;font-size:1.2rem;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}.whatsnew .wnx:hover{color:var(--accent)}
+.whatsnew ul{margin:6px 0 6px;padding-left:20px;display:grid;gap:3px}.whatsnew a{font-size:.82rem;color:var(--accent)}
 .choose{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px 10px;margin-bottom:12px}
 .choose h1{font-size:1.3rem;margin:0 0 10px}
 .chstep{margin:0 0 14px}
@@ -285,6 +289,7 @@ body.stfs-on{overflow:hidden}
 
 <div class="wrap"><main>
   <section id="start">
+    <aside class="whatsnew" id="whatsnew" hidden></aside>
     <div class="choose" id="choose">
       <h1>Start a test</h1>
       <div class="chstep"><h2><b>1</b> Which test?</h2>
@@ -1995,8 +2000,13 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.32.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.33.0', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
+  // "What's new" on the start page. Change the version and the points with a release worth telling people about;
+  // the box shows again for everyone whose browser has not closed this version's note.
+  const WHATS_NEW = { version: '0.33', points: [
+    'You can now change the stages visually. Open <b>Stages</b>, click <b>Unlock to edit</b>, then click a stage or rest on the chart to change its length, add a rest or a stage, or delete it. <b>Full screen</b> makes this easier.'
+  ] };
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -3950,6 +3960,13 @@ this.LabDocxParts = {"fontTable.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" 
     sel.closest('.tools').hidden = !list.length;
   }
   fillStartPresets();
+  // What's new: shown until it is closed, then again only when there is a newer note.
+  (() => {
+    const box = $('#whatsnew'), key = 'labcpet.whatsnew'; let seen = ''; try { seen = localStorage.getItem(key) || ''; } catch (e) { /* private window */ }
+    if (!box || seen === WHATS_NEW.version) return;
+    box.innerHTML = `<div class="wnhead"><b>What’s new</b><span class="hint">version ${VERSION}</span><button class="wnx" id="wnClose" aria-label="Close What’s new" title="Close">×</button></div><ul>${WHATS_NEW.points.map(p => `<li>${p}</li>`).join('')}</ul><a href="https://github.com/SangHoon-Yoon/lab-cpet-tool/blob/main/docs/HISTORY.md" target="_blank" rel="noopener">All changes</a>`;
+    box.hidden = false; $('#wnClose').onclick = () => { box.hidden = true; try { localStorage.setItem(key, WHATS_NEW.version); } catch (e) { /* private window */ } };
+  })();
   setupInfo();
   $('#sBox').addEventListener('toggle', () => { if ($('#sBox').open && S.D) drawStageChart(); });
   window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse, rows: lacRows }, _stRows: () => stageList(), _rep: { clientReport, researchReport } };

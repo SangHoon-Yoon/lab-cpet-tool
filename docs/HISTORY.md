@@ -1,67 +1,43 @@
-# History of changes
+# What has changed
 
-Newest first. Version numbers read major.minor.patch: the middle number goes up for new features, the last for fixes
-and small changes. The first stays 0 until the tool is ready for the whole lab. `git log` has every commit.
+The main changes to the Lab CPET tool, newest first. The version you are using is shown at the bottom of every page.
 
-| Date | Version | Change |
-| --- | --- | --- |
-| 2026-11-14 | 0.32.0 | LT1 starts at Bsln + 0.5 (Log-log when no resting value was entered); charts never zoom or pan past the start or end of the data |
-| 2026-11-14 | 0.31.0 | Stage chart: full width, and a full-screen mode (Esc to leave); clicking a stage, a rest or a table row selects it, and a bar above the chart lets you type its length (and power or speed), add a rest or a stage after it, or delete it; ⌘/⌥ + scroll and the arrow keys change the selected stage or rest wherever the pointer is; dragging across a stage no longer adds a rest. Blocks: Add block now starts the next block 1 min after the last (it was 60 min, past the end of the test), and Apply says when a block starts after the recording |
-| 2026-11-14 | 0.30.0 | Pinch (or Ctrl + scroll) zooms every chart; plain scrolling scrolls the page. On the stage chart, pinch zooms around the selected stage or rest; hovering shows each stage's and rest's length; clicking a rest selects it (Remove rest, or ← → to change it) instead of removing it at once; ⌘/⌥ + scroll and the arrow keys first round to a whole 5 s, then step by 5 s. On Windows, Alt + scroll changes lengths (Ctrl + scroll zooms) |
-| 2026-11-13 | 0.29.0 | Stage chart: height changed by dragging the bar under it; zoom with + and − buttons, Show all stages, or the strip under the chart (scrolling no longer zooms); ⌘, ⌥, Ctrl or Alt + scroll over a stage, a rest or a time in the table makes it 5 s longer or shorter (1 s with Shift); click a stage to select it, then arrow keys change its length or intensity and Delete removes it; the chart's home button works while editing; when locked, the chart says how to unlock |
-| 2026-11-13 | 0.28.0 | Stages has its own block with a chart editor: drag a red line to move a stage edge, drag the top of a stage to change its power or speed, drag across a stage to add a rest, click a rest to remove it, scroll to zoom; the pointer shows what each will do. VO₂ is drawn behind the stages. Same length and rest for every stage in one step. The steps and blocks forms moved into the block. Folding sections show a Show/Hide label and an arrow |
-| 2026-11-13 | 0.27.0 | Stage table under Test details: unlock to type or correct stages (start, length, rest after, intensity), add or remove stages, reset to original, undo; on the Protocol tab, Edit stages lets you drag a stage's edge. Tests with rests between stages (up to 2 min, stopped or walking) are read as one test, with the rests shaded and left out of the threshold analysis (optional). Entered steps take a rest between stages. When running or cycling was chosen, only km/h or W is offered |
-| 2026-11-13 | 0.26.0 | Start page asks which test, running or cycling, and which data (gas, lactate or both); the tabs follow the answers. Lactate only works with no gas file: enter the stages, type the lactate values, and get the thresholds and reports. The Summary table shows the speed or power at LT1 and LT2 |
-| 2026-11-13 | 0.25.2 | Heart rate in every stage table is the mean of the stage's last 30 s; report buttons say Generate |
-| 2026-11-13 | 0.25.1 | Lactate tab: chart height changed by dragging a bar under the chart, following the pointer; ticking methods no longer redraws the tab; "Reset to default"; the starting-method menus removed; stage heart rate is the mean of the last 30 s. Reports section laid out as a card for each report, each with its own figures |
-| 2026-11-13 | 0.25.0 | Lactate tab: chart under the table with LT1 and LT2 beside it; the chart marks only the two starting methods, with tick boxes for the others; arrow keys move up and down the table. Reports: optional end-tidal CO₂ (PETCO₂) figure; protocol text no longer reads an unfinished last stage as shorter stages. "Prolonged trial with step tests" renamed Durability test |
-| 2026-11-13 | 0.24.0 | Lactate tab: the settings above the charts work again (curve fit, baseline in the fit, starting methods, show every method); Enter moves down a row; Add a row stays in place above the table; no rows for shorter stages at the end; resting sample labelled Baseline on the x-axis; chart height can be changed. Reports: choose which figures go in each report. Threshold status wraps inside its box on narrow windows |
-| 2026-11-11 | 0.23.4 | "What to look for" reference charts at VT1 and VT2 (schematic, from the simulated model, based on Keir et al. 2022); example model refined (VE/VCO2, PETCO2 and PETO2 change before VT1, lactate flat until VT1); analysis-window chart framed |
-| 2026-11-11 | 0.22.0 | Try an example test (simulated incremental cycling test with lactate; not a real person) and download the example file; "a tool to help, not to rely on" caveat on the start page, Summary, footer, research report and README |
-| 2026-11-11 | 0.21.1 | Website live on GitHub Pages; report heading defaults to "Exercise test report" and is remembered per computer; institution, clinic name and participant codes removed from the public code and its history |
-| 2026-11-11 | 0.21.0 | Threshold status (suggested, not checked / checked) with Confirm buttons, shown in the summary, export and reports; code split into 16 parts (built file unchanged); MIT licence, citation file and website setup |
-| 2026-11-10 | 0.20.2 | Steps form closes after Apply and shows the applied steps; Data checks and Lab presets fold; Protocol panels resize while dragging |
-| 2026-11-10 | 0.20.1 | Heart rate, power at VT, export and report use the time a VT line was dragged to on a time chart |
-| 2026-11-10 | 0.20.0 | Leave out periods of bad data (all protocols); Protocol panels framed and resized by dragging; Oxynet ignores outlier breaths (fixes a file with extreme breaths); smooth line dragging on time charts; bolder tabs; prompt to enter steps; home button on the right |
-| 2026-11-10 | 0.19.0 | Lab presets (save, apply on load, export and import); guided steps; paste lactate from Excel |
-| 2026-11-10 | 0.18.1 | Lactate thresholds and copy buttons moved under the lactate chart |
-| 2026-11-10 | 0.18.0 | Word reports: client report from the clinic template, and a research report |
-| 2026-11-10 | 0.17.0 | Lactate tab with all lactater (Exphyslab) methods; LT lines; copy between LT and VT |
-| 2026-11-10 | 0.16.0 | Undo and redo (Ctrl+Z); warning before closing with unsaved work |
-| 2026-11-10 | 0.15.0 | Resizable Protocol panels; optional shorter stages; outlier rule in an i pop-up |
-| 2026-11-09 | 0.14.0 | Oxynet charts: Use these lines button and model explanations |
-| 2026-11-09 | 0.13.1 | Incremental tab renamed Thresholds and VO₂peak (or VO₂max) |
-| 2026-11-09 | 0.13.0 | Incremental: highlight the analysis window on a time chart |
-| 2026-11-09 | 0.12.3 | Shorter stages start at an intensity, with the same increment |
-| 2026-11-09 | 0.12.2 | Remove a wrongly added file; Test details start closed |
-| 2026-11-09 | 0.12.1 | Summary sections open and close |
-| 2026-11-09 | 0.12.0 | Editable highlights; i pop-ups for instructions |
-| 2026-11-09 | 0.11.0 | Step tests: a separate data range for each test |
-| 2026-11-09 | 0.10.0 | Step tests: choose data on a time chart; optional VT2 lines |
-| 2026-11-05 | 0.9.0 | Option to leave out the start of the first stage |
-| 2026-11-05 | 0.8.0 | Every incremental stage included by default |
-| 2026-11-05 | 0.7.0 | Home button on every figure |
-| 2026-11-05 | 0.6.0 | Threshold phase followed by a VO₂max phase |
-| 2026-11-04 | 0.5.0 | Protocol chart tools and outlier handling refined |
-| 2026-11-04 | 0.4.0 | Prolonged exercise analysis; live threshold dragging |
-| 2026-11-04 | 0.3.0 | First version in this repository: loading COSMED and Lode files, Protocol chart, incremental thresholds with Oxynet, step-test analysis (0.1 and 0.2 were earlier drafts) |
+## 0.27–0.33 · Editing the stages (November 2026)
 
-## Notes on some releases
+- A **Stages** block shows the stages over VO₂. You can change them visually or in a table: lengths, rests, power or
+  speed, and add or delete stages. Full screen makes this easier.
+- Tests with short rests between stages (for example, to take blood lactate) are read as one test. The rests are left
+  out of the threshold charts.
+- LT1 starts at Bsln + 0.5 (Log-log when there is no resting lactate).
+- Pinch to zoom on the charts; scrolling scrolls the page.
+- What's new on the start page.
 
-- **0.20.0 Oxynet and extreme breaths.** One sample file had single breaths with VO₂ of 0 and 10 L/min and PETCO₂ of
-  5 mmHg. Oxynet rescales each input to 0–1 using its minimum and maximum, so one extreme breath squeezed every
-  other value together and the suggestions went wrong. Oxynet input now always leaves out flagged outlier breaths.
-  On that file: CNN 3.73 / 3.87 L/min, LSTM 3.57 / 4.37 L/min (VT1 / VT2).
-- **0.20.1 Dragging on time charts.** The time axis maps to VO₂ through a cumulative maximum (so VO₂ never goes down).
-  Plateaus in that map made lines jump; the dragged time is now kept (`S.picks.incT`, helper `vtTime`) and used for
-  heart rate, power, export and reports.
-- **0.21.0 Code split.** `src/app.js` became 16 ordered parts in `src/app/`; the built file was checked byte-identical.
-- **0.21.1 Privacy clean-up.** The repository went public. A participant name fragment, participant codes and the
-  clinic name were removed from all files and the whole git history (rewritten and force-pushed); old workflow runs
-  were deleted. Sample files were renamed locally to match.
-- **0.23.x "What to look for".** Original schematic charts drawn from the example model, not copied from the paper
-  (the paper is not open access, so its figures are not reproduced). Shapes follow Keir et al. (2022) Fig. 2:
-  VE/VCO₂ falls to VT1, PETCO₂ rises to VT1 (axis 25–45 mmHg as in the paper), PETO₂ falls in a straight line to
-  VT1, lactate flat until VT1.
-- **After 0.23.4 (not a release).** Tests made portable (`test/paths.js`, `npm test`), and the user guide and this
-  history moved into the repository, to continue the work in Claude Code.
+## 0.24–0.26 · Lactate, reports and the start page (November 2026)
+
+- The start page asks which test, running or cycling, and which data you have. Lactate-only tests work without a gas
+  file.
+- The Lactate tab is easier to use: type down the table with Enter or the arrow keys, a larger chart, and only the
+  starting methods marked unless you choose more.
+- Heart rate for each stage is the mean of its last 30 s.
+- Choose which figures go in each Word report, including an end-tidal CO₂ chart.
+- "Prolonged trial with step tests" is now called **Durability test**.
+
+## 0.20–0.23 · Checking and sharing (November 2026)
+
+- Leave out periods of bad data.
+- Each threshold shows whether it is still the tool's suggestion or has been checked.
+- Oxynet suggestions are no longer thrown off by single extreme breaths.
+- Try an example test, and "What to look for" reference charts (based on Keir et al., 2022).
+- The tool is online, free to use under the MIT licence.
+
+## 0.15–0.19 · Lactate and reports (November 2026)
+
+- Lactate thresholds with all the lactater (Exphyslab) methods.
+- Word reports: a client report and a research report.
+- Undo and redo, lab presets and guided steps.
+
+## 0.3–0.14 · First versions (November 2026)
+
+- Load COSMED and Lode files, and see the whole test on the Protocol chart.
+- VT1, VT2 and VO₂peak for incremental tests, with Oxynet suggestions; tests with a separate VO₂max phase.
+- VT1 in each 5-step test, and analysis of prolonged exercise.

@@ -80,6 +80,13 @@
     sel.closest('.tools').hidden = !list.length;
   }
   fillStartPresets();
+  // What's new: shown until it is closed, then again only when there is a newer note.
+  (() => {
+    const box = $('#whatsnew'), key = 'labcpet.whatsnew'; let seen = ''; try { seen = localStorage.getItem(key) || ''; } catch (e) { /* private window */ }
+    if (!box || seen === WHATS_NEW.version) return;
+    box.innerHTML = `<div class="wnhead"><b>What’s new</b><span class="hint">version ${VERSION}</span><button class="wnx" id="wnClose" aria-label="Close What’s new" title="Close">×</button></div><ul>${WHATS_NEW.points.map(p => `<li>${p}</li>`).join('')}</ul><a href="https://github.com/SangHoon-Yoon/lab-cpet-tool/blob/main/docs/HISTORY.md" target="_blank" rel="noopener">All changes</a>`;
+    box.hidden = false; $('#wnClose').onclick = () => { box.hidden = true; try { localStorage.setItem(key, WHATS_NEW.version); } catch (e) { /* private window */ } };
+  })();
   setupInfo();
   $('#sBox').addEventListener('toggle', () => { if ($('#sBox').open && S.D) drawStageChart(); });
   window.LabApp = { S, recompute, results, methodsText, H, _lac: { series: lacSeries, analyse: lacAnalyse, rows: lacRows }, _stRows: () => stageList(), _rep: { clientReport, researchReport } };

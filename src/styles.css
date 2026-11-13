@@ -225,6 +225,10 @@ body.stfs-on{overflow:hidden}
 #sForm details.adv{margin-top:8px}
 .sthint{margin:4px 0 8px;font-size:.85rem;border-left:3px solid var(--accent);padding:4px 10px;background:var(--accent-soft)}
 .stT td,.stT th{padding:3px 8px}
+.whatsnew{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:10px 16px 10px;margin-bottom:12px;font-size:.88rem}
+.whatsnew .wnhead{display:flex;gap:10px;align-items:baseline}.whatsnew .wnhead b{font-size:.98rem}
+.whatsnew .wnx{margin-left:auto;border:none;background:transparent;font-size:1.2rem;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}.whatsnew .wnx:hover{color:var(--accent)}
+.whatsnew ul{margin:6px 0 6px;padding-left:20px;display:grid;gap:3px}.whatsnew a{font-size:.82rem;color:var(--accent)}
 .choose{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px 10px;margin-bottom:12px}
 .choose h1{font-size:1.3rem;margin:0 0 10px}
 .chstep{margin:0 0 14px}

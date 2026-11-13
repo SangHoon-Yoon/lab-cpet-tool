@@ -6,7 +6,9 @@ Read this first in every session. Technical notes only; this file is public.
 1. If `../lab-cpet-private` exists (Andrew's private repository, next to this folder; in a cloud session it may be
    attached separately), read its `CLAUDE.md`, then `notes/DECISIONS.md` and `notes/ROADMAP.md`. Decisions, plans
    and anything about participants, the institution or the clinic belong there, not here.
-2. `docs/HISTORY.md` lists every version; `docs/USER_GUIDE.md` is the user guide. Update them with each release.
+2. `docs/HISTORY.md` is a short public summary of changes, grouped and general (update it only for changes users would notice);
+   every version's details go in `../lab-cpet-private/notes/HISTORY_DETAILED.md`. `docs/USER_GUIDE.md` is the user guide.
+   Update them with each release.
 3. Sample files (participant data) are in `../lab-cpet-private/samples` (git-ignored there) or where `LABCPET_SAMPLES`
    points. Never copy them into this repository.
 4. `npm test` builds and runs everything (10–15 min); `node test/all.js e2e24` runs chosen browser tests.
@@ -39,10 +41,11 @@ threshold suggestions only assist; credit "created by SangHoon Yoon" and cite th
 - Licence MIT (© 2026 SangHoon Yoon); third-party notices in THIRD_PARTY_NOTICES.md. `.github/workflows/pages.yml` publishes dist to GitHub Pages on push to main once the repo is public.
 - Caveat ("a tool to help, not to rely on"): `CAVEAT` in 00-core; shown on the start page, Summary, footer, research report and README.
 - Plain, short user-facing text; no abbreviations unexplained.
+- "What's new" on the start page: `WHATS_NEW` in 00-core. Update its version and points (in Andrew's style: short, plain, direct) when a release changes results or how people work; the note reappears for everyone.
 
 ## Tests
 - Setup once: `npm install` then `npx playwright install chromium`. Python 3 is needed for `build.py`.
-- Everything: `npm test` (build, simulated files, unit tests, browser tests e2e … e2e28). Unit only: `npm run test:unit`.
+- Everything: `npm test` (build, simulated files, unit tests, browser tests e2e … e2e29). Unit only: `npm run test:unit`.
 - Paths come from `test/paths.js` (samples: `LABCPET_SAMPLES`, else `../lab-cpet-private/samples`, else `../samples`; downloads: `DL` or a temp folder).
 - Run the full set before sending a build; tests that read hidden boxes must be updated when the UI changes on purpose.
 - `test/oxy_ref.py` + `test/oxy_compare.js` compare with pyoxynet itself (needs Python with pyoxynet; optional).
