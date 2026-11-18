@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.33.4', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.33.5', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   // "What's new" on the start page. Change the version and the points with a release worth telling people about;
   // the box shows again for everyone whose browser has not closed this version's note.

@@ -258,7 +258,6 @@
         edges.push({ x: e, a: i, b: nx && Math.abs(nx.t0 - e) <= 1 ? i + 1 : null }); });
       edges.forEach(e => { e.k = shapes.length; shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: e.x / 60, x1: e.x / 60, y0: 0, y1: 1, line: { color: css('--accent'), width: 1.5 } }); });
     }
-    const pv0 = shapes.length; shapes.push({ type: 'rect', xref: 'x', yref: 'paper', x0: 0, x1: 0, y0: 0, y1: 1, fillcolor: css('--restfill'), line: { color: css('--accent'), width: 1, dash: 'dot' }, visible: false }, { type: 'line', xref: 'x', yref: 'y', x0: 0, x1: 0, y0: 0, y1: 0, line: { color: css('--accent'), width: 2, dash: 'dot' }, visible: false });
     const xr0 = S._stX || stDefaultX(rows), hasV = tr.length > 1, end = Math.max(g.blank ? 0 : g.t.at(-1), rows.length ? rows.at(-1).t0 + rows.at(-1).dur + 120 : 0) / 60;
     gd.style.height = H + 'px'; gd._xLim = [0, end]; // no view before the recording starts or after it ends
     const L3 = lay({ height: H, margin: { l: 56, r: hasV ? 56 : 14, t: on ? 48 : 34, b: 30 }, dragmode: on ? false : 'pan', showlegend: false, shapes, annotations: ann,
@@ -371,16 +370,19 @@
       if (h.kind === 'none') { if (sel || selR) { S._stSel = S._stRest = null; drawStageChart(); } return; }
       if (h.kind === 'rest') { S._stRest = h.r[2]; S._stSel = null; S._stX = xa().range.slice(); pop.hidden = true; return drawStageChart(); } // a click selects the rest
       const r = stageList(); void secAt; ov.setPointerCapture(ev.pointerId); ov._drag = true; let val = null, raf = 0;
-      const live = up => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; Plotly.relayout(gd, up); }); };
+      // While dragging, a light preview drawn over the chart (not a redraw of the chart, which flickered and left marks behind).
+      const gh = document.createElement('div'); gh.className = 'stghost ' + h.kind; ov.appendChild(gh); const pyBase = pyAt(0);
+      const show = () => { raf = 0; if (h.kind === 'edge') { gh.style.left = pxAt(val) - 1 + 'px'; } else if (h.kind === 'top') { const q = r[h.i], a = pxAt(q.t0), b = pxAt(q.t0 + q.dur), y = pyAt(val); gh.style.left = a + 'px'; gh.style.width = b - a + 'px'; gh.style.top = y + 'px'; gh.style.height = Math.max(0, pyBase - y) + 'px'; } };
+      const live = () => { if (!raf) raf = requestAnimationFrame(show); };
       let lo = 0, hi = Infinity;
       if (h.kind === 'edge') { const e = h.e; lo = e.a !== null ? r[e.a].t0 + 5 : e.b > 0 ? r[e.b - 1].t0 + r[e.b - 1].dur : 0; hi = e.b !== null ? r[e.b].t0 + r[e.b].dur - 5 : r[e.a + 1] ? r[e.a + 1].t0 : Infinity; }
       ov.onpointermove = m => {
         const [px, py] = local(m);
-        if (h.kind === 'edge') { val = Math.round(Math.max(lo, Math.min(hi, secAt(px)))); live({ [`shapes[${h.e.k}].x0`]: val / 60, [`shapes[${h.e.k}].x1`]: val / 60 }); tip(mmss(val), px, py); }
-        else if (h.kind === 'top') { const q = r[h.i]; val = snapP(ya().p2l(py)); live({ [`shapes[${pv0 + 1}]`]: { type: 'line', xref: 'x', yref: 'y', x0: q.t0 / 60, x1: (q.t0 + q.dur) / 60, y0: val, y1: val, line: { color: css('--accent'), width: 2, dash: 'dot' }, visible: true } }); tip(`${(+val).toFixed(dpU)} ${u}`, px, py); }
+        if (h.kind === 'edge') { val = Math.round(Math.max(lo, Math.min(hi, secAt(px)))); live(); tip(mmss(val), px, py); }
+        else if (h.kind === 'top') { val = snapP(ya().p2l(py)); live(); tip(`${(+val).toFixed(dpU)} ${u}`, px, py); }
       };
       ov.onpointerup = () => {
-        ov._drag = false; ov.onpointermove = null; ov.onpointerup = null; if (raf) cancelAnimationFrame(raf); pop.hidden = true;
+        ov._drag = false; gh.remove(); ov.onpointermove = null; ov.onpointerup = null; if (raf) cancelAnimationFrame(raf); pop.hidden = true;
         S._stX = xa().range.slice();
         if (val === null) { if (h.kind === 'cut' || h.kind === 'top') { S._stSel = h.i; S._stRest = null; const tr = $$('.stT tbody tr')[h.i]; if (tr && S._stSel !== null) tr.scrollIntoView({ block: 'nearest' }); } return drawStageChart(); } // a click selects (or clears) the stage
         if (h.kind === 'edge') { const e = h.e; if (Math.abs(val - e.x) < 0.5) return drawStageChart(); if (e.a !== null) r[e.a].dur = +(val - r[e.a].t0).toFixed(1); if (e.b !== null) { const end = r[e.b].t0 + r[e.b].dur; r[e.b].t0 = val; r[e.b].dur = +(end - val).toFixed(1); } return setStages(r, `Stage edge moved to ${mmss(val)}.`); }

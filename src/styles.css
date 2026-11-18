@@ -221,6 +221,9 @@ body.stfs-on{overflow:hidden}
 .stT tbody tr.on td{background:var(--accent-soft)}
 #stc .modebar-container{z-index:5}#stc .modebar{opacity:1!important}
 .stzoom{margin:0 0 6px}.stzoom button[data-sz]{min-width:2.2em}
+.stghost{position:absolute;pointer-events:none;z-index:1}
+.stghost.edge{top:0;bottom:0;width:2px;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.stghost.top{background:var(--accent-soft);border-top:2px solid var(--accent);border-radius:2px 2px 0 0}
 .stpop{position:absolute;z-index:3;pointer-events:none;white-space:pre-line!important;line-height:1.35;background:var(--fg);color:var(--bg);font-size:.75rem;padding:2px 7px;border-radius:4px;white-space:nowrap}
 .stside .tblwrap{max-height:360px;overflow:auto}
 .stT tbody tr{cursor:pointer}
