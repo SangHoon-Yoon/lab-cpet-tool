@@ -158,6 +158,12 @@
       if (ramp && (!longest || ramp.dur > durOf(longest))) out.inc = { ramp: true, stages: [], t0: ramp.t0, t1: ramp.t1, peak: ramp.p1 };
       else {
         const st = longest.map(q => ({ p: q.p, t0: q.t0, t1: q.t1, dur: q.dur, full: true, warm: false }));
+        // A last stage stopped early can be shorter than 20 s, so it is not in the run: take a higher plateau of 5 s or more
+        // that follows within 20 s. Short steps on the way up to it (the ergometer ramping) are part of it.
+        { const lastS = st.at(-1); let ramp = true;
+          for (const q of P) { if (q.t0 < lastS.t1 - 0.5) continue; if (q.t0 - lastS.t1 > 20) break;
+            if (q.p > lastS.p + tol && q.dur >= 5) { const t0 = ramp ? lastS.t1 : q.t0; st.push({ p: q.p, t0, t1: q.t1, dur: q.t1 - t0, full: true, warm: false }); break; }
+            if (q.p < lastS.p - tol) { if (q.dur >= 5) break; ramp = false; } } }
         if (firstIsWarm(st)) st[0].warm = true;
         if (st.length >= 2 && st.at(-1).dur < 0.5 * st.at(-2).dur) st.at(-1).full = false; // a final stage cut short
         if (F(I.warmEnd) && I.warmEnd > 0) st.forEach(q => { if (q.t1 <= I.warmEnd + 1) q.warm = true; });

@@ -45,11 +45,24 @@
     const hasLac = !!(res && res.fit), src = rep.src === 'gas' || !hasLac ? 'gas' : 'lactate';
     const rows = se ? lacRows(se) : { base: {}, rows: [] };
     const thr = ['1', '2'].map(n => { const p = src === 'lactate' ? ltVal(se, res, 'lt' + n) : (() => { const v = incVT('vt' + n); return F(v) && D.fit ? D.fit.m * v + D.fit.b : NaN; })(); return p; });
-    const stRows = rows.rows.filter(r => r.extra === undefined), hrP = stRows.filter(r => F(r.hr)).map(r => r.stageP), hrV = stRows.filter(r => F(r.hr)).map(r => r.hr);
+    // Every stage of the test, including shorter stages with no lactate row: lactate, heart rate and RPE where there are any.
+    const tst = pr.inc && !pr.inc.none ? pr.inc.stages : [], byI = new Map(rows.rows.filter(r => r.extra === undefined).map(r => [r.i, r]));
+    const allRows = tst.map((q, i) => { const r = byI.get(i) || {}; return { stageP: q.p, part: i === tst.length - 1 && !q.full, la: r.la, hr: F(r.hr) ? r.hr : Math.round(stageHR(q)), rpe: F(r.rpe) ? r.rpe : D.rpe[i], warm: q.warm, dur: q.dur }; });
+    const stRows = allRows.filter(r => !r.part && !r.warm), hrP = stRows.filter(r => F(r.hr)).map(r => r.stageP), hrV = stRows.filter(r => F(r.hr)).map(r => r.hr);
     const lin = hrP.length >= 2 ? C.linreg(hrP, hrV) : null, hrAt = p => (lin && F(p) ? lin.m * p + lin.b : NaN), rpeAt = p => interpAt(stRows.map(r => r.stageP), stRows.map(r => r.rpe), p);
     const st = pr.max ? pr.max.stages : pr.inc.stages, last = st.at(-1), full = st.filter(q => q.full).length, partial = last && !last.full;
     const maxRows = pr.max ? pr.max.stages.map((q, i) => ({ stageP: q.p, part: !q.full, hr: Math.round(stageHR(q)), rpe: D.maxRpe[i], la: NaN })) : [];
-    return { pr, I, D, rep, se, res, isRun, src, hasLac, rows, stRows, maxRows, thr, hrAt, rpeAt, full, partial, last, st, maxHr: D.peak.hr ? D.peak.hr.value : NaN };
+    return { pr, I, D, rep, se, res, isRun, src, hasLac, rows, stRows, allRows, maxRows, thr, hrAt, rpeAt, full, partial, last, st, maxHr: D.peak.hr ? D.peak.hr.value : NaN };
+  }
+  // "You completed 7 three-minute stages and 1 one-minute stage, and stopped 0:24 into the next one-minute stage (375 W)."
+  const minWord = s => { const m = Math.round(s / 60), w = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][m]; return Math.abs(s - m * 60) <= 10 && w ? w + '-minute' : mmss(s); };
+  function stagesSentence(st, partial, phase, fmt) {
+    const done = partial ? st.slice(0, -1) : st, blocks = [];
+    done.forEach(q => { const b = blocks.at(-1); if (b && Math.abs(q.dur - b.dur) <= 20) b.n++; else blocks.push({ dur: q.dur, n: 1 }); });
+    const parts = blocks.map(b => `${b.n} ${minWord(b.dur)} stage${b.n > 1 ? 's' : ''}`), list = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts.at(-1) : parts[0] || '';
+    if (!partial) return `You completed ${blocks.length > 1 ? list : 'all ' + list}${phase}, finishing at ${fmt(st.at(-1))}.`;
+    const last = st.at(-1), next = blocks.at(-1);
+    return `You completed ${list || 'no full stages'}${phase}, and stopped at ${mmss(last.dur)} into the next${next ? ' ' + minWord(next.dur) : ''} stage (${fmt(last)}).`;
   }
   async function clientReport() {
     const c = clientData(), { I, D, rep, isRun, thr } = c, u = I.unit, dp = isRun ? 1 : 0, doc = DX.doc(), B = doc.body, red = 'EE0000';
@@ -62,35 +75,40 @@
     void lab;
     B.push(DX.para('', { after: 0 }), DX.heading('Raw data'));
     const phase = c.pr.max ? ' of the VO₂max test' : '';
-    const lastTxt = c.partial ? `You completed ${c.full} full stages${phase} and stopped at ${mmss(c.last.dur)} into the ${ordinal(c.st.length)} stage (${v(c.last.p, dp)} ${u}).` : `You completed all ${c.full} stages${phase}, finishing at ${v(c.last.p, dp)} ${u}.`;
+    const lastTxt = stagesSentence(c.st.filter(q => !q.warm), c.partial, phase, q => `${v(q.p, dp)} ${u}`);
     B.push(DX.para(`${lastTxt}${F(c.maxHr) ? ` Your maximum heart rate was ${Math.round(c.maxHr)} bpm.` : ''}`, { jc: 'both' }));
     const H = { fill: '1F3864', header: true, topLine: true, bottomLine: true }, alt = i => (i % 2 === 0 ? 'DAE9F7' : undefined);
     const raw = [{ ...H, cells: [isRun ? 'Speed (km/h)' : 'Power (W)', 'Lactate (mmol/L)', 'HR (bpm)', 'RPE (6–20)'].map(t => ({ text: t })) }];
     raw.push({ fill: alt(0), topLine: true, cells: [{ text: 'Baseline' }, { text: v(c.rows.base.la, 1) }, { text: v(c.rows.base.hr, 0) }, { text: '' }] });
     const rawRow = (r, i) => raw.push({ fill: alt(i), cells: [{ text: v(r.stageP, dp) + (r.part ? ' (part)' : '') }, { text: F(r.la) ? v(r.la, 1) : '' }, { text: v(r.hr, 0) }, { text: F(r.rpe) ? String(r.rpe) : '' }] });
-    c.stRows.forEach((r, i) => rawRow(r, i + 1));
+    c.allRows.filter(r => !r.warm).forEach((r, i) => rawRow(r, i + 1));
     if (c.maxRows.length) { raw.push({ topLine: true, cells: [{ text: 'VO₂max test', span: 4, i: true }] }); c.maxRows.forEach((r, i) => rawRow(r, i + 1)); }
     B.push(DX.table(raw, [1992, 1992, 1992, 1993], { lastLine: true }));
+    // VO₂peak (or VO₂max) straight after the raw data, before the thresholds
+    const pk = D.peak.vo2kg, mx = S.proto.max ? 'VO₂max' : 'VO₂peak';
+    if (!S.gas.blank) B.push(DX.para('', { after: 0 }), DX.heading(mx));
+    if (!S.gas.blank) B.push(DX.para(pk ? `Your ${S.proto.max ? 'maximum' : 'peak'} rate of oxygen uptake (${mx}) was ${pk.value.toFixed(1)} ml/kg/min.` : 'Oxygen uptake was not available.', { jc: 'both' }));
     B.push(DX.para('', { after: 0 }), DX.heading('Thresholds'));
     const what = c.src === 'lactate' ? ['lactate data', 'lactate thresholds', 'LT'] : ['breathing (gas) data', 'ventilatory thresholds', 'VT'];
     const both = F(thr[0]) && F(thr[1]), one = F(thr[0]) ? 0 : F(thr[1]) ? 1 : -1, what1 = what[1].replace(/s$/, ''), sp = isRun ? 'running speed' : 'power output';
     B.push(DX.para(both ? `Using the ${what[0]}, your ${sp}s corresponding to the first and second ${what[1]} were calculated as ${v(thr[0], dp)} ${u} and ${v(thr[1], dp)} ${u}, respectively.` : one >= 0 ? `Using the ${what[0]}, your ${sp} at the ${one ? 'second' : 'first'} ${what1} was calculated as ${v(thr[one], dp)} ${u}. The ${one ? 'first' : 'second'} ${what1} could not be determined from this test.` : `The ${what[1]} could not be determined from this test.`, { jc: 'both' }));
-    const h1 = c.hrAt(thr[0]), h2 = c.hrAt(thr[1]), r1 = c.rpeAt(thr[0]), r2 = c.rpeAt(thr[1]), rr = x => (F(x) ? String(Math.round(x)) : '–'), hh = x => (F(x) ? String(Math.round(x)) : '–');
-    const zh = [{ ...H, cells: ['Intensity', isRun ? 'Speed (km/h)' : 'Power (W)', ...(isRun ? ['Speed (min/km)'] : []), 'HR (bpm)', 'RPE (6–20)'].map(t => ({ text: t })) }];
-    const z = (name, fill, a, pc, hr, rpe, top) => ({ fill, topLine: top, cells: [{ text: name }, { text: a }, ...(isRun ? [{ text: pc }] : []), { text: hr }, { text: rpe }] });
+    // Intensity domains named as in exercise physiology: moderate (below the first threshold), heavy (between them), severe (above the second).
+    const h1 = c.hrAt(thr[0]), h2 = c.hrAt(thr[1]), hh = x => (F(x) ? String(Math.round(x)) : '–');
+    const zh = [{ ...H, cells: ['Intensity', isRun ? 'Speed (km/h)' : 'Power (W)', ...(isRun ? ['Speed (min/km)'] : []), 'HR (bpm)'].map(t => ({ text: t })) }];
+    const z = (name, fill, a, pc, hr, top) => ({ fill, topLine: top, cells: [{ text: name }, { text: a }, ...(isRun ? [{ text: pc }] : []), { text: hr }] });
     if (both) {
-      zh.push(z('Light', 'E2EFDA', `< ${v(thr[0], dp)}`, `> ${pace(thr[0])}`, `< ${hh(h1)}`, `< ${rr(r1)}`, true));
-      zh.push(z('Moderate', 'FFF2CC', `${v(thr[0], dp)} – ${v(thr[1], dp)}`, `${pace(thr[1])} – ${pace(thr[0])}`, `${hh(h1)} – ${hh(h2)}`, `${rr(r1)} – ${rr(r2)}`));
-      zh.push(z('Hard', 'FCE4D6', `> ${v(thr[1], dp)}`, `< ${pace(thr[1])}`, `> ${hh(h2)}`, `> ${rr(r2)}`));
+      zh.push(z('Moderate', 'E2EFDA', `< ${v(thr[0], dp)}`, `> ${pace(thr[0])}`, `< ${hh(h1)}`, true));
+      zh.push(z('Heavy', 'FFF2CC', `${v(thr[0], dp)} – ${v(thr[1], dp)}`, `${pace(thr[1])} – ${pace(thr[0])}`, `${hh(h1)} – ${hh(h2)}`));
+      zh.push(z('Severe', 'FCE4D6', `> ${v(thr[1], dp)}`, `< ${pace(thr[1])}`, `> ${hh(h2)}`));
     } else if (one === 0) {
-      zh.push(z('Light', 'E2EFDA', `< ${v(thr[0], dp)}`, `> ${pace(thr[0])}`, `< ${hh(h1)}`, `< ${rr(r1)}`, true));
-      zh.push(z('Moderate and hard', 'FFF2CC', `> ${v(thr[0], dp)}`, `< ${pace(thr[0])}`, `> ${hh(h1)}`, `> ${rr(r1)}`));
+      zh.push(z('Moderate', 'E2EFDA', `< ${v(thr[0], dp)}`, `> ${pace(thr[0])}`, `< ${hh(h1)}`, true));
+      zh.push(z('Heavy and severe', 'FFF2CC', `> ${v(thr[0], dp)}`, `< ${pace(thr[0])}`, `> ${hh(h1)}`));
     } else if (one === 1) {
-      zh.push(z('Light and moderate', 'E2EFDA', `< ${v(thr[1], dp)}`, `> ${pace(thr[1])}`, `< ${hh(h2)}`, `< ${rr(r2)}`, true));
-      zh.push(z('Hard', 'FCE4D6', `> ${v(thr[1], dp)}`, `< ${pace(thr[1])}`, `> ${hh(h2)}`, `> ${rr(r2)}`));
+      zh.push(z('Moderate and heavy', 'E2EFDA', `< ${v(thr[1], dp)}`, `> ${pace(thr[1])}`, `< ${hh(h2)}`, true));
+      zh.push(z('Severe', 'FCE4D6', `> ${v(thr[1], dp)}`, `< ${pace(thr[1])}`, `> ${hh(h2)}`));
     }
-    if (zh.length > 1) B.push(DX.table(zh, isRun ? [1900, 1500, 1500, 1500, 1500] : [2100, 1950, 1950, 1950], { lastLine: true }));
-    B.push(DX.para(DX.rich('HR, heart rate; RPE, rating of perceived exertion.', { i: true, sz: 11 }), { after: 6 }));
+    if (zh.length > 1) B.push(DX.table(zh, isRun ? [2100, 1950, 1950, 1950] : [2700, 2600, 2600], { lastLine: true }));
+    B.push(DX.para(DX.rich('HR, heart rate.', { i: true, sz: 11 }), { after: 6 }));
     // figures: by default the one that matches the thresholds used; the Reports form can add or remove either
     const fg = repFigs(c.hasLac).client;
     if (fg.lac && c.hasLac) {
@@ -108,9 +126,6 @@
       B.push(DX.picture(doc, await petFigure(600, 380), 600, 380, 14, { frame: true }));
       B.push(DX.para(DX.rich('VT1, ventilatory threshold 1; VT2, ventilatory threshold 2; PETCO₂, end-tidal carbon dioxide pressure', { i: true, sz: 11 })));
     }
-    const pk = D.peak.vo2kg, mx = S.proto.max ? 'VO₂max' : 'VO₂peak';
-    if (!S.gas.blank) B.push(DX.para('', { after: 0 }), DX.heading(mx));
-    if (!S.gas.blank) B.push(DX.para(pk ? `Your ${S.proto.max ? 'maximum' : 'peak'} rate of oxygen uptake (${mx}) was ${pk.value.toFixed(1)} ml/kg/min.` : 'Oxygen uptake was not available.', { jc: 'both' }));
     return DX.pack(doc, { title: (rep.title || 'Report') + ' – ' + m.name, creator: rep.tester || 'Lab CPET tool', a4: true });
   }
   async function researchReport() {
@@ -163,7 +178,7 @@
     return `<div class="repform">${f('rTitle', 'Report heading', rep.title)}${f('rTester', 'Tester', rep.tester)}${f('rDob', 'Date of birth', rep.dob)}${f('rHt', 'Height (cm)', rep.height)}
         <label style="grid-column:1/-1">Protocol, as written in the report<textarea id="rProt" rows="2">${esc(rep.protocol || (inc ? protocolText() : ''))}</textarea></label></div>
       <div class="repcards">
-        <div class="repcard"><h4>Client report</h4><p class="hint">${inc ? 'One or two pages in everyday language, with training zones.' : 'Only for incremental tests.'}</p>
+        <div class="repcard"><h4>Client report</h4><p class="hint">${inc ? 'One or two pages in everyday language, with the moderate, heavy and severe intensity domains.' : 'Only for incremental tests.'}</p>
           <div class="repsrc"><span>Thresholds from</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''} ${S.gas.blank ? 'disabled' : ''}>Gas (VT1, VT2)</option></select></div>
           ${figs('c', fg.client, !hasLac)}<button id="rClient" ${!inc ? 'disabled title="The client report is for incremental tests"' : noG && !hasLac ? 'disabled title="Enter the lactate values first"' : ''}>Generate the client report (Word)</button></div>
         <div class="repcard"><h4>Research report</h4><p class="hint">Peak values, thresholds with their status, stage tables and methods.</p>

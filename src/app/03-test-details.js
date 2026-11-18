@@ -103,7 +103,10 @@
     if (S.set.stages) return S.set.stages.list.map(q => Object.assign({}, q));
     if (!S.I) return [];
     const minV = S.I.unit === 'W' ? 20 : 2, rests = (S.proto.inc && S.proto.inc.rests) || [], end = Math.max(S.gas.t.at(-1), 1);
-    return C.plateaus(S.I).filter(q => q.p > minV && q.dur >= 10 && q.t0 < end && !rests.some(([a, b]) => q.t0 >= a - 1 && q.t1 <= b + 1)).map(q => ({ t0: +q.t0.toFixed(1), dur: +(Math.min(q.t1, end) - q.t0).toFixed(1), p: +q.p.toFixed(2) }));
+    const out = C.plateaus(S.I).filter(q => q.p > minV && q.dur >= 10 && q.t0 < end && !rests.some(([a, b]) => q.t0 >= a - 1 && q.t1 <= b + 1)).map(q => ({ t0: +q.t0.toFixed(1), dur: +(Math.min(q.t1, end) - q.t0).toFixed(1), p: +q.p.toFixed(2) }));
+    // a gap under 10 s between a stage and a higher one is the ergometer stepping up, not a rest: the next stage starts there
+    out.forEach((q, i) => { const nx = out[i + 1]; if (nx && nx.p > q.p) { const gap = nx.t0 - (q.t0 + q.dur); if (gap > 0 && gap < 10) { nx.dur = +(nx.dur + gap).toFixed(1); nx.t0 = +(q.t0 + q.dur).toFixed(1); } } });
+    return out;
   }
   // m:ss, or a number of minutes (3 → 3:00, 0.5 → 0:30)
   const parseT = s => { s = String(s).trim().replace(',', '.'); if (!s) return NaN; if (s.includes(':')) { const [m, x] = s.split(':'); return (parseFloat(m) || 0) * 60 + (parseFloat(x) || 0); } return parseFloat(s) * 60; };

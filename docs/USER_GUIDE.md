@@ -2,7 +2,7 @@
 
 > This copy lives in the repository and is the one to keep up to date. (It began as a Claude Doc.)
 
-Version 0.33.1 · Created by SangHoon Yoon · Nov 4, 2026
+Version 0.33.3 · Created by SangHoon Yoon · Nov 4, 2026
 
 ## **Before you start**
 
@@ -261,10 +261,10 @@ On the **Summary** tab, open **Reports**.
 1. Check the report heading, tester, date of birth, height and the protocol text. The tester is remembered on your computer for next time.
 2. Each report has its own box. In the **Client report** box, choose whether it uses the lactate thresholds or the gas thresholds.
    In each box, tick the figures that report should include: the breathing chart (VE/VO₂ and VE/VCO₂ against time, with VT1 and VT2), the lactate curve (with LT1 and LT2) and the end-tidal CO₂ chart (PETCO₂ against time; off unless you tick it). Unless you change them, the client report gets the figure that matches its thresholds and the research report gets both.
-3. Click **Generate the client report (Word)** for the 1–2 page clinic report in everyday language, with training zones, or **Generate the research report (Word)** for peak values, thresholds, stage tables, figures and the methods paragraph.
+3. Click **Generate the client report (Word)** for the 1–2 page clinic report in everyday language, with the moderate, heavy and severe intensity domains (power or speed, and heart rate), or **Generate the research report (Word)** for peak values, thresholds, stage tables, figures and the methods paragraph.
 4. Open the file in Word and check the wording before sending it.
 
-The client report is only for incremental tests. If a threshold could not be found, the report says so and adjusts the zones.
+The client report is only for incremental tests. If a threshold could not be found, the report says so and joins the domains on either side (for example, moderate and heavy).
 
 ## **Save and export your work**
 
