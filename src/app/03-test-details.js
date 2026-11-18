@@ -328,7 +328,7 @@
       if (sel) typed($('#stbP'), () => { const v = parseFloat($('#stbP').value), r = stageList(); if (!(v > 0)) return; r[i].p = v; S._stX = xa().range.slice(); setStages(r, `Stage ${i + 1}: ${v} ${u}.`); });
       if ($('#stAddR')) $('#stAddR').onclick = () => { const r = stageList(); r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + 30).toFixed(1))); S._stSel = null; S._stRest = i; S._stX = xa().range.slice(); setStages(r, `A 30-s rest added after stage ${i + 1}. Type its length in the bar, or hold ${MOD} and scroll.`); };
       if ($('#stAddS')) $('#stAddS').onclick = () => { const r = stageList(), q = r[i], pv = r[i - 1], incs = r.slice(1).map((x, k) => x.p - r[k].p).filter(d => d > 0), inc = incs.length ? C.median(incs) : (pv ? q.p - pv.p : 0), gap = r[i + 1] ? Math.max(0, r[i + 1].t0 - q.t0 - q.dur) : 0;
-        const nq = { t0: +(q.t0 + q.dur + gap).toFixed(1), dur: q.dur, p: +(r[i + 1] ? q.p : q.p + inc).toFixed(2) }; r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + q.dur + gap).toFixed(1))); r.splice(i + 1, 0, nq); S._stSel = i + 1; S._stRest = null; S._stX = xa().range.slice();
+        const nq = { t0: +(q.t0 + q.dur + gap).toFixed(1), dur: q.dur, p: +(r[i + 1] ? (q.p + r[i + 1].p) / 2 : q.p + inc).toFixed(2) }; /* between two stages: halfway between their intensities, so it never merges with either */ r.slice(i + 1).forEach(x => (x.t0 = +(x.t0 + q.dur + gap).toFixed(1))); r.splice(i + 1, 0, nq); S._stSel = i + 1; S._stRest = null; S._stX = xa().range.slice();
         setStages(r, `Stage ${i + 2} added after stage ${i + 1}${r[i + 2] ? '; the later stages moved along' : ''}. Type its ${lab.toLowerCase()} in the bar.`); };
     }
     function delSel() {

@@ -2,7 +2,7 @@
 
 > This copy lives in the repository and is the one to keep up to date. (It began as a Claude Doc.)
 
-Version 0.33.3 · Created by SangHoon Yoon · Nov 4, 2026
+Version 0.33.4 · Created by SangHoon Yoon · Nov 4, 2026
 
 ## **Before you start**
 
