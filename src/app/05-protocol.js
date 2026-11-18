@@ -1,4 +1,9 @@
   /* ---------------- Plot helpers ---------------- */
+  // Every chart follows the size of its box, not only the window: Plotly by itself resizes only when the window does, so a
+  // box that narrows for another reason (a scrollbar appearing, a side pane, the page layout changing) left the chart too
+  // wide, spilling over whatever was beside it. A ResizeObserver on each chart catches every change.
+  const sizeRO = new ResizeObserver(es => es.forEach(e => { const gd = e.target; if (!gd._fullLayout || !gd.isConnected || gd._roRaf) return; gd._roRaf = requestAnimationFrame(() => { gd._roRaf = 0; if (gd._fullLayout && gd.isConnected && Math.abs(gd._fullLayout.width - gd.clientWidth) > 1) Plotly.Plots.resize(gd).catch(() => { }); }); }));
+  ['newPlot', 'react'].forEach(fn => { const orig = Plotly[fn]; Plotly[fn] = function (gd, ...rest) { const el = typeof gd === 'string' ? document.getElementById(gd) : gd; const p = orig.call(this, gd, ...rest); if (el && !el._sizeRO && el.isConnected && !(el.style.left || '').startsWith('-')) { el._sizeRO = true; sizeRO.observe(el); } return p; }; });
   const CFG = { responsive: true, displaylogo: false, displayModeBar: true, scrollZoom: false, showTips: false, doubleClick: false, modeBarButtons: [['pan2d', 'zoom2d', 'zoomIn2d', 'zoomOut2d', 'resetScale2d']] };
   const FIGCFG = Object.assign({}, CFG, { modeBarButtons: [['resetScale2d']] }); // every figure has a home button that zooms all the way out
   /* Pinch to zoom, on every chart. A trackpad pinch reaches the page as a scroll with Ctrl held (Safari sends gesture events instead).
