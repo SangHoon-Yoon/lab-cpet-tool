@@ -49,7 +49,7 @@ Export breath-by-breath COSMED files when you can. They allow the most averaging
 | Read exact values | Move the cursor over the chart; values appear above it |
 | Change the smoothing | Use the Averaging menu |
 
-The line under the chart gives the mean ± SD of what is currently in view. Every chart in the tool has a home button at its top right that zooms all the way out. For instructions and notes on any tab, click the round i button next to a heading or setting. To make one panel of the Protocol chart taller or shorter, drag its top or bottom edge; the other panels keep their size. To leave out noisy or wrong data, click Leave out a period above the Protocol chart and drag across the data. It is dropped from every calculation on every tab and listed in Data checks, the export and the methods paragraph; click × on the period to put it back.
+The line under the chart gives the mean ± SD of what is currently in view. Every chart in the tool has a home button at its top right that zooms all the way out. For instructions and notes on any tab, click the round i button next to a heading or setting. To make one panel of the Protocol chart taller or shorter, drag its top or bottom edge; the other panels keep their size. To leave out noisy or wrong data, click Leave out a period above the Protocol chart and drag across the data. It is dropped from every calculation on every tab and listed in Data checks, the export and the methods paragraph on the Summary tab; click × on the period to put it back.
 
 **Threshold status.** Every threshold shows **suggested, not checked** until you move it, type a value, pick a method for it, or click **Confirm**; then it shows **✓ checked**. The Summary tab lists any threshold that is still a suggestion, and the export and research report carry the status, so an unreviewed suggestion never slips into a dataset unnoticed.
 
@@ -261,7 +261,7 @@ On the **Summary** tab, open **Reports**.
 1. Check the report heading, tester, date of birth, height and the protocol text. The tester is remembered on your computer for next time.
 2. Each report has its own box. In the **Client report** box, choose whether it uses the lactate thresholds or the gas thresholds.
    In each box, tick the figures that report should include: the breathing chart (VE/VO₂ and VE/VCO₂ against time, with VT1 and VT2), the lactate curve (with LT1 and LT2) and the end-tidal CO₂ chart (PETCO₂ against time; off unless you tick it). Unless you change them, the client report gets the figure that matches its thresholds and the research report gets both.
-3. Click **Generate the client report (Word)** for the 1–2 page clinic report in everyday language, with the moderate, heavy and severe intensity domains (power or speed, and heart rate), or **Generate the research report (Word)** for peak values, thresholds, stage tables, figures and the methods paragraph.
+3. Click **Generate the client report (Word)** for the 1–2 page clinic report in everyday language, with the moderate, heavy and severe intensity domains (power or speed, and heart rate), or **Generate the research report (Word)** for peak values, thresholds, stage tables and figures (the methods paragraph is on the Summary tab).
 4. Open the file in Word and check the wording before sending it.
 
 The client report is only for incremental tests. If a threshold could not be found, the report says so and joins the domains on either side (for example, moderate and heavy).

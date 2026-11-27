@@ -1,7 +1,7 @@
 /* Lab CPET tool — browser app. Depends on Plotly, XLSX, GDParse, GDCore, LabCore. */
 (function () {
   'use strict';
-  const VERSION = '0.33.5', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
+  const VERSION = '0.33.7', CAVEAT = 'This tool helps with the analysis but should not be relied on alone. Suggested thresholds and fits only assist: always look at the data yourself, place and check every threshold, and confirm results against your usual method.', AUTHOR = 'SangHoon Yoon';
   const P = GDParse, C = GDCore, L = LabCore, F = Number.isFinite;
   // "What's new" on the start page. Change the version and the points with a release worth telling people about;
   // the box shows again for everyone whose browser has not closed this version's note.
@@ -30,7 +30,7 @@
 
   const defaults = () => ({
     source: null, offset: 0, type: null, blocks: null, plan: null, stages: null, excluded: [], leaveOut: [], oxyWin: 'analysis', fits: {},
-    outl: { local: true, nsd: 4, half: 5, vars: ['vo2', 'vco2', 've'], limits: true, rfMin: 5, rfMax: 100, vtMin: 0.3, remove: false, show: false },
+    outl: { local: true, nsd: 4, half: 5, vars: ['vo2', 'vco2', 've'], limits: true, rfMin: 5, rfMax: 100, vtMin: 0.3, remove: false },
     avg: { mode: 'bin', bin: 15, ma: 7, roll: 15 },
     view: { vars: ['vo2', 'hr', 've'], h: {} },
     inc: { t0: null, t1: null, skip: 0, selVar: 'vo2', stageWin: 60, peakWin: 30, x: 'vo2', dropRests: true },

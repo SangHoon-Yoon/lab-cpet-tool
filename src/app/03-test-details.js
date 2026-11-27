@@ -409,16 +409,15 @@
         <div class="tools">${modes.map(([m, l]) => `<button data-am="${m}" aria-pressed="${av.mode === m}">${l}</button>`).join('')}
         ${av.mode === 'raw' ? '' : `<label class="chk"><input type="number" min="1" step="1" id="aPar" value="${avgParOf(S.set)}" style="width:4.5em"> ${av.mode === 'ma' ? unit : 's'}</label>`}</div></div>
       <div class="step"><h4>Outliers</h4>
-        <div class="tools"><label class="chk"><input type="checkbox" id="oLocal" ${o.local ? 'checked' : ''}>Flag outliers</label>
+        <div class="tools"><label class="chk"><input type="checkbox" id="oLocal" ${o.local ? 'checked' : ''}>Flag and show outliers</label>
         <select id="oNsd" ${o.local ? '' : 'disabled'}><option value="3">Strict (3 SD)</option><option value="4">Standard (4 SD)</option><option value="5">Lenient (5 SD)</option></select>
-        <label class="chk"><input type="checkbox" id="oRem" ${o.remove ? 'checked' : ''} ${o.local ? '' : 'disabled'}>Remove flagged ${unit}</label>
-        <label class="chk"><input type="checkbox" id="oShow" ${o.show && !o.remove && o.local ? 'checked' : ''} ${o.remove || !o.local ? 'disabled' : ''}>Show them on the Protocol chart</label><span id="outlInfo"></span></div>
-        <p class="hint" data-info="outlInfo">${o.local ? `A ${bxb ? 'breath' : 'sample'} is flagged if VO₂, VCO₂ or VE is more than ${o.nsd} SD from the mean of the 5 ${unit} on each side${bxb ? `, breathing frequency is outside ${o.rfMin}–${o.rfMax} breaths/min, or tidal volume is under ${o.vtMin} L` : ''}. Flagged ${unit} stay in every calculation unless you remove them; removed ${unit} also leave the charts.` : 'Flagging is off, so every recorded ' + (bxb ? 'breath' : 'sample') + ' is used.'} ${unit[0].toUpperCase() + unit.slice(1)} with no VO₂ are always left out.</p></div>`;
+        <label class="chk"><input type="checkbox" id="oRem" ${o.remove ? 'checked' : ''} ${o.local ? '' : 'disabled'}>Remove flagged ${unit}</label><span id="outlInfo"></span></div>
+        <p class="hint" data-info="outlInfo">${o.local ? `A ${bxb ? 'breath' : 'sample'} is flagged if VO₂, VCO₂ or VE is more than ${o.nsd} SD from the mean of the 5 ${unit} on each side${bxb ? `, breathing frequency is outside ${o.rfMin}–${o.rfMax} breaths/min, or tidal volume is under ${o.vtMin} L` : ''}. Flagged ${unit} are marked with a red × on the Protocol chart and stay in every calculation unless you remove them; removed ${unit} also leave the charts.` : 'Flagging is off, so every recorded ' + (bxb ? 'breath' : 'sample') + ' is used.'} ${unit[0].toUpperCase() + unit.slice(1)} with no VO₂ are always left out.</p></div>`;
     $('#oNsd').value = String(o.nsd);
     $$('[data-am]').forEach(b => (b.onclick = () => { av.mode = b.dataset.am; if (S.gas.kind === 'avg' && av.mode === 'bin' && av.bin < S.gas.avgWidth) av.bin = S.gas.avgWidth; buildProc(); recompute(); }));
     on('#aPar', e => { const v = Math.max(1, parseFloat(e.target.value) || 1); if (av.mode === 'bin') av.bin = Math.max(v, S.gas.kind === 'avg' ? S.gas.avgWidth : 1); else if (av.mode === 'ma') av.ma = Math.round(v); else av.roll = v; buildProc(); recompute(); });
     on('#oLocal', e => { o.local = e.target.checked; buildProc(); recompute(); }); on('#oNsd', e => { o.nsd = parseFloat(e.target.value); buildProc(); recompute(); });
-    on('#oRem', e => { o.remove = e.target.checked; buildProc(); recompute(); }); on('#oShow', e => { o.show = e.target.checked; render(); });
+    on('#oRem', e => { o.remove = e.target.checked; buildProc(); recompute(); });
   }
   function summaries() {
     const pr = S.proto, I = S.I, m = S.meta;

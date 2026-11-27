@@ -73,7 +73,7 @@
       series[j] = { k, x: Xp, y: Yp };
       if (showRaw && S.D.R0.v[k]) { const R = S.D.R0; tr.push({ x: R.t.map(t => t / 60), y: R.v[k], xaxis: 'x', yaxis: yax, type: 'scattergl', mode: 'markers', marker: { color: css('--rf'), size: rawSize, opacity: rawOp }, hoverinfo: 'skip' }); }
       tr.push({ x: Xp, y: Yp, xaxis: 'x', yaxis: yax, type: 'scattergl', mode: set.avg.mode === 'raw' ? 'markers' : 'lines', connectgaps: false, marker: { color: css('--ma'), size: 4 }, line: { color: css('--ma'), width: 2 }, hoverinfo: 'skip' });
-      if (set.outl.show && !set.outl.remove && set.outl.local && g.v[k]) { const fl = S.D.fl.flag, a = []; for (let i = 0; i < g.t.length; i++) if ((fl[i] === 1 || fl[i] === 2) && F(g.v[k][i])) a.push(i); tr.push({ x: a.map(i => g.t[i] / 60), y: a.map(i => g.v[k][i]), xaxis: 'x', yaxis: yax, type: 'scattergl', mode: 'markers', marker: { color: css('--accent'), size: 8, symbol: 'x' }, hoverinfo: 'skip' }); }
+      if (set.outl.local && !set.outl.remove && g.v[k]) { const fl = S.D.fl.flag, a = []; for (let i = 0; i < g.t.length; i++) if ((fl[i] === 1 || fl[i] === 2) && F(g.v[k][i])) a.push(i); tr.push({ x: a.map(i => g.t[i] / 60), y: a.map(i => g.v[k][i]), xaxis: 'x', yaxis: yax, type: 'scattergl', mode: 'markers', marker: { color: css('--accent'), size: 8, symbol: 'x' }, hoverinfo: 'skip' }); }
       L2[yax.replace('y', 'yaxis')] = ax(vlab(k), { domain: dom, anchor: 'x', fixedrange: true, title: { text: vlab(k), font: { size: 11, color: css('--fg') }, standoff: 6 } });
       panelBox(yax, j);
     });

@@ -164,7 +164,7 @@
     if (fg.lac) for (const se of lacSeries()) { const res = lacAnalyse(se); if (res.fit) figs.push([`Lactate against ${I.unit === 'W' ? 'power' : 'speed'}${lacSeries().length > 1 ? ' (' + se.name + ')' : ''}, with LT1 and LT2 (${LM.FITS[lacSet().fit].toLowerCase()}).`, await lactateFigure(se, res, 600, 360), 600, 360]); }
     if (figs.length) { B.push(DX.para('', { after: 0 }), DX.heading('Figures')); figs.forEach(([cap, png, w, h]) => { B.push(DX.picture(doc, png, w, h, 15)); B.push(DX.para(DX.rich(cap, { i: true, sz: 10 }), { jc: 'center' })); }); }
     const warn = (S.checks || []).filter(x => x.level === 'warn'); if (warn.length) { B.push(DX.para('', { after: 0 }), DX.heading('Data checks')); warn.forEach(x => B.push(DX.para('! ' + x.text, { jc: 'both' }))); }
-    B.push(DX.para('', { after: 0 }), DX.heading('Methods')); B.push(DX.para(methodsText(), { jc: 'both' })); B.push(DX.para(DX.rich(CAVEAT, { i: true, sz: 9 })));
+    B.push(DX.para('', { after: 0 }), DX.para(DX.rich(CAVEAT, { i: true, sz: 9 })));
     return DX.pack(doc, { title: 'Exercise test report – ' + m.name, creator: 'Lab CPET tool', a4: true });
   }
   // Which figures go in each report. Until a box is ticked or unticked, the client report gets the figure that matches its thresholds and the research report gets every figure.
@@ -181,7 +181,7 @@
         <div class="repcard"><h4>Client report</h4><p class="hint">${inc ? 'One or two pages in everyday language, with the moderate, heavy and severe intensity domains.' : 'Only for incremental tests.'}</p>
           <div class="repsrc"><span>Thresholds from</span><select id="rSrc"><option value="lactate" ${hasLac && rep.src !== 'gas' ? 'selected' : ''} ${hasLac ? '' : 'disabled'}>Lactate (LT1, LT2)</option><option value="gas" ${!hasLac || rep.src === 'gas' ? 'selected' : ''} ${S.gas.blank ? 'disabled' : ''}>Gas (VT1, VT2)</option></select></div>
           ${figs('c', fg.client, !hasLac)}<button id="rClient" ${!inc ? 'disabled title="The client report is for incremental tests"' : noG && !hasLac ? 'disabled title="Enter the lactate values first"' : ''}>Generate the client report (Word)</button></div>
-        <div class="repcard"><h4>Research report</h4><p class="hint">Peak values, thresholds with their status, stage tables and methods.</p>
+        <div class="repcard"><h4>Research report</h4><p class="hint">Peak values, thresholds with their status, stage tables and figures.</p>
           ${figs('r', fg.research, !anyLac)}<button id="rResearch">Generate the research report (Word)</button></div>
       </div><p class="hint" id="rMsg" style="margin:0"></p>`;
   }

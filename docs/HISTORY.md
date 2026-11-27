@@ -11,6 +11,8 @@ The main changes to the Lab CPET tool, newest first. The version you are using i
 - LT1 starts at Bsln + 0.5 (Log-log when there is no resting lactate).
 - Pinch to zoom on the charts; scrolling scrolls the page.
 - What's new on the start page.
+- The methods paragraph is only on the Summary tab, no longer in the Excel export or the research report.
+- One box, **Flag and show outliers**, flags outlier breaths and marks them on the Protocol chart.
 
 ## 0.24–0.26 · Lactate, reports and the start page (November 2026)
 

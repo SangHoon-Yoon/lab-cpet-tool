@@ -17,7 +17,6 @@
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Lab CPET tool ' + VERSION + ', created by ' + AUTHOR], [''], ['References: cite the Oxynet papers when Oxynet suggestions are used, and lactater when lactate thresholds are used.'], ...REFS.map(([t, d]) => [t.replace(/<[^>]+>/g, '') + (d ? ' doi:' + d : '')]), ['pyoxynet 1.0.2, Andrea Zignoli and the Oxynet team, MIT licence.']]), 'Credits');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Check', 'Message'], ...S.checks.map(c => [c.level, c.text])]), 'Data checks');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Setting', 'Value'], ...settingsRows()]), 'Settings');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Methods paragraph'], [methodsText()]]), 'Methods');
     XLSX.writeFile(wb, stem() + '_results.xlsx');
   };
   $('#bCsv').onclick = () => { const R = results(), ws = XLSX.utils.json_to_sheet(R.rows); download(new Blob([XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv' }), stem() + '_long.csv'); };

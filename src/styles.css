@@ -186,6 +186,7 @@ details.sub[open]>summary{margin-bottom:6px}
 .stat{overflow-wrap:anywhere}
 .stat .tconf{margin:2px 0 0 0}
 .lacrow{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:12px;padding:0 8px}
+.lacrow .chart{overflow:hidden}
 .lacrow>*,.stgrid>*,.stside>*,.grid3>*{min-width:0}
 .js-plotly-plot{max-width:100%}
 .lacside h4{margin:12px 0 4px;font-size:.85rem}
